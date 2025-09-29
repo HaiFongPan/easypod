@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout/Layout';
+import MainContent from './components/MainContent';
 import { useAppStore } from './store/appStore';
 
 function App() {
@@ -42,7 +43,9 @@ function App() {
         onToggleDarkMode={toggleDarkMode}
         appVersion={version}
         platform={platform}
-      />
+      >
+        <MainContent />
+      </Layout>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
+import { getElectronAPI } from '../utils/electron';
 import { PlayerState, LibraryState, SettingsState, UIState } from '../types';
 
 interface AppState {
@@ -93,16 +94,17 @@ export const useAppStore = create<AppState>()(
         // Actions
         initialize: async () => {
           try {
-            if (window.electronAPI) {
-              const version = await window.electronAPI.getAppVersion();
-              const platform = await window.electronAPI.getPlatform();
+            const electron = getElectronAPI();
+            const [version, platform] = await Promise.all([
+              electron.getAppVersion(),
+              electron.getPlatform(),
+            ]);
 
-              set((state) => ({
-                ...state,
-                version,
-                platform,
-              }));
-            }
+            set((state) => ({
+              ...state,
+              version,
+              platform,
+            }));
           } catch (error) {
             console.error('Failed to initialize app:', error);
           }

@@ -1,0 +1,350 @@
+import { eq, desc, and, like } from 'drizzle-orm';
+import { db } from '../database/connection';
+import { feeds, episodes, chapters, NewFeed, NewEpisode, NewChapter, Feed, Episode } from '../database/schema';
+import { PodcastFeedParser } from './FeedParser';
+import { ParsedFeed, ParsedEpisode, FeedParseError } from '../types/feed';
+
+/**
+ * Feed Service
+ * Handles RSS feed subscription, parsing, and database operations
+ */
+export class FeedService {
+  private parser: PodcastFeedParser;
+
+  constructor() {
+    this.parser = new PodcastFeedParser({
+      timeout: 30000,
+      retryAttempts: 3,
+      enableCaching: true,
+    });
+  }
+
+  /**
+   * Subscribe to a new RSS feed
+   */
+  async subscribeFeed(url: string, opmlGroup?: string): Promise<Feed> {
+    try {
+      // Parse the feed first to validate it
+      const parsedFeed = await this.parser.parseFeed(url);
+
+      // Check if feed already exists
+      const existingFeed = await db.select().from(feeds).where(eq(feeds.url, url)).get();
+      if (existingFeed) {
+        throw new Error('Feed already subscribed');
+      }
+
+      // Create new feed record
+      const newFeed: NewFeed = {
+        title: parsedFeed.title,
+        url: parsedFeed.url,
+        coverUrl: parsedFeed.image,
+        description: parsedFeed.description,
+        lastCheckedAt: new Date().toISOString(),
+        opmlGroup,
+        metaJson: JSON.stringify({
+          author: parsedFeed.author,
+          category: parsedFeed.category,
+          language: parsedFeed.language,
+          copyright: parsedFeed.copyright,
+          lastBuildDate: parsedFeed.lastBuildDate?.toISOString(),
+        }),
+      };
+
+      const [insertedFeed] = await db.insert(feeds).values(newFeed).returning();
+
+      // Save episodes
+      await this.saveEpisodes(insertedFeed.id, parsedFeed.episodes);
+
+      return insertedFeed;
+    } catch (error) {
+      if (error instanceof FeedParseError) {
+        throw new Error(`Failed to parse feed: ${error.message}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Refresh all subscribed feeds
+   */
+  async refreshAllFeeds(): Promise<{ updated: number; errors: string[] }> {
+    const allFeeds = await db.select().from(feeds);
+    const errors: string[] = [];
+    let updated = 0;
+
+    for (const feed of allFeeds) {
+      try {
+        const hasUpdates = await this.refreshFeed(feed.id);
+        if (hasUpdates) {
+          updated++;
+        }
+      } catch (error) {
+        errors.push(`Feed ${feed.title}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    return { updated, errors };
+  }
+
+  /**
+   * Refresh a specific feed
+   */
+  async refreshFeed(feedId: number): Promise<boolean> {
+    const feed = await db.select().from(feeds).where(eq(feeds.id, feedId)).get();
+    if (!feed) {
+      throw new Error('Feed not found');
+    }
+
+    try {
+      const parsedFeed = await this.parser.parseFeed(feed.url);
+
+      // Update feed metadata
+      await db
+        .update(feeds)
+        .set({
+          title: parsedFeed.title,
+          coverUrl: parsedFeed.image,
+          description: parsedFeed.description,
+          lastCheckedAt: new Date().toISOString(),
+          metaJson: JSON.stringify({
+            author: parsedFeed.author,
+            category: parsedFeed.category,
+            language: parsedFeed.language,
+            copyright: parsedFeed.copyright,
+            lastBuildDate: parsedFeed.lastBuildDate?.toISOString(),
+          }),
+        })
+        .where(eq(feeds.id, feedId));
+
+      // Get existing episodes to check for new ones
+      const existingEpisodes = await db
+        .select({ guid: episodes.guid })
+        .from(episodes)
+        .where(eq(episodes.feedId, feedId));
+
+      const existingGuids = new Set(existingEpisodes.map(ep => ep.guid));
+      const newEpisodes = parsedFeed.episodes.filter((ep: any) => !existingGuids.has(ep.guid));
+
+      if (newEpisodes.length > 0) {
+        await this.saveEpisodes(feedId, newEpisodes);
+        return true; // Has updates
+      }
+
+      return false; // No new episodes
+    } catch (error) {
+      throw new Error(`Failed to refresh feed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Save episodes to database
+   */
+  private async saveEpisodes(feedId: number, parsedEpisodes: ParsedEpisode[]): Promise<void> {
+    if (parsedEpisodes.length === 0) return;
+
+    const episodeRecords: NewEpisode[] = parsedEpisodes.map(episode => ({
+      feedId,
+      guid: episode.guid,
+      title: episode.title,
+      descriptionHtml: episode.descriptionHtml,
+      audioUrl: episode.audioUrl,
+      pubDate: episode.pubDate.toISOString(),
+      durationSec: episode.duration,
+      episodeImageUrl: episode.episodeImage,
+      metaJson: JSON.stringify({
+        seasonNumber: episode.seasonNumber,
+        episodeNumber: episode.episodeNumber,
+        explicit: episode.explicit,
+        keywords: episode.keywords,
+        funding: episode.funding,
+        persons: episode.persons,
+        transcript: episode.transcript,
+      }),
+    }));
+
+    // Insert episodes in batches to avoid SQL limits
+    const batchSize = 100;
+    for (let i = 0; i < episodeRecords.length; i += batchSize) {
+      const batch = episodeRecords.slice(i, i + batchSize);
+      const insertedEpisodes = await db.insert(episodes).values(batch).returning();
+
+      // Save chapters for each episode
+      for (let j = 0; j < insertedEpisodes.length; j++) {
+        const episode = insertedEpisodes[j];
+        const parsedEpisode = parsedEpisodes[i + j];
+
+        if (parsedEpisode.chapters && parsedEpisode.chapters.length > 0) {
+          await this.saveChapters(episode.id, parsedEpisode.chapters);
+        }
+      }
+    }
+  }
+
+  /**
+   * Save chapters for an episode
+   */
+  private async saveChapters(episodeId: number, parsedChapters: any[]): Promise<void> {
+    const chapterRecords: NewChapter[] = parsedChapters.map(chapter => ({
+      episodeId,
+      startMs: chapter.startTime * 1000, // Convert seconds to milliseconds
+      endMs: chapter.endTime ? chapter.endTime * 1000 : undefined,
+      title: chapter.title,
+      imageUrl: chapter.image,
+      source: chapter.source,
+    }));
+
+    await db.insert(chapters).values(chapterRecords);
+  }
+
+  /**
+   * Get all subscribed feeds
+   */
+  async getAllFeeds(): Promise<Feed[]> {
+    return await db.select().from(feeds).orderBy(desc(feeds.createdAt));
+  }
+
+  /**
+   * Get feed by ID with episode count
+   */
+  async getFeedById(feedId: number): Promise<(Feed & { episodeCount: number }) | null> {
+    const feed = await db.select().from(feeds).where(eq(feeds.id, feedId)).get();
+    if (!feed) return null;
+
+    const episodeCount = await db
+      .select({ count: episodes.id })
+      .from(episodes)
+      .where(eq(episodes.feedId, feedId))
+      .all();
+
+    return {
+      ...feed,
+      episodeCount: episodeCount.length,
+    };
+  }
+
+  /**
+   * Get episodes for a feed
+   */
+  async getEpisodesByFeed(
+    feedId: number,
+    limit = 50,
+    offset = 0
+  ): Promise<Episode[]> {
+    return await db
+      .select()
+      .from(episodes)
+      .where(eq(episodes.feedId, feedId))
+      .orderBy(desc(episodes.pubDate))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  /**
+   * Search episodes across all feeds
+   */
+  async searchEpisodes(query: string, limit = 20): Promise<Episode[]> {
+    const searchTerm = `%${query}%`;
+
+    return await db
+      .select()
+      .from(episodes)
+      .where(
+        and(
+          like(episodes.title, searchTerm)
+        )
+      )
+      .orderBy(desc(episodes.pubDate))
+      .limit(limit);
+  }
+
+  /**
+   * Get episode by ID with chapters
+   */
+  async getEpisodeById(episodeId: number): Promise<(Episode & { chapters: any[] }) | null> {
+    const episode = await db.select().from(episodes).where(eq(episodes.id, episodeId)).get();
+    if (!episode) return null;
+
+    const episodeChapters = await db
+      .select()
+      .from(chapters)
+      .where(eq(chapters.episodeId, episodeId))
+      .orderBy(chapters.startMs);
+
+    return {
+      ...episode,
+      chapters: episodeChapters,
+    };
+  }
+
+  /**
+   * Update episode playback status
+   */
+  async updateEpisodePlayback(
+    episodeId: number,
+    position: number,
+    status?: 'new' | 'in_progress' | 'played' | 'archived'
+  ): Promise<void> {
+    const updateData: any = {
+      lastPositionSec: position,
+      lastPlayedAt: new Date().toISOString(),
+    };
+
+    if (status) {
+      updateData.status = status;
+    }
+
+    await db
+      .update(episodes)
+      .set(updateData)
+      .where(eq(episodes.id, episodeId));
+  }
+
+  /**
+   * Delete a feed and all its episodes
+   */
+  async unsubscribeFeed(feedId: number): Promise<void> {
+    // Episodes will be cascade deleted due to foreign key constraint
+    await db.delete(feeds).where(eq(feeds.id, feedId));
+  }
+
+  /**
+   * Get parser cache statistics
+   */
+  getCacheStats() {
+    return this.parser.getCacheStats();
+  }
+
+  /**
+   * Clear parser cache
+   */
+  clearCache(): void {
+    this.parser.clearCache();
+  }
+
+  /**
+   * Validate feed URL without subscribing
+   */
+  async validateFeedUrl(url: string): Promise<{ valid: boolean; title?: string; error?: string }> {
+    try {
+      const parsedFeed = await this.parser.parseFeed(url);
+      const validation = this.parser.validateFeed(parsedFeed);
+
+      if (!validation.isValid) {
+        return {
+          valid: false,
+          error: validation.errors.join(', '),
+        };
+      }
+
+      return {
+        valid: true,
+        title: parsedFeed.title,
+      };
+    } catch (error) {
+      return {
+        valid: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+}

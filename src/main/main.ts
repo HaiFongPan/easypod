@@ -1,11 +1,13 @@
 import { app, BrowserWindow, Menu, ipcMain, shell } from 'electron';
 import { join } from 'path';
 import { platform } from 'os';
+import { FeedIPCHandlers } from './services/IPCHandlers';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
 // Keep a global reference of the window object
 let mainWindow: BrowserWindow | null = null;
+let feedIPCHandlers: FeedIPCHandlers | null = null;
 
 const createWindow = (): void => {
   // Create the browser window
@@ -52,6 +54,9 @@ const createWindow = (): void => {
 // This method will be called when Electron has finished initialization
 app.whenReady().then(() => {
   createWindow();
+
+  // Initialize RSS feed IPC handlers
+  feedIPCHandlers = new FeedIPCHandlers();
 
   // macOS specific: Re-create window when dock icon is clicked
   app.on('activate', () => {
@@ -137,6 +142,14 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (platform() !== 'darwin') {
     app.quit();
+  }
+});
+
+app.on('before-quit', () => {
+  // Cleanup IPC handlers
+  if (feedIPCHandlers) {
+    feedIPCHandlers.destroy();
+    feedIPCHandlers = null;
   }
 });
 

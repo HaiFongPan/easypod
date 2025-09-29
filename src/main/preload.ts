@@ -28,6 +28,35 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Notifications
   showNotification: (title: string, body: string) =>
     ipcRenderer.invoke('show-notification', title, body),
+
+  // RSS Feed management
+  feeds: {
+    subscribe: (url: string, opmlGroup?: string) =>
+      ipcRenderer.invoke('feeds:subscribe', url, opmlGroup),
+    unsubscribe: (feedId: number) =>
+      ipcRenderer.invoke('feeds:unsubscribe', feedId),
+    getAll: () => ipcRenderer.invoke('feeds:getAll'),
+    getById: (feedId: number) => ipcRenderer.invoke('feeds:getById', feedId),
+    refresh: (feedId: number) => ipcRenderer.invoke('feeds:refresh', feedId),
+    refreshAll: () => ipcRenderer.invoke('feeds:refreshAll'),
+    validate: (url: string) => ipcRenderer.invoke('feeds:validate', url),
+    getCacheStats: () => ipcRenderer.invoke('feeds:getCacheStats'),
+    clearCache: () => ipcRenderer.invoke('feeds:clearCache'),
+  },
+
+  // Episode management
+  episodes: {
+    getByFeed: (feedId: number, limit?: number, offset?: number) =>
+      ipcRenderer.invoke('episodes:getByFeed', feedId, limit, offset),
+    getById: (episodeId: number) => ipcRenderer.invoke('episodes:getById', episodeId),
+    search: (query: string, limit?: number) =>
+      ipcRenderer.invoke('episodes:search', query, limit),
+    updatePlayback: (
+      episodeId: number,
+      position: number,
+      status?: 'new' | 'in_progress' | 'played' | 'archived'
+    ) => ipcRenderer.invoke('episodes:updatePlayback', episodeId, position, status),
+  },
 });
 
 // Type definitions for the exposed API
@@ -41,6 +70,27 @@ export interface ElectronAPI {
   setSpeed: (speed: number) => Promise<void>;
   onMediaKey: (callback: (action: string) => void) => () => void;
   showNotification: (title: string, body: string) => Promise<void>;
+  feeds: {
+    subscribe: (url: string, opmlGroup?: string) => Promise<{ success: boolean; feed?: any; error?: string }>;
+    unsubscribe: (feedId: number) => Promise<{ success: boolean; error?: string }>;
+    getAll: () => Promise<any[]>;
+    getById: (feedId: number) => Promise<any | null>;
+    refresh: (feedId: number) => Promise<{ success: boolean; hasUpdates?: boolean; error?: string }>;
+    refreshAll: () => Promise<{ updated: number; errors: string[] }>;
+    validate: (url: string) => Promise<{ valid: boolean; title?: string; error?: string }>;
+    getCacheStats: () => Promise<{ size: number; urls: string[] }>;
+    clearCache: () => Promise<{ success: boolean }>;
+  };
+  episodes: {
+    getByFeed: (feedId: number, limit?: number, offset?: number) => Promise<any[]>;
+    getById: (episodeId: number) => Promise<any | null>;
+    search: (query: string, limit?: number) => Promise<any[]>;
+    updatePlayback: (
+      episodeId: number,
+      position: number,
+      status?: 'new' | 'in_progress' | 'played' | 'archived'
+    ) => Promise<{ success: boolean; error?: string }>;
+  };
 }
 
 declare global {

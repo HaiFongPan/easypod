@@ -1,0 +1,308 @@
+import { app } from 'electron';
+import { join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
+// import Database from 'better-sqlite3';
+// import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { sql } from 'drizzle-orm';
+import * as schema from './schema';
+
+// Type definitions for when better-sqlite3 is available
+type Database = any; // Will be replaced with proper typing when better-sqlite3 is installed
+type DrizzleDatabase = any; // Will be replaced with drizzle database type
+
+export class DatabaseManager {
+  private db: Database | null = null;
+  private drizzle: DrizzleDatabase | null = null;
+  private dbPath: string;
+
+  constructor() {
+    const userDataPath = app.getPath('userData');
+    const dbDir = join(userDataPath, 'database');
+
+    // Ensure database directory exists
+    if (!existsSync(dbDir)) {
+      mkdirSync(dbDir, { recursive: true });
+    }
+
+    this.dbPath = join(dbDir, 'easypod.db');
+  }
+
+  async initialize(): Promise<void> {
+    try {
+      // TODO: Uncomment when better-sqlite3 is available
+      // this.db = new Database(this.dbPath);
+      // this.drizzle = drizzle(this.db, { schema });
+
+      // Configure SQLite for optimal performance
+      // this.configureSQLite();
+
+      // Run initial setup
+      // await this.setupDatabase();
+
+      console.log('Database initialized at:', this.dbPath);
+    } catch (error) {
+      console.error('Failed to initialize database:', error);
+      throw error;
+    }
+  }
+
+  private configureSQLite(): void {
+    if (!this.db) return;
+
+    // Enable WAL mode for better concurrency
+    this.db.pragma('journal_mode = WAL');
+
+    // Set synchronous mode for performance vs safety balance
+    this.db.pragma('synchronous = NORMAL');
+
+    // Increase cache size
+    this.db.pragma('cache_size = -64000'); // 64MB cache
+
+    // Enable foreign keys
+    this.db.pragma('foreign_keys = ON');
+
+    // Set temp store to memory
+    this.db.pragma('temp_store = memory');
+
+    // Optimize memory-mapped I/O
+    this.db.pragma('mmap_size = 268435456'); // 256MB
+  }
+
+  private async setupDatabase(): Promise<void> {
+    if (!this.drizzle) return;
+
+    try {
+      // Create tables if they don't exist
+      await this.createTables();
+
+      // Create FTS5 search index
+      await this.createSearchIndex();
+
+      // Insert default settings and prompts
+      await this.insertDefaults();
+
+      console.log('Database setup completed');
+    } catch (error) {
+      console.error('Database setup failed:', error);
+      throw error;
+    }
+  }
+
+  private async createTables(): Promise<void> {
+    if (!this.db) return;
+
+    // Tables are created automatically by Drizzle migrations
+    // For now, we'll create them manually since migrations aren't set up yet
+
+    // Create feeds table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS feeds (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        url TEXT NOT NULL UNIQUE,
+        cover_url TEXT,
+        description TEXT,
+        last_checked_at TEXT,
+        opml_group TEXT,
+        meta_json TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create episodes table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS episodes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        feed_id INTEGER NOT NULL,
+        guid TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        description_html TEXT,
+        audio_url TEXT NOT NULL,
+        pub_date TEXT,
+        duration_sec INTEGER,
+        episode_image_url TEXT,
+        local_audio_path TEXT,
+        status TEXT DEFAULT 'new',
+        last_played_at TEXT,
+        last_position_sec INTEGER DEFAULT 0,
+        meta_json TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (feed_id) REFERENCES feeds(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Create other tables...
+    // (Additional table creation SQL would go here)
+  }
+
+  private async createSearchIndex(): Promise<void> {
+    if (!this.db) return;
+
+    // Create FTS5 virtual table for search
+    this.db.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
+        episode_id UNINDEXED,
+        title,
+        description,
+        transcript_text,
+        ai_summary,
+        content='episodes',
+        content_rowid='id'
+      )
+    `);
+
+    // Create triggers to keep FTS index updated
+    this.db.exec(`
+      CREATE TRIGGER IF NOT EXISTS episodes_ai_search AFTER INSERT ON episodes BEGIN
+        INSERT INTO search_index(episode_id, title, description)
+        VALUES (new.id, new.title, new.description_html);
+      END
+    `);
+  }
+
+  private async insertDefaults(): Promise<void> {
+    // Insert default AI prompts
+    const defaultPrompts = [
+      {
+        name: 'Podcast Summary',
+        category: 'summary',
+        templateText: `Summarize this podcast episode in 8-12 bullet points and 3-5 action items:
+
+Title: \${title}
+Date: \${pub_date}
+Chapters: \${chapters}
+
+Transcript excerpt:
+\${transcript_excerpt}
+
+Output in Markdown with sections: **Key Points**, **Quotes**, **Action Items**`,
+        variablesJson: JSON.stringify(['title', 'pub_date', 'chapters', 'transcript_excerpt']),
+        isBuiltin: true,
+      },
+      {
+        name: 'Smart Chapters',
+        category: 'chapters',
+        templateText: `Generate time-stamped chapters for this podcast episode:
+
+Transcript: \${full_transcript}
+
+Create chapter titles that are concise and descriptive, with timestamps in MM:SS format. Include 20-40 word summaries for each chapter.`,
+        variablesJson: JSON.stringify(['full_transcript']),
+        isBuiltin: true,
+      }
+    ];
+
+    // TODO: Insert default prompts when database is available
+    console.log('Default prompts prepared:', defaultPrompts.length);
+  }
+
+  // Public methods for database access
+  getDrizzle(): DrizzleDatabase {
+    if (!this.drizzle) {
+      throw new Error('Database not initialized');
+    }
+    return this.drizzle;
+  }
+
+  getRawDb(): Database {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+    return this.db;
+  }
+
+  async close(): Promise<void> {
+    if (this.db) {
+      this.db.close();
+      this.db = null;
+      this.drizzle = null;
+    }
+  }
+
+  // Utility methods
+  async vacuum(): Promise<void> {
+    if (this.db) {
+      this.db.exec('VACUUM');
+    }
+  }
+
+  async backup(backupPath: string): Promise<void> {
+    if (this.db) {
+      this.db.backup(backupPath);
+    }
+  }
+
+  getDbPath(): string {
+    return this.dbPath;
+  }
+
+  async getStats(): Promise<{
+    feeds: number;
+    episodes: number;
+    transcripts: number;
+    aiTasks: number;
+    dbSize: number;
+  }> {
+    if (!this.drizzle) {
+      return { feeds: 0, episodes: 0, transcripts: 0, aiTasks: 0, dbSize: 0 };
+    }
+
+    // TODO: Implement stats collection when database is available
+    return {
+      feeds: 0,
+      episodes: 0,
+      transcripts: 0,
+      aiTasks: 0,
+      dbSize: 0,
+    };
+  }
+}
+
+// Singleton instance
+let dbManager: DatabaseManager | null = null;
+
+export function getDatabaseManager(): DatabaseManager {
+  if (!dbManager) {
+    dbManager = new DatabaseManager();
+  }
+  return dbManager;
+}
+
+// Temporary mock database for development
+export const db = {
+  select: () => ({
+    from: () => ({
+      where: () => ({
+        get: () => Promise.resolve(null),
+        all: () => Promise.resolve([]),
+      }),
+      orderBy: () => ({
+        limit: () => ({
+          offset: () => Promise.resolve([]),
+        }),
+        all: () => Promise.resolve([]),
+        get: () => Promise.resolve(null),
+      }),
+      limit: () => ({
+        offset: () => Promise.resolve([]),
+      }),
+      all: () => Promise.resolve([]),
+      get: () => Promise.resolve(null),
+    }),
+  }),
+  insert: () => ({
+    values: () => ({
+      returning: () => Promise.resolve([]),
+    }),
+  }),
+  update: () => ({
+    set: () => ({
+      where: () => Promise.resolve({}),
+    }),
+  }),
+  delete: () => ({
+    where: () => Promise.resolve({}),
+  }),
+};

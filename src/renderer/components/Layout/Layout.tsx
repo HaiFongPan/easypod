@@ -1,6 +1,8 @@
 import React from 'react';
 import { cn } from '../../utils/cn';
 import Button from '../Button';
+import AudioPlayer from '../AudioPlayer';
+import { useNavigationStore, AppView } from '../../store/navigationStore';
 
 export interface LayoutProps {
   isDarkMode: boolean;
@@ -17,6 +19,73 @@ const Layout: React.FC<LayoutProps> = ({
   platform,
   children,
 }) => {
+  const { currentView, setCurrentView } = useNavigationStore();
+
+  const navigationItems: { id: AppView; label: string; icon: React.ReactNode }[] = [
+    {
+      id: 'subscriptions',
+      label: 'All Podcasts',
+      icon: (
+        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
+        </svg>
+      ),
+    },
+    {
+      id: 'recently-played',
+      label: 'Recently Played',
+      icon: (
+        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 012 0v3.586l1.707 1.707a1 1 0 01-1.414 1.414l-2-2A1 1 0 018 11V7z" clipRule="evenodd" />
+        </svg>
+      ),
+    },
+    {
+      id: 'completed',
+      label: 'Completed',
+      icon: (
+        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
+  ];
+
+  const aiFeatures: { id: AppView; label: string; icon: React.ReactNode }[] = [
+    {
+      id: 'transcriptions',
+      label: 'Transcriptions',
+      icon: (
+        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+          <path fillRule="evenodd" d="M4 5a2 2 0 012-2v1a2 2 0 00-2 2v6a2 2 0 002 2h8a2 2 0 002-2V6a2 2 0 00-2-2V3a2 2 0 012-2 2 2 0 012 2v8a4 4 0 01-4 4H6a4 4 0 01-4-4V5z" clipRule="evenodd" />
+        </svg>
+      ),
+    },
+    {
+      id: 'ai-summaries',
+      label: 'AI Summaries',
+      icon: (
+        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        </svg>
+      ),
+    },
+    {
+      id: 'rss-tester',
+      label: 'RSS Tester',
+      icon: (
+        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M3 3a2 2 0 00-2 2v6a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H3zm0 2h14v6H3V5zm11 1a1 1 0 00-1 1v2a1 1 0 002 0V7a1 1 0 00-1-1z" />
+        </svg>
+      ),
+    },
+  ];
+
+  const handleNavClick = (viewId: AppView) => {
+    console.log('Navigation clicked:', viewId, 'current:', currentView);
+    setCurrentView(viewId);
+  };
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900">
       {/* Title bar (macOS style) */}
@@ -60,56 +129,40 @@ const Layout: React.FC<LayoutProps> = ({
               <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
                 Library
               </div>
-              <a
-                href="#"
-                className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
-                </svg>
-                All Podcasts
-              </a>
-              <a
-                href="#"
-                className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 012 0v3.586l1.707 1.707a1 1 0 01-1.414 1.414l-2-2A1 1 0 018 11V7z" clipRule="evenodd" />
-                </svg>
-                Recently Played
-              </a>
-              <a
-                href="#"
-                className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Completed
-              </a>
+              {navigationItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => handleNavClick(item.id)}
+                  className={cn(
+                    "flex items-center w-full px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                    currentView === item.id
+                      ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  )}
+                >
+                  <span className="mr-3">{item.icon}</span>
+                  {item.label}
+                </button>
+              ))}
 
               <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 mt-6">
                 AI Features
               </div>
-              <a
-                href="#"
-                className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-                  <path fillRule="evenodd" d="M4 5a2 2 0 012-2v1a2 2 0 00-2 2v6a2 2 0 002 2h8a2 2 0 002-2V6a2 2 0 00-2-2V3a2 2 0 012-2 2 2 0 012 2v8a4 4 0 01-4 4H6a4 4 0 01-4-4V5z" clipRule="evenodd" />
-                </svg>
-                Transcriptions
-              </a>
-              <a
-                href="#"
-                className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                AI Summaries
-              </a>
+              {aiFeatures.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => handleNavClick(item.id)}
+                  className={cn(
+                    "flex items-center w-full px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                    currentView === item.id
+                      ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  )}
+                >
+                  <span className="mr-3">{item.icon}</span>
+                  {item.label}
+                </button>
+              ))}
             </nav>
           </div>
         </div>
@@ -117,51 +170,12 @@ const Layout: React.FC<LayoutProps> = ({
         {/* Main content */}
         <div className="flex-1 flex flex-col">
           {/* Content area */}
-          <div className="flex-1 p-6">
-            {children || (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <svg
-                    className="w-16 h-16 mx-auto text-gray-400 dark:text-gray-600 mb-4"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                    Welcome to EasyPod
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-400 max-w-sm mx-auto">
-                    Your privacy-first podcast player with AI transcription and analysis.
-                    Start by adding your first podcast subscription.
-                  </p>
-                  <div className="mt-6">
-                    <Button variant="primary" size="lg">
-                      Add Subscription
-                    </Button>
-                  </div>
-                  {appVersion && (
-                    <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
-                      Version {appVersion} • {platform}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
+          <div className="flex-1 overflow-hidden">
+            {children}
           </div>
 
-          {/* Player bar (placeholder) */}
-          <div className="h-20 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-            <div className="h-full flex items-center justify-center">
-              <p className="text-gray-500 dark:text-gray-400 text-sm">
-                Media player will appear here
-              </p>
-            </div>
-          </div>
+          {/* Audio Player - temporarily hidden */}
+          {/* <AudioPlayer /> */}
         </div>
       </div>
     </div>
