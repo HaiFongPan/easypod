@@ -198,7 +198,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
   }, [effectiveActiveFeed, feedEpisodes]);
 
   return (
-    <div className={cn("flex flex-col h-full", className)}>
+    <div className={cn('flex h-full min-h-0 flex-col', className)}>
       {/* Header */}
       <div className="flex-shrink-0 p-6 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between mb-4">
@@ -367,7 +367,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
 
       {/* Content */}
       <div
-        className="relative flex-1 overflow-y-auto p-6"
+        className="relative flex-1 overflow-y-auto p-6 min-h-0 scrollbar-auto-hide"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {isLoading && feeds.length === 0 ? (
@@ -405,12 +405,12 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
             </div>
           </div>
         ) : (
-          <div className="relative h-full overflow-hidden">
+          <div className="relative h-full">
             <div className={cn('h-full', episodesDrawerOpen ? 'lg:flex lg:gap-4' : '')}>
               <div
                 className={cn(
                   'h-full flex-1',
-                  episodesDrawerOpen && 'lg:flex-none lg:w-[18rem] lg:flex-shrink-0 lg:border-r lg:border-gray-200 dark:lg:border-gray-700'
+                  episodesDrawerOpen && 'lg:flex-none lg:w-[18rem] lg:flex-shrink-0'
                 )}
               >
                 <div
@@ -425,7 +425,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                       viewMode === 'grid'
                         ? episodesDrawerOpen
                           ? 'flex flex-col gap-3'
-                          : 'flex flex-wrap gap-4'
+                          : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6 xl:gap-8'
                         : 'space-y-4'
                     )}
                   >
@@ -433,8 +433,8 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                       <div
                         key={feed.id}
                         className={cn(
-                          'w-full',
-                          viewMode === 'grid' && !episodesDrawerOpen && 'sm:w-1/2 lg:w-1/3 xl:w-1/4'
+                          episodesDrawerOpen ? 'w-full' : '',
+                          viewMode === 'grid' && !episodesDrawerOpen && 'w-full'
                         )}
                         ref={(el) => {
                           feedRefs.current[feed.id] = el;
@@ -467,7 +467,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
             {/* Episodes Drawer */}
             <div
               className={cn(
-                'pointer-events-none fixed inset-y-0 right-0 z-40 w-full max-w-[34rem] transform border-l border-gray-200 bg-white shadow-xl transition-transform duration-300 ease-in-out dark:border-gray-700 dark:bg-gray-900 lg:static lg:flex-1 lg:min-w-[34rem] lg:max-w-none lg:h-full lg:pointer-events-auto lg:shadow-none',
+                'pointer-events-none fixed inset-y-0 right-0 z-40 w-full transform border-gray-200 bg-white shadow-xl transition-transform duration-300 ease-in-out dark:border-gray-700 dark:bg-gray-900 lg:static lg:flex-1 lg:h-full lg:border-none lg:bg-transparent lg:shadow-none',
                 episodesDrawerOpen ? 'translate-x-0 pointer-events-auto' : 'translate-x-full',
                 !episodesDrawerOpen && 'lg:hidden'
               )}
@@ -476,27 +476,16 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
               aria-hidden={!episodesDrawerOpen}
             >
               <div className="flex h-full flex-col">
-                <div className="flex items-start justify-between border-b border-gray-200 p-4 dark:border-gray-800">
-                  <div className="flex items-start gap-3">
-                    {effectiveActiveFeed?.coverUrl ? (
-                      <img
-                        src={effectiveActiveFeed.coverUrl}
-                        alt={effectiveActiveFeed.title}
-                        className="h-12 w-12 flex-shrink-0 rounded-md object-cover"
-                      />
-                    ) : (
-                      <div className="h-12 w-12 flex-shrink-0 rounded-md bg-gray-200 dark:bg-gray-700" />
+                <div className="flex items-center justify-between border-b border-gray-200 p-4 dark:border-gray-800">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                      Episodes
+                    </h3>
+                    {effectiveActiveFeed && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {effectiveActiveFeed.title}
+                      </p>
                     )}
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                        {effectiveActiveFeed?.title || 'Episodes'}
-                      </h3>
-                      {effectiveActiveFeed && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {activeFeedEpisodeCount} episode{activeFeedEpisodeCount !== 1 ? 's' : ''}
-                        </p>
-                      )}
-                    </div>
                   </div>
                   <Button
                     variant="ghost"

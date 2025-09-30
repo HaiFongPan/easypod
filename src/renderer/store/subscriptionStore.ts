@@ -32,6 +32,15 @@ const normalizeFeed = (raw: Partial<Feed>): Feed => {
     ? (raw.status as Feed['status'])
     : 'active';
   const rawEpisodes = (raw as { episodes?: unknown[] }).episodes;
+  const rawMeta = (raw as { metaJson?: string | null; author?: string | null; categories?: string[] | null });
+  let parsedMeta: any = undefined;
+  if (rawMeta.metaJson) {
+    try {
+      parsedMeta = JSON.parse(rawMeta.metaJson);
+    } catch (error) {
+      console.warn('Failed to parse feed metaJson', raw.id, error);
+    }
+  }
   const resolvedEpisodeCount = raw.episodeCount
     ?? (raw as { episode_count?: number }).episode_count
     ?? (Array.isArray(rawEpisodes) ? rawEpisodes.length : undefined)
@@ -50,6 +59,13 @@ const normalizeFeed = (raw: Partial<Feed>): Feed => {
     error: raw.error,
     createdAt: raw.createdAt ?? now,
     updatedAt: raw.updatedAt ?? now,
+    author: rawMeta.author
+      ?? parsedMeta?.author
+      ?? parsedMeta?.ownerName
+      ?? parsedMeta?.publisher
+      ?? null,
+    categories: rawMeta.categories
+      ?? (Array.isArray(parsedMeta?.categories) ? parsedMeta.categories : null),
   };
 };
 

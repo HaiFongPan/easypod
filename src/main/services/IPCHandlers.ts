@@ -162,6 +162,31 @@ export class FeedIPCHandlers {
       return feeds.map(feed => ({
         ...feed,
         episodeCount: typeof feed.id === 'number' ? episodeCounts[feed.id] ?? 0 : 0,
+        author: feed.metaJson ? (() => {
+          try {
+            const parsed = JSON.parse(feed.metaJson);
+            return parsed?.author ?? parsed?.ownerName ?? null;
+          } catch (error) {
+            console.warn('Failed to parse feed metaJson for author', feed.id, error);
+            return null;
+          }
+        })() : null,
+        categories: feed.metaJson ? (() => {
+          try {
+            const parsed = JSON.parse(feed.metaJson);
+            const categories = parsed?.categories;
+            if (Array.isArray(categories)) {
+              return categories;
+            }
+            if (typeof categories === 'string') {
+              return categories.split(',').map((item: string) => item.trim()).filter(Boolean);
+            }
+            return null;
+          } catch (error) {
+            console.warn('Failed to parse feed metaJson for categories', feed.id, error);
+            return null;
+          }
+        })() : null,
       }));
     } catch (error) {
       console.error('Error getting all feeds:', error);

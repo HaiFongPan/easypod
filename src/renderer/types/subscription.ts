@@ -11,6 +11,8 @@ export interface Feed {
   error?: string;
   createdAt: string;
   updatedAt: string;
+  author?: string | null;
+  categories?: string[] | null;
 }
 
 export interface Episode {

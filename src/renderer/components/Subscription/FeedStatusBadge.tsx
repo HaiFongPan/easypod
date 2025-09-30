@@ -37,12 +37,12 @@ const FeedStatusBadge: React.FC<FeedStatusBadgeProps> = ({ status, className }) 
   return (
     <span
       className={cn(
-        'absolute top-2 right-2 px-2 py-1 text-xs font-medium rounded-full',
+        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
         badgeConfig.className,
         className
       )}
     >
-      <span className="mr-1">{badgeConfig.icon}</span>
+      <span>{badgeConfig.icon}</span>
       {badgeConfig.label}
     </span>
   );

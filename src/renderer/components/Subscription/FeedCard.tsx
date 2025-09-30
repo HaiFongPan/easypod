@@ -59,7 +59,7 @@ const FeedCard: React.FC<FeedCardProps> = ({
       <div
         className={cn(
           'flex w-full cursor-pointer items-center gap-3 rounded-lg border border-gray-200 bg-white p-2 text-left transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800',
-          isActive && 'border-blue-500 dark:border-blue-400 shadow-lg'
+          isActive && 'border-blue-500 shadow-lg'
         )}
         onClick={onClick}
       >
@@ -78,16 +78,30 @@ const FeedCard: React.FC<FeedCardProps> = ({
               </svg>
             </div>
           )}
-          <FeedStatusBadge status={isRefreshing ? 'updating' : feed.status} className="scale-90" />
         </div>
 
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 text-xs font-semibold text-gray-900 dark:text-gray-100">
             {feed.title}
           </p>
+          <div className="mt-1 flex flex-col gap-1 text-[11px] text-gray-500 dark:text-gray-400">
+            <FeedStatusBadge
+              status={isRefreshing ? "updating" : feed.status}
+              className="self-start"
+            />
+            {feed.author && (
+              <span className="line-clamp-1">{feed.author}</span>
+            )}
+          </div>
           <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
             {feed.episodeCount} episodes
           </p>
+          {feed.categories && feed.categories.length > 0 && (
+            <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500 line-clamp-1">
+              {feed.categories.slice(0, 3).join(", ")}
+              {feed.categories.length > 3 ? "…" : ""}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -97,12 +111,12 @@ const FeedCard: React.FC<FeedCardProps> = ({
     return (
       <div
         className={cn(
-          "flex items-center p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow cursor-pointer group",
-          isActive && "border-blue-500 dark:border-blue-400 shadow-lg"
+          'group flex items-center rounded-lg border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800',
+          isActive && 'border-blue-500 shadow-lg'
         )}
         onClick={onClick}
       >
-        <div className="relative w-16 h-16 flex-shrink-0 mr-4">
+        <div className="relative mr-4 h-16 w-16 flex-shrink-0">
           {!imageError && feed.coverUrl ? (
             <img
               src={feed.coverUrl}
@@ -117,20 +131,30 @@ const FeedCard: React.FC<FeedCardProps> = ({
               </svg>
             </div>
           )}
-          <FeedStatusBadge status={isRefreshing ? 'updating' : feed.status} />
         </div>
 
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+          <h3 className="flex-1 truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
             {feed.title}
           </h3>
-          <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mt-1">
+          <div className="mt-1 flex flex-col gap-1 text-[11px] text-gray-500 dark:text-gray-400">
+            <FeedStatusBadge status={isRefreshing ? 'updating' : feed.status} className="self-start" />
+            {feed.author && (
+              <span className="line-clamp-1">{feed.author}</span>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
             {feed.description}
           </p>
           <div className="flex items-center justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
             <span>{feed.episodeCount} episodes</span>
             <span>Updated: {formatDate(feed.lastCheckedAt)}</span>
           </div>
+          {feed.categories && feed.categories.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-500 dark:text-gray-400">
+              <span>{feed.categories.slice(0, 3).join(', ')}{feed.categories.length > 3 ? '…' : ''}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -194,21 +218,33 @@ const FeedCard: React.FC<FeedCardProps> = ({
             </svg>
           </div>
         )}
-        <FeedStatusBadge status={isRefreshing ? 'updating' : feed.status} />
       </div>
 
       <div className="flex flex-1 flex-col p-4 pb-12">
-        <h3 className="mb-1 truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
-          {feed.title}
-        </h3>
-        <p className="mb-2 text-xs text-gray-600 line-clamp-2 dark:text-gray-400">
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <h3 className="flex-1 truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
+            {feed.title}
+          </h3>
+          <FeedStatusBadge status={isRefreshing ? 'updating' : feed.status} className="inline-flex" />
+        </div>
+        <p className="mb-2 line-clamp-2 text-xs text-gray-600 dark:text-gray-400">
           {feed.description}
         </p>
 
-        <div className="mb-3 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+        <div className="mb-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
           <span>{feed.episodeCount} episodes</span>
           <span>{formatDate(feed.lastCheckedAt)}</span>
         </div>
+
+        {(feed.author || (feed.categories && feed.categories.length > 0)) && (
+          <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-500 dark:text-gray-400">
+            {feed.author && <span>{feed.author}</span>}
+            {feed.author && feed.categories && feed.categories.length > 0 && <span>•</span>}
+            {feed.categories && feed.categories.length > 0 && (
+              <span>{feed.categories.slice(0, 3).join(', ')}{feed.categories.length > 3 ? '…' : ''}</span>
+            )}
+          </div>
+        )}
 
         {feed.error && (
           <div className="mb-2 text-xs text-red-600 dark:text-red-400">
