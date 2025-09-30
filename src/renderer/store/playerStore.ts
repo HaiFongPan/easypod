@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { Episode } from '../types';
+import { Episode } from './episodesStore';
+import { useSettingsStore } from './settingsStore';
 
 interface PlayerStore {
   // State
@@ -19,6 +20,7 @@ interface PlayerStore {
   // Actions
   setAudioRef: (audio: HTMLAudioElement) => void;
   loadEpisode: (episode: Episode) => void;
+  loadAndPlay: (episode: Episode) => void;
   play: () => void;
   pause: () => void;
   playPause: () => void;
@@ -36,119 +38,132 @@ interface PlayerStore {
 
 export const usePlayerStore = create<PlayerStore>()(
   devtools(
-    (set, get) => ({
-      // Initial state
-      currentEpisode: null,
-      isPlaying: false,
-      position: 0,
-      duration: 0,
-      volume: 1.0,
-      playbackRate: 1.0,
-      isLoading: false,
-      error: null,
-      audioRef: null,
+    (set, get) => {
+      // Get settings on initialization
+      const settings = useSettingsStore.getState();
 
-      // Actions
-      setAudioRef: (audio) => set({ audioRef: audio }),
+      return {
+        // Initial state
+        currentEpisode: null,
+        isPlaying: false,
+        position: 0,
+        duration: 0,
+        volume: settings.defaultVolume,
+        playbackRate: settings.defaultPlaybackRate,
+        isLoading: false,
+        error: null,
+        audioRef: null,
 
-      loadEpisode: (episode) => {
-        const { audioRef } = get();
-        set({
-          currentEpisode: episode,
-          position: episode.lastPositionSec,
-          duration: episode.durationSec || 0,
-          isLoading: true,
-          error: null,
-        });
+        // Actions
+        setAudioRef: (audio) => set({ audioRef: audio }),
 
-        if (audioRef) {
-          audioRef.src = episode.audioUrl;
-          audioRef.currentTime = episode.lastPositionSec;
-        }
-      },
-
-      play: () => {
-        const { audioRef } = get();
-        if (audioRef) {
-          audioRef.play().catch((error) => {
-            set({ error: error.message, isLoading: false });
+        loadEpisode: (episode) => {
+          const { audioRef } = get();
+          set({
+            currentEpisode: episode,
+            position: episode.lastPositionSec || 0,
+            duration: episode.durationSec || 0,
+            isLoading: true,
+            error: null,
           });
-        }
-        set({ isPlaying: true });
-      },
 
-      pause: () => {
-        const { audioRef } = get();
-        if (audioRef) {
-          audioRef.pause();
-        }
-        set({ isPlaying: false });
-      },
+          if (audioRef) {
+            audioRef.src = episode.audioUrl;
+            audioRef.currentTime = episode.lastPositionSec || 0;
+          }
+        },
 
-      playPause: () => {
-        const { isPlaying } = get();
-        if (isPlaying) {
-          get().pause();
-        } else {
-          get().play();
-        }
-      },
+        loadAndPlay: (episode) => {
+          get().loadEpisode(episode);
+          // Play after a short delay to allow audio to load
+          setTimeout(() => {
+            get().play();
+          }, 100);
+        },
 
-      seek: (position) => {
-        const { audioRef, duration } = get();
-        const clampedPosition = Math.max(0, Math.min(position, duration));
+        play: () => {
+          const { audioRef } = get();
+          if (audioRef) {
+            audioRef.play().catch((error) => {
+              set({ error: error.message, isLoading: false });
+            });
+          }
+          set({ isPlaying: true });
+        },
 
-        if (audioRef) {
-          audioRef.currentTime = clampedPosition;
-        }
-        set({ position: clampedPosition });
-      },
+        pause: () => {
+          const { audioRef } = get();
+          if (audioRef) {
+            audioRef.pause();
+          }
+          set({ isPlaying: false });
+        },
 
-      setVolume: (volume) => {
-        const { audioRef } = get();
-        const clampedVolume = Math.max(0, Math.min(1, volume));
+        playPause: () => {
+          const { isPlaying } = get();
+          if (isPlaying) {
+            get().pause();
+          } else {
+            get().play();
+          }
+        },
 
-        if (audioRef) {
-          audioRef.volume = clampedVolume;
-        }
-        set({ volume: clampedVolume });
-      },
+        seek: (position) => {
+          const { audioRef, duration } = get();
+          const clampedPosition = Math.max(0, Math.min(position, duration));
 
-      setPlaybackRate: (rate) => {
-        const { audioRef } = get();
-        const clampedRate = Math.max(0.5, Math.min(3.0, rate));
+          if (audioRef) {
+            audioRef.currentTime = clampedPosition;
+          }
+          set({ position: clampedPosition });
+        },
 
-        if (audioRef) {
-          audioRef.playbackRate = clampedRate;
-        }
-        set({ playbackRate: clampedRate });
-      },
+        setVolume: (volume) => {
+          const { audioRef } = get();
+          const clampedVolume = Math.max(0, Math.min(1, volume));
 
-      skipForward: (seconds = 10) => {
-        const { position, duration } = get();
-        get().seek(Math.min(position + seconds, duration));
-      },
+          if (audioRef) {
+            audioRef.volume = clampedVolume;
+          }
+          set({ volume: clampedVolume });
+        },
 
-      skipBackward: (seconds = 10) => {
-        const { position } = get();
-        get().seek(Math.max(position - seconds, 0));
-      },
+        setPlaybackRate: (rate) => {
+          const { audioRef } = get();
+          const clampedRate = Math.max(0.5, Math.min(3.0, rate));
 
-      setPosition: (position) => set({ position }),
-      setDuration: (duration) => set({ duration }),
-      setLoading: (isLoading) => set({ isLoading }),
-      setError: (error) => set({ error }),
+          if (audioRef) {
+            audioRef.playbackRate = clampedRate;
+          }
+          set({ playbackRate: clampedRate });
+        },
 
-      reset: () =>
-        set({
-          currentEpisode: null,
-          isPlaying: false,
-          position: 0,
-          duration: 0,
-          isLoading: false,
-          error: null,
-        }),
-    }),
+        skipForward: (seconds = 10) => {
+          const { position, duration } = get();
+          get().seek(Math.min(position + seconds, duration));
+        },
+
+        skipBackward: (seconds = 10) => {
+          const { position } = get();
+          get().seek(Math.max(position - seconds, 0));
+        },
+
+        setPosition: (position) => set({ position }),
+        setDuration: (duration) => set({ duration }),
+        setLoading: (isLoading) => set({ isLoading }),
+        setError: (error) => set({ error }),
+
+        reset: () =>
+          set({
+            currentEpisode: null,
+            isPlaying: false,
+            position: 0,
+            duration: 0,
+            isLoading: false,
+            error: null,
+          }),
+      };
+    },
     { name: 'Player Store' }
   )
 );

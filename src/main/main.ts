@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu, ipcMain, shell } from 'electron';
 import { join } from 'path';
 import { platform } from 'os';
 import { FeedIPCHandlers } from './services/IPCHandlers';
+import { getDatabaseManager } from './database/connection';
 
 const isDevelopment = process.argv.includes('--dev') || process.env.NODE_ENV === 'development';
 
@@ -52,7 +53,18 @@ const createWindow = (): void => {
 };
 
 // This method will be called when Electron has finished initialization
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Initialize database
+  try {
+    console.log('[Database] Initializing database...');
+    const dbManager = getDatabaseManager();
+    await dbManager.initialize();
+    console.log('[Database] Database initialized successfully');
+  } catch (error) {
+    console.error('[Database] Failed to initialize database:', error);
+    // Continue even if database initialization fails
+  }
+
   createWindow();
 
   // Initialize RSS feed IPC handlers

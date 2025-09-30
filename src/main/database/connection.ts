@@ -1,17 +1,16 @@
 import { app } from 'electron';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
-// import Database from 'better-sqlite3';
-// import { drizzle } from 'drizzle-orm/better-sqlite3';
+import Database from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { sql } from 'drizzle-orm';
 import * as schema from './schema';
 
-// Type definitions for when better-sqlite3 is available
-type Database = any; // Will be replaced with proper typing when better-sqlite3 is installed
-type DrizzleDatabase = any; // Will be replaced with drizzle database type
+type DatabaseInstance = Database.Database;
+type DrizzleDatabase = ReturnType<typeof drizzle>;
 
 export class DatabaseManager {
-  private db: Database | null = null;
+  private db: DatabaseInstance | null = null;
   private drizzle: DrizzleDatabase | null = null;
   private dbPath: string;
 
@@ -29,15 +28,14 @@ export class DatabaseManager {
 
   async initialize(): Promise<void> {
     try {
-      // TODO: Uncomment when better-sqlite3 is available
-      // this.db = new Database(this.dbPath);
-      // this.drizzle = drizzle(this.db, { schema });
+      this.db = new Database(this.dbPath);
+      this.drizzle = drizzle(this.db, { schema });
 
       // Configure SQLite for optimal performance
-      // this.configureSQLite();
+      this.configureSQLite();
 
       // Run initial setup
-      // await this.setupDatabase();
+      await this.setupDatabase();
 
       console.log('Database initialized at:', this.dbPath);
     } catch (error) {
@@ -206,7 +204,7 @@ Create chapter titles that are concise and descriptive, with timestamps in MM:SS
     return this.drizzle;
   }
 
-  getRawDb(): Database {
+  getRawDb(): DatabaseInstance {
     if (!this.db) {
       throw new Error('Database not initialized');
     }

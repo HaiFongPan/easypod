@@ -3,6 +3,7 @@ import { create } from 'zustand';
 export type AppView =
   | 'library'
   | 'subscriptions'
+  | 'episodes'
   | 'recently-played'
   | 'completed'
   | 'transcriptions'

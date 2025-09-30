@@ -325,10 +325,15 @@ const createMockElectronAPI = (): ElectronAPI => {
       },
     },
     episodes: {
+      getAll: async () => [],
       getByFeed: async () => [],
       getById: async () => null,
       search: async () => [],
       updatePlayback: async () => ({ success: true }),
+      updateProgress: async () => ({ success: true }),
+      markAsPlayed: async () => ({ success: true }),
+      markAsNew: async () => ({ success: true }),
+      getRecentlyPlayed: async () => [],
     },
   };
 };

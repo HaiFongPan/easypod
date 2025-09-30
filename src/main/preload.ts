@@ -46,6 +46,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Episode management
   episodes: {
+    getAll: (options?: any) => ipcRenderer.invoke('episodes:getAll', options),
     getByFeed: (feedId: number, limit?: number, offset?: number) =>
       ipcRenderer.invoke('episodes:getByFeed', feedId, limit, offset),
     getById: (episodeId: number) => ipcRenderer.invoke('episodes:getById', episodeId),
@@ -56,6 +57,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
       position: number,
       status?: 'new' | 'in_progress' | 'played' | 'archived'
     ) => ipcRenderer.invoke('episodes:updatePlayback', episodeId, position, status),
+    updateProgress: (data: { id: number; lastPositionSec: number; lastPlayedAt?: string; status?: string }) =>
+      ipcRenderer.invoke('episodes:updateProgress', data),
+    markAsPlayed: (episodeId: number) => ipcRenderer.invoke('episodes:markAsPlayed', episodeId),
+    markAsNew: (episodeId: number) => ipcRenderer.invoke('episodes:markAsNew', episodeId),
+    getRecentlyPlayed: (limit?: number) => ipcRenderer.invoke('episodes:getRecentlyPlayed', limit),
   },
 });
 
@@ -82,6 +88,7 @@ export interface ElectronAPI {
     clearCache: () => Promise<{ success: boolean }>;
   };
   episodes: {
+    getAll: (options?: any) => Promise<any[]>;
     getByFeed: (feedId: number, limit?: number, offset?: number) => Promise<any[]>;
     getById: (episodeId: number) => Promise<any | null>;
     search: (query: string, limit?: number) => Promise<any[]>;
@@ -90,6 +97,10 @@ export interface ElectronAPI {
       position: number,
       status?: 'new' | 'in_progress' | 'played' | 'archived'
     ) => Promise<{ success: boolean; error?: string }>;
+    updateProgress: (data: { id: number; lastPositionSec: number; lastPlayedAt?: string; status?: string }) => Promise<{ success: boolean; error?: string }>;
+    markAsPlayed: (episodeId: number) => Promise<{ success: boolean; error?: string }>;
+    markAsNew: (episodeId: number) => Promise<{ success: boolean; error?: string }>;
+    getRecentlyPlayed: (limit?: number) => Promise<any[]>;
   };
 }
 

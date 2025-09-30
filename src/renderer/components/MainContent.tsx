@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigationStore, AppView } from '../store/navigationStore';
 import { SubscriptionList } from './Subscription';
 import { FeedTester } from './FeedTester';
+import { EpisodesListPage } from '../pages/EpisodesListPage';
 
 // Placeholder components for other views
 const LibraryView: React.FC = () => (
@@ -55,6 +56,8 @@ const MainContent: React.FC = () => {
           console.error('Error rendering SubscriptionList:', error);
           return <div className="p-6"><h1>Subscriptions</h1><p>Error loading subscription list: {String(error)}</p></div>;
         }
+      case 'episodes':
+        return <EpisodesListPage />;
       case 'recently-played':
         return <RecentlyPlayedView />;
       case 'completed':

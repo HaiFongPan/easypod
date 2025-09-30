@@ -1,7 +1,8 @@
 import { ipcMain, IpcMainInvokeEvent } from 'electron';
 import { PodcastFeedParser } from './FeedParser';
-// import { FeedService } from './FeedService';
-// import { Feed, Episode } from '../database/schema';
+import { FeedsDao } from '../database/dao/feedsDao';
+import { EpisodesDao } from '../database/dao/episodesDao';
+import type { NewFeed, NewEpisode } from '../database/schema';
 
 /**
  * IPC Handlers for RSS Feed functionality
@@ -9,9 +10,13 @@ import { PodcastFeedParser } from './FeedParser';
  */
 export class FeedIPCHandlers {
   private parser: PodcastFeedParser;
+  private feedsDao: FeedsDao;
+  private episodesDao: EpisodesDao;
 
   constructor() {
     this.parser = new PodcastFeedParser();
+    this.feedsDao = new FeedsDao();
+    this.episodesDao = new EpisodesDao();
     this.registerHandlers();
   }
 
@@ -26,10 +31,15 @@ export class FeedIPCHandlers {
     ipcMain.handle('feeds:validate', this.handleValidateFeedUrl.bind(this));
 
     // Episode management
+    ipcMain.handle('episodes:getAll', this.handleGetAllEpisodes.bind(this));
     ipcMain.handle('episodes:getByFeed', this.handleGetEpisodesByFeed.bind(this));
     ipcMain.handle('episodes:getById', this.handleGetEpisodeById.bind(this));
     ipcMain.handle('episodes:search', this.handleSearchEpisodes.bind(this));
     ipcMain.handle('episodes:updatePlayback', this.handleUpdateEpisodePlayback.bind(this));
+    ipcMain.handle('episodes:updateProgress', this.handleUpdateEpisodeProgress.bind(this));
+    ipcMain.handle('episodes:markAsPlayed', this.handleMarkEpisodeAsPlayed.bind(this));
+    ipcMain.handle('episodes:markAsNew', this.handleMarkEpisodeAsNew.bind(this));
+    ipcMain.handle('episodes:getRecentlyPlayed', this.handleGetRecentlyPlayed.bind(this));
 
     // Cache management
     ipcMain.handle('feeds:getCacheStats', this.handleGetCacheStats.bind(this));
@@ -45,20 +55,69 @@ export class FeedIPCHandlers {
     opmlGroup?: string
   ): Promise<{ success: boolean; feed?: any; error?: string }> {
     try {
+      // Check if already subscribed
+      const existingFeed = await this.feedsDao.findByUrl(url);
+      if (existingFeed) {
+        return {
+          success: false,
+          error: 'Already subscribed to this feed',
+        };
+      }
+
+      // Parse the feed
       const parsedFeed = await this.parser.parseFeed(url);
-      // For now, just return the parsed feed without database storage
+
+      // Save feed to database
+      const newFeed: NewFeed = {
+        title: parsedFeed.title,
+        url: parsedFeed.url,
+        coverUrl: parsedFeed.image || null,
+        description: parsedFeed.description || null,
+        lastCheckedAt: new Date().toISOString(),
+        opmlGroup: opmlGroup || null,
+        metaJson: JSON.stringify({
+          language: parsedFeed.language,
+          author: parsedFeed.author,
+          link: parsedFeed.link,
+        }),
+      };
+
+      const feed = await this.feedsDao.create(newFeed);
+
+      // Save episodes to database
+      const episodes: NewEpisode[] = parsedFeed.episodes.map((ep) => ({
+        feedId: feed.id!,
+        guid: ep.guid || ep.audioUrl || `${feed.id}-${ep.title}`,
+        title: ep.title,
+        descriptionHtml: ep.descriptionHtml || ep.description || null,
+        audioUrl: ep.audioUrl || '',
+        pubDate: ep.pubDate instanceof Date ? ep.pubDate.toISOString() : new Date().toISOString(),
+        durationSec: ep.duration || null,
+        episodeImageUrl: ep.episodeImage || null,
+        localAudioPath: null,
+        status: 'new',
+        lastPlayedAt: null,
+        lastPositionSec: 0,
+        metaJson: JSON.stringify({
+          explicit: ep.explicit,
+          keywords: ep.keywords,
+        }),
+      }));
+
+      // Batch insert episodes
+      if (episodes.length > 0) {
+        await this.episodesDao.createMany(episodes);
+      }
+
       return {
         success: true,
         feed: {
-          id: Date.now(),
-          title: parsedFeed.title,
-          url: parsedFeed.url,
-          coverUrl: parsedFeed.image,
-          description: parsedFeed.description,
-          episodeCount: parsedFeed.episodes.length,
+          ...feed,
+          episodeCount: episodes.length,
         }
       };
     } catch (error) {
+      console.error('Error subscribing to feed:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to subscribe to feed',
@@ -73,8 +132,15 @@ export class FeedIPCHandlers {
     event: IpcMainInvokeEvent,
     feedId: number
   ): Promise<{ success: boolean; error?: string }> {
-    // TODO: Implement with database
-    return { success: true };
+    try {
+      const deleted = await this.feedsDao.delete(feedId);
+      return { success: deleted };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to unsubscribe',
+      };
+    }
   }
 
   /**
@@ -82,9 +148,8 @@ export class FeedIPCHandlers {
    */
   private async handleGetAllFeeds(event: IpcMainInvokeEvent): Promise<any[]> {
     try {
-      // TODO: Implement with database
-      console.log('Getting all feeds - returning empty array for now');
-      return [];
+      const feeds = await this.feedsDao.findAll();
+      return feeds;
     } catch (error) {
       console.error('Error getting all feeds:', error);
       return [];
@@ -98,8 +163,19 @@ export class FeedIPCHandlers {
     event: IpcMainInvokeEvent,
     feedId: number
   ): Promise<any | null> {
-    // TODO: Implement with database
-    return null;
+    try {
+      const result = await this.feedsDao.getFeedWithLatestEpisodes(feedId, 10);
+      if (!result) return null;
+
+      return {
+        ...result.feed,
+        episodeCount: result.episodes.length,
+        latestEpisodes: result.episodes,
+      };
+    } catch (error) {
+      console.error('Error getting feed by ID:', error);
+      return null;
+    }
   }
 
   /**
@@ -108,9 +184,70 @@ export class FeedIPCHandlers {
   private async handleRefreshFeed(
     event: IpcMainInvokeEvent,
     feedId: number
-  ): Promise<{ success: boolean; hasUpdates?: boolean; error?: string }> {
-    // TODO: Implement with database
-    return { success: true, hasUpdates: false };
+  ): Promise<{ success: boolean; hasUpdates?: boolean; newEpisodes?: number; error?: string }> {
+    try {
+      const feed = await this.feedsDao.findById(feedId);
+      if (!feed) {
+        return { success: false, error: 'Feed not found' };
+      }
+
+      // Parse the feed
+      const parsedFeed = await this.parser.parseFeed(feed.url);
+
+      // Get existing episode GUIDs
+      const existingEpisodes = await this.episodesDao.findByFeed(feedId);
+      const existingGuids = new Set(existingEpisodes.map(ep => ep.guid));
+
+      // Find new episodes
+      const newEpisodes: NewEpisode[] = [];
+      for (const ep of parsedFeed.episodes) {
+        const guid = ep.guid || ep.audioUrl || `${feedId}-${ep.title}`;
+        if (!existingGuids.has(guid)) {
+          newEpisodes.push({
+            feedId: feed.id!,
+            guid,
+            title: ep.title,
+            descriptionHtml: ep.descriptionHtml || ep.description || null,
+            audioUrl: ep.audioUrl || '',
+            pubDate: ep.pubDate instanceof Date ? ep.pubDate.toISOString() : new Date().toISOString(),
+            durationSec: ep.duration || null,
+            episodeImageUrl: ep.episodeImage || null,
+            localAudioPath: null,
+            status: 'new',
+            lastPlayedAt: null,
+            lastPositionSec: 0,
+            metaJson: JSON.stringify({
+              explicit: ep.explicit,
+              keywords: ep.keywords,
+            }),
+          });
+        }
+      }
+
+      // Insert new episodes
+      if (newEpisodes.length > 0) {
+        await this.episodesDao.createMany(newEpisodes);
+      }
+
+      // Update feed metadata and last checked time
+      await this.feedsDao.update(feedId, {
+        coverUrl: parsedFeed.image || feed.coverUrl,
+        description: parsedFeed.description || feed.description,
+      });
+      await this.feedsDao.updateLastChecked(feedId);
+
+      return {
+        success: true,
+        hasUpdates: newEpisodes.length > 0,
+        newEpisodes: newEpisodes.length,
+      };
+    } catch (error) {
+      console.error('Error refreshing feed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to refresh feed',
+      };
+    }
   }
 
   /**
@@ -118,9 +255,32 @@ export class FeedIPCHandlers {
    */
   private async handleRefreshAllFeeds(
     event: IpcMainInvokeEvent
-  ): Promise<{ updated: number; errors: string[] }> {
-    // TODO: Implement with database
-    return { updated: 0, errors: [] };
+  ): Promise<{ updated: number; errors: string[]; newEpisodesCount: number }> {
+    try {
+      const feeds = await this.feedsDao.findAll();
+      let updated = 0;
+      let newEpisodesCount = 0;
+      const errors: string[] = [];
+
+      for (const feed of feeds) {
+        try {
+          const result = await this.handleRefreshFeed(event, feed.id!);
+          if (result.success) {
+            updated++;
+            newEpisodesCount += result.newEpisodes || 0;
+          } else if (result.error) {
+            errors.push(`${feed.title}: ${result.error}`);
+          }
+        } catch (error) {
+          errors.push(`${feed.title}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+
+      return { updated, errors, newEpisodesCount };
+    } catch (error) {
+      console.error('Error refreshing all feeds:', error);
+      return { updated: 0, errors: ['Failed to refresh feeds'], newEpisodesCount: 0 };
+    }
   }
 
   /**
@@ -166,6 +326,27 @@ export class FeedIPCHandlers {
   }
 
   /**
+   * Get all episodes (with optional filters)
+   */
+  private async handleGetAllEpisodes(
+    event: IpcMainInvokeEvent,
+    options?: { feedId?: number; status?: string; limit?: number; offset?: number }
+  ): Promise<any[]> {
+    try {
+      if (options?.feedId) {
+        return await this.episodesDao.findByFeed(options.feedId, options.limit);
+      }
+      if (options?.status) {
+        return await this.episodesDao.findByStatus(options.status as any, options.limit);
+      }
+      return await this.episodesDao.findAll(options?.limit);
+    } catch (error) {
+      console.error('Error getting all episodes:', error);
+      return [];
+    }
+  }
+
+  /**
    * Get episodes for a feed
    */
   private async handleGetEpisodesByFeed(
@@ -174,8 +355,13 @@ export class FeedIPCHandlers {
     limit = 50,
     offset = 0
   ): Promise<any[]> {
-    // TODO: Implement with database
-    return [];
+    try {
+      const episodes = await this.episodesDao.findByFeed(feedId, limit);
+      return episodes;
+    } catch (error) {
+      console.error('Error getting episodes by feed:', error);
+      return [];
+    }
   }
 
   /**
@@ -185,8 +371,13 @@ export class FeedIPCHandlers {
     event: IpcMainInvokeEvent,
     episodeId: number
   ): Promise<any | null> {
-    // TODO: Implement with database
-    return null;
+    try {
+      const result = await this.episodesDao.getEpisodeWithChapters(episodeId);
+      return result;
+    } catch (error) {
+      console.error('Error getting episode by ID:', error);
+      return null;
+    }
   }
 
   /**
@@ -197,12 +388,17 @@ export class FeedIPCHandlers {
     query: string,
     limit = 20
   ): Promise<any[]> {
-    // TODO: Implement with database
-    return [];
+    try {
+      const episodes = await this.episodesDao.search(query);
+      return episodes.slice(0, limit);
+    } catch (error) {
+      console.error('Error searching episodes:', error);
+      return [];
+    }
   }
 
   /**
-   * Update episode playback status
+   * Update episode playback status (legacy - kept for compatibility)
    */
   private async handleUpdateEpisodePlayback(
     event: IpcMainInvokeEvent,
@@ -210,8 +406,98 @@ export class FeedIPCHandlers {
     position: number,
     status?: 'new' | 'in_progress' | 'played' | 'archived'
   ): Promise<{ success: boolean; error?: string }> {
-    // TODO: Implement with database
-    return { success: true };
+    try {
+      await this.episodesDao.updatePlayPosition(episodeId, position);
+
+      if (status) {
+        await this.episodesDao.update(episodeId, { status });
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating episode playback:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update playback',
+      };
+    }
+  }
+
+  /**
+   * Update episode progress (new API)
+   */
+  private async handleUpdateEpisodeProgress(
+    event: IpcMainInvokeEvent,
+    data: { id: number; lastPositionSec: number; lastPlayedAt?: string; status?: string }
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      await this.episodesDao.updatePlayPosition(data.id, data.lastPositionSec);
+
+      if (data.status) {
+        await this.episodesDao.update(data.id, { status: data.status });
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating episode progress:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update progress',
+      };
+    }
+  }
+
+  /**
+   * Mark episode as played
+   */
+  private async handleMarkEpisodeAsPlayed(
+    event: IpcMainInvokeEvent,
+    episodeId: number
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      await this.episodesDao.markAsPlayed(episodeId);
+      return { success: true };
+    } catch (error) {
+      console.error('Error marking episode as played:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to mark as played',
+      };
+    }
+  }
+
+  /**
+   * Mark episode as new
+   */
+  private async handleMarkEpisodeAsNew(
+    event: IpcMainInvokeEvent,
+    episodeId: number
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      await this.episodesDao.markAsNew(episodeId);
+      return { success: true };
+    } catch (error) {
+      console.error('Error marking episode as new:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to mark as new',
+      };
+    }
+  }
+
+  /**
+   * Get recently played episodes
+   */
+  private async handleGetRecentlyPlayed(
+    event: IpcMainInvokeEvent,
+    limit = 10
+  ): Promise<any[]> {
+    try {
+      return await this.episodesDao.findRecentlyPlayed(limit);
+    } catch (error) {
+      console.error('Error getting recently played episodes:', error);
+      return [];
+    }
   }
 
   /**
