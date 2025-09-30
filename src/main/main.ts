@@ -3,7 +3,7 @@ import { join } from 'path';
 import { platform } from 'os';
 import { FeedIPCHandlers } from './services/IPCHandlers';
 
-const isDevelopment = process.env.NODE_ENV === 'development';
+const isDevelopment = process.argv.includes('--dev') || process.env.NODE_ENV === 'development';
 
 // Keep a global reference of the window object
 let mainWindow: BrowserWindow | null = null;
