@@ -18,7 +18,7 @@ export interface Episode {
   updatedAt?: string;
   // Joined data from feeds table
   feedTitle?: string;
-  feedCoverUrl?: string;
+  feedCoverUrl?: string | null;
 }
 
 interface EpisodesStore {
@@ -58,6 +58,11 @@ export const useEpisodesStore = create<EpisodesStore>((set, get) => ({
       }
 
       const episodes = await window.electronAPI.episodes.getAll(options);
+      console.debug('[EpisodesStore] fetched episodes', {
+        count: episodes.length,
+        sample: episodes[0],
+        options
+      });
       set({ episodes, loading: false });
     } catch (error) {
       console.error('Failed to fetch episodes:', error);
@@ -111,6 +116,10 @@ export const useEpisodesStore = create<EpisodesStore>((set, get) => ({
   },
 
   setStatusFilter: (status: 'all' | 'new' | 'in_progress' | 'played' | 'archived') => {
+    const currentStatus = get().statusFilter;
+    if (currentStatus === status) {
+      return;
+    }
     set({ statusFilter: status });
     get().fetchAllEpisodes();
   },

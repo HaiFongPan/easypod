@@ -2,7 +2,7 @@ import React from 'react';
 import { cn } from '../../utils/cn';
 
 interface FeedStatusBadgeProps {
-  status: 'active' | 'updating' | 'error' | 'paused';
+  status?: 'active' | 'updating' | 'error' | 'paused';
   className?: string;
 }
 
@@ -30,18 +30,20 @@ const FeedStatusBadge: React.FC<FeedStatusBadgeProps> = ({ status, className }) 
     }
   };
 
-  const config = statusConfig[status];
+  const config = status ? statusConfig[status] : undefined;
+  const fallbackConfig = statusConfig.active;
+  const badgeConfig = config ?? fallbackConfig;
 
   return (
     <span
       className={cn(
         'absolute top-2 right-2 px-2 py-1 text-xs font-medium rounded-full',
-        config.className,
+        badgeConfig.className,
         className
       )}
     >
-      <span className="mr-1">{config.icon}</span>
-      {config.label}
+      <span className="mr-1">{badgeConfig.icon}</span>
+      {badgeConfig.label}
     </span>
   );
 };

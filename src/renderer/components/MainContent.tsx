@@ -74,8 +74,10 @@ const MainContent: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900">
-      {renderView()}
+    <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 min-h-0">
+      <div className="flex-1 flex flex-col min-h-0">
+        {renderView()}
+      </div>
     </div>
   );
 };

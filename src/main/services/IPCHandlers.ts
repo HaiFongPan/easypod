@@ -66,12 +66,13 @@ export class FeedIPCHandlers {
 
       // Parse the feed
       const parsedFeed = await this.parser.parseFeed(url);
+      const resolvedFeedCoverUrl = parsedFeed.image || parsedFeed.episodes.find(ep => ep.episodeImage)?.episodeImage || null;
 
       // Save feed to database
       const newFeed: NewFeed = {
         title: parsedFeed.title,
         url: parsedFeed.url,
-        coverUrl: parsedFeed.image || null,
+        coverUrl: resolvedFeedCoverUrl,
         description: parsedFeed.description || null,
         lastCheckedAt: new Date().toISOString(),
         opmlGroup: opmlGroup || null,
@@ -93,7 +94,7 @@ export class FeedIPCHandlers {
         audioUrl: ep.audioUrl || '',
         pubDate: ep.pubDate instanceof Date ? ep.pubDate.toISOString() : new Date().toISOString(),
         durationSec: ep.duration || null,
-        episodeImageUrl: ep.episodeImage || null,
+        episodeImageUrl: ep.episodeImage || resolvedFeedCoverUrl,
         localAudioPath: null,
         status: 'new',
         lastPlayedAt: null,
@@ -193,10 +194,12 @@ export class FeedIPCHandlers {
 
       // Parse the feed
       const parsedFeed = await this.parser.parseFeed(feed.url);
+      const resolvedFeedCoverUrl = parsedFeed.image || feed.coverUrl || parsedFeed.episodes.find(ep => ep.episodeImage)?.episodeImage || null;
 
       // Get existing episode GUIDs
       const existingEpisodes = await this.episodesDao.findByFeed(feedId);
       const existingGuids = new Set(existingEpisodes.map(ep => ep.guid));
+      const parsedEpisodesByGuid = new Map(parsedFeed.episodes.map(ep => [ep.guid || ep.audioUrl || `${feedId}-${ep.title}`, ep]));
 
       // Find new episodes
       const newEpisodes: NewEpisode[] = [];
@@ -211,7 +214,7 @@ export class FeedIPCHandlers {
             audioUrl: ep.audioUrl || '',
             pubDate: ep.pubDate instanceof Date ? ep.pubDate.toISOString() : new Date().toISOString(),
             durationSec: ep.duration || null,
-            episodeImageUrl: ep.episodeImage || null,
+            episodeImageUrl: ep.episodeImage || resolvedFeedCoverUrl,
             localAudioPath: null,
             status: 'new',
             lastPlayedAt: null,
@@ -229,16 +232,42 @@ export class FeedIPCHandlers {
         await this.episodesDao.createMany(newEpisodes);
       }
 
+      // Backfill missing episode artwork
+      const episodesNeedingArtwork = existingEpisodes
+        .map(existing => {
+          const parsedEpisode = parsedEpisodesByGuid.get(existing.guid);
+          if (!parsedEpisode) {
+            return null;
+          }
+          const desiredImage = parsedEpisode.episodeImage || resolvedFeedCoverUrl;
+          if (desiredImage && desiredImage !== existing.episodeImageUrl) {
+            return { id: existing.id, episodeImageUrl: desiredImage } as const;
+          }
+          if (!desiredImage && !existing.episodeImageUrl) {
+            return null;
+          }
+          return null;
+        })
+        .filter((update): update is { id: number; episodeImageUrl: string } => Boolean(update));
+
+      if (episodesNeedingArtwork.length > 0) {
+        await Promise.all(
+          episodesNeedingArtwork.map(update =>
+            this.episodesDao.update(update.id, { episodeImageUrl: update.episodeImageUrl })
+          )
+        );
+      }
+
       // Update feed metadata and last checked time
       await this.feedsDao.update(feedId, {
-        coverUrl: parsedFeed.image || feed.coverUrl,
+        coverUrl: resolvedFeedCoverUrl ?? feed.coverUrl,
         description: parsedFeed.description || feed.description,
       });
       await this.feedsDao.updateLastChecked(feedId);
 
       return {
         success: true,
-        hasUpdates: newEpisodes.length > 0,
+        hasUpdates: newEpisodes.length > 0 || episodesNeedingArtwork.length > 0,
         newEpisodes: newEpisodes.length,
       };
     } catch (error) {

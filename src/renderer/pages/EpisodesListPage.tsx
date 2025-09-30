@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { shallow } from 'zustand/shallow';
 import { Virtuoso } from 'react-virtuoso';
 import { useEpisodesStore, Episode } from '../store/episodesStore';
 import { usePlayerStore } from '../store/playerStore';
@@ -18,7 +19,18 @@ export const EpisodesListPage: React.FC = () => {
     setStatusFilter,
     markAsPlayed,
     markAsNew,
-  } = useEpisodesStore();
+  } = useEpisodesStore((state) => ({
+    episodes: state.episodes,
+    loading: state.loading,
+    error: state.error,
+    searchQuery: state.searchQuery,
+    statusFilter: state.statusFilter,
+    fetchAllEpisodes: state.fetchAllEpisodes,
+    setSearchQuery: state.setSearchQuery,
+    setStatusFilter: state.setStatusFilter,
+    markAsPlayed: state.markAsPlayed,
+    markAsNew: state.markAsNew,
+  }), shallow);
 
   const { loadAndPlay } = usePlayerStore();
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
@@ -27,12 +39,19 @@ export const EpisodesListPage: React.FC = () => {
     fetchAllEpisodes();
   }, [fetchAllEpisodes]);
 
+  useEffect(() => {
+    setLocalSearchQuery(searchQuery);
+  }, [searchQuery]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setSearchQuery(localSearchQuery);
   };
 
   const handleStatusFilterChange = (status: typeof statusFilter) => {
+    if (status === statusFilter) {
+      return;
+    }
     setStatusFilter(status);
   };
 
@@ -49,7 +68,7 @@ export const EpisodesListPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Header */}
       <div className="flex-shrink-0 p-6 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between mb-4">
@@ -135,7 +154,7 @@ export const EpisodesListPage: React.FC = () => {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
         {/* Loading State */}
         {loading && (
           <div className="flex flex-col items-center justify-center h-full">
@@ -191,8 +210,9 @@ export const EpisodesListPage: React.FC = () => {
 
         {/* Episodes List with Virtual Scrolling */}
         {!loading && !error && episodes.length > 0 && (
-          <div className="h-full p-6">
+          <div className="flex-1 min-h-0 p-6">
             <Virtuoso
+              className="h-full"
               style={{ height: '100%' }}
               data={episodes}
               itemContent={(index, episode) => (

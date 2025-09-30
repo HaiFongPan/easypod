@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { usePlayerStore } from '../../store/playerStore';
 import { mockEpisodes, getRandomEpisode, createTestEpisode } from '../../utils/testData';
 import Button from '../Button';
-import { Episode } from '../../types';
+import type { Episode } from '../../store/episodesStore';
 
 interface TestPlayerProps {
   className?: string;
@@ -201,7 +201,7 @@ const TestPlayer: React.FC<TestPlayerProps> = ({ className }) => {
           <Button
             variant="ghost"
             size="sm"
-            onClick={skipBackward}
+            onClick={() => skipBackward()}
             disabled={!currentEpisode}
           >
             ⏪ -10s
@@ -209,7 +209,7 @@ const TestPlayer: React.FC<TestPlayerProps> = ({ className }) => {
           <Button
             variant="ghost"
             size="sm"
-            onClick={skipForward}
+            onClick={() => skipForward()}
             disabled={!currentEpisode}
           >
             ⏩ +10s

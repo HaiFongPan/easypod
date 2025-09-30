@@ -130,7 +130,7 @@ const Layout: React.FC<LayoutProps> = ({
       </div>
 
       {/* Main content area */}
-      <div className="flex-1 flex">
+      <div className="flex-1 flex min-h-0">
         {/* Sidebar */}
         <div className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
           <div className="p-4">
@@ -177,9 +177,9 @@ const Layout: React.FC<LayoutProps> = ({
         </div>
 
         {/* Main content */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-h-0">
           {/* Content area */}
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-hidden flex flex-col min-h-0">
             {children}
           </div>
 

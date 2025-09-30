@@ -221,10 +221,12 @@ export class PodcastFeedParser {
     };
 
     // Extract feed-level metadata
-    if (rawFeed.image?.url) {
-      feed.image = validateUrl(rawFeed.image.url);
-    } else if (rawFeed['itunes:image']?.href) {
-      feed.image = validateUrl(rawFeed['itunes:image'].href);
+    const feedImageFromItunes = this.extractImageUrlFromNode(rawFeed['itunes:image']);
+    const feedImageFromImageTag = this.extractImageUrlFromNode(rawFeed.image);
+    if (feedImageFromImageTag) {
+      feed.image = feedImageFromImageTag;
+    } else if (feedImageFromItunes) {
+      feed.image = feedImageFromItunes;
     }
 
     feed.author = rawFeed['itunes:author'] || rawFeed.managingEditor;
@@ -248,6 +250,13 @@ export class PodcastFeedParser {
           console.warn(`Failed to parse episode: ${error instanceof Error ? error.message : String(error)}`);
           // Continue processing other episodes
         }
+      }
+    }
+
+    if (!feed.image) {
+      const firstEpisodeWithImage = feed.episodes.find(ep => ep.episodeImage);
+      if (firstEpisodeWithImage?.episodeImage) {
+        feed.image = firstEpisodeWithImage.episodeImage;
       }
     }
 
@@ -282,7 +291,10 @@ export class PodcastFeedParser {
 
     // Optional fields
     episode.duration = parseDuration(item['itunes:duration']) || parseDuration(item.enclosure?.length);
-    episode.episodeImage = getImageUrl(item['itunes:image']?.href, item.image?.url);
+    const episodeImageFromItunes = this.extractImageUrlFromNode(item['itunes:image']);
+    const episodeImageFromMedia = this.extractImageUrlFromNode(item['media:thumbnail']) || this.extractImageUrlFromNode(item['media:content']);
+    const episodeImageFromItem = this.extractImageUrlFromNode(item.image);
+    episode.episodeImage = getImageUrl(episodeImageFromItunes, episodeImageFromMedia || episodeImageFromItem);
     episode.seasonNumber = parseInt(item['itunes:season'], 10) || undefined;
     episode.episodeNumber = parseInt(item['itunes:episode'], 10) || undefined;
     episode.explicit = item['itunes:explicit'] === 'true' || item['itunes:explicit'] === 'yes';
@@ -305,6 +317,39 @@ export class PodcastFeedParser {
     episode.chapters = await this.parseEpisodeChapters(item, episode.descriptionHtml);
 
     return episode;
+  }
+
+  private extractImageUrlFromNode(node: any): string | undefined {
+    if (!node) {
+      return undefined;
+    }
+
+    if (typeof node === 'string') {
+      return validateUrl(node);
+    }
+
+    if (Array.isArray(node)) {
+      for (const entry of node) {
+        const url = this.extractImageUrlFromNode(entry);
+        if (url) {
+          return url;
+        }
+      }
+      return undefined;
+    }
+
+    if (typeof node === 'object') {
+      return (
+        validateUrl((node as any).url) ||
+        validateUrl((node as any).href) ||
+        validateUrl((node as any)._) ||
+        validateUrl((node as any)['#']) ||
+        ((node as any).$ ? (validateUrl((node as any).$.url) || validateUrl((node as any).$.href)) : undefined) ||
+        ((node as any)['@'] ? (validateUrl((node as any)['@'].url) || validateUrl((node as any)['@'].href)) : undefined)
+      );
+    }
+
+    return undefined;
   }
 
   /**

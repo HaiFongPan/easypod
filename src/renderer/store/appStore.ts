@@ -28,7 +28,7 @@ interface AppState {
 
   // Library actions
   addFeed: (feed: any) => void;
-  removeFeed: (feedId: string) => void;
+  removeFeed: (feedId: string | number) => void;
   updateFeed: (feedId: string, updates: any) => void;
   setSearchQuery: (query: string) => void;
 
@@ -172,14 +172,18 @@ export const useAppStore = create<AppState>()(
           })),
 
         removeFeed: (feedId) =>
-          set((state) => ({
-            ...state,
-            library: {
-              ...state.library,
-              feeds: state.library.feeds.filter((f) => f.id !== feedId),
-              episodes: state.library.episodes.filter((e) => e.feedId !== feedId),
-            },
-          })),
+          set((state) => {
+            const normalizedId = feedId.toString();
+
+            return {
+              ...state,
+              library: {
+                ...state.library,
+                feeds: state.library.feeds.filter((f) => f.id.toString() !== normalizedId),
+                episodes: state.library.episodes.filter((e) => String(e.feedId) !== normalizedId),
+              },
+            };
+          }),
 
         updateFeed: (feedId, updates) =>
           set((state) => ({

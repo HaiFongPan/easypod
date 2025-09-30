@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { AudioPlayer, AudioPlayerConfig } from '../utils/audioPlayer';
+import { AudioPlayer, AudioPlayerConfig, AudioPlayerState } from '../utils/audioPlayer';
 import { usePlayerStore } from '../store/playerStore';
 import { Episode } from '../types';
 
@@ -54,11 +54,11 @@ export const useAudioPlayer = (options: UseAudioPlayerOptions = {}) => {
       options.onEnd?.();
     });
 
-    player.on('timeupdate', (state) => {
+    player.on('timeupdate', (state: AudioPlayerState) => {
       setPosition(state.currentTime);
     });
 
-    player.on('durationchange', (state) => {
+    player.on('durationchange', (state: AudioPlayerState) => {
       setDuration(state.duration);
     });
 

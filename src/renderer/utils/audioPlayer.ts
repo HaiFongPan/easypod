@@ -1,4 +1,4 @@
-import { Episode } from '../types';
+import type { Episode } from '../types';
 
 export interface AudioPlayerConfig {
   volume: number;
@@ -19,9 +19,22 @@ export type AudioPlayerEvent =
   | 'volumechange'
   | 'ratechange';
 
+export interface AudioPlayerState {
+  isPlaying: boolean;
+  currentTime: number;
+  duration: number;
+  volume: number;
+  playbackRate: number;
+  isMuted: boolean;
+  isLoading: boolean;
+  buffered: TimeRanges;
+}
+
+type AudioPlayerListener = (state: AudioPlayerState) => void;
+
 export class AudioPlayer {
   private audio: HTMLAudioElement;
-  private eventListeners: Map<string, Set<Function>> = new Map();
+  private eventListeners: Map<AudioPlayerEvent, Set<AudioPlayerListener>> = new Map();
   private config: AudioPlayerConfig;
 
   constructor(config: AudioPlayerConfig) {
@@ -41,7 +54,7 @@ export class AudioPlayer {
 
     events.forEach(event => {
       this.audio.addEventListener(event, () => {
-        this.emit(event, this.getState());
+        this.emit(event);
       });
     });
 
@@ -64,11 +77,14 @@ export class AudioPlayer {
     this.audio.playbackRate = this.config.playbackRate;
   }
 
-  private emit(event: string, data?: any): void {
+  private emit(event: AudioPlayerEvent): void {
     const listeners = this.eventListeners.get(event);
-    if (listeners) {
-      listeners.forEach(callback => callback(data));
+    if (!listeners || listeners.size === 0) {
+      return;
     }
+
+    const state = this.getState();
+    listeners.forEach(callback => callback(state));
   }
 
   // Public API
@@ -190,8 +206,8 @@ export class AudioPlayer {
     return this.audio.readyState < 2; // HAVE_CURRENT_DATA
   }
 
-  get getState() {
-    return () => ({
+  getState(): AudioPlayerState {
+    return {
       isPlaying: this.isPlaying,
       currentTime: this.currentTime,
       duration: this.duration,
@@ -200,18 +216,18 @@ export class AudioPlayer {
       isMuted: this.isMuted,
       isLoading: this.isLoading,
       buffered: this.buffered,
-    });
+    };
   }
 
   // Event handling
-  on(event: AudioPlayerEvent, callback: Function): void {
+  on(event: AudioPlayerEvent, callback: AudioPlayerListener): void {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, new Set());
     }
     this.eventListeners.get(event)!.add(callback);
   }
 
-  off(event: AudioPlayerEvent, callback: Function): void {
+  off(event: AudioPlayerEvent, callback: AudioPlayerListener): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       listeners.delete(callback);

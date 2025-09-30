@@ -1,8 +1,34 @@
 import { eq, and, desc, asc, sql, inArray } from 'drizzle-orm';
 import { getDatabaseManager } from '../connection';
-import { episodes, chapters, transcripts, type Episode, type NewEpisode, type Chapter } from '../schema';
+import { episodes, chapters, transcripts, feeds, type Episode, type NewEpisode, type Chapter } from '../schema';
 
 export type EpisodeStatus = 'new' | 'in_progress' | 'played' | 'archived';
+
+export type EpisodeWithFeed = Episode & {
+  feedTitle?: string | null;
+  feedCoverUrl?: string | null;
+};
+
+const baseEpisodeSelect = {
+  id: episodes.id,
+  feedId: episodes.feedId,
+  guid: episodes.guid,
+  title: episodes.title,
+  descriptionHtml: episodes.descriptionHtml,
+  audioUrl: episodes.audioUrl,
+  pubDate: episodes.pubDate,
+  durationSec: episodes.durationSec,
+  episodeImageUrl: episodes.episodeImageUrl,
+  localAudioPath: episodes.localAudioPath,
+  status: episodes.status,
+  lastPlayedAt: episodes.lastPlayedAt,
+  lastPositionSec: episodes.lastPositionSec,
+  metaJson: episodes.metaJson,
+  createdAt: episodes.createdAt,
+  updatedAt: episodes.updatedAt,
+  feedTitle: feeds.title,
+  feedCoverUrl: feeds.coverUrl,
+} as const;
 
 export class EpisodesDao {
   private get db() {
@@ -24,17 +50,20 @@ export class EpisodesDao {
   }
 
   // Read operations
-  async findAll(limit?: number): Promise<Episode[]> {
-    let query = this.db
-      .select()
+  async findAll(limit?: number): Promise<EpisodeWithFeed[]> {
+    const query = this.db
+      .select(baseEpisodeSelect)
       .from(episodes)
-      .orderBy(desc(episodes.pubDate));
+      .leftJoin(feeds, eq(episodes.feedId, feeds.id))
+      .orderBy(desc(episodes.pubDate), desc(episodes.createdAt));
 
-    if (limit) {
-      query = query.limit(limit);
-    }
+    const results = await (limit ? query.limit(limit) : query);
 
-    return await query;
+    return results.map((row) => ({
+      ...row,
+      feedTitle: row.feedTitle ?? undefined,
+      feedCoverUrl: row.feedCoverUrl ?? undefined,
+    }));
   }
 
   async findById(id: number): Promise<Episode | null> {
@@ -55,53 +84,73 @@ export class EpisodesDao {
     return result[0] || null;
   }
 
-  async findByFeed(feedId: number, limit?: number): Promise<Episode[]> {
-    let query = this.db
-      .select()
+  async findByFeed(feedId: number, limit?: number): Promise<EpisodeWithFeed[]> {
+    const query = this.db
+      .select(baseEpisodeSelect)
       .from(episodes)
+      .leftJoin(feeds, eq(episodes.feedId, feeds.id))
       .where(eq(episodes.feedId, feedId))
-      .orderBy(desc(episodes.pubDate));
+      .orderBy(desc(episodes.pubDate), desc(episodes.createdAt));
 
-    if (limit) {
-      query = query.limit(limit);
-    }
+    const results = await (limit ? query.limit(limit) : query);
 
-    return await query;
+    return results.map((row) => ({
+      ...row,
+      feedTitle: row.feedTitle ?? undefined,
+      feedCoverUrl: row.feedCoverUrl ?? undefined,
+    }));
   }
 
-  async findByStatus(status: EpisodeStatus, limit?: number): Promise<Episode[]> {
-    let query = this.db
-      .select()
+  async findByStatus(status: EpisodeStatus, limit?: number): Promise<EpisodeWithFeed[]> {
+    const query = this.db
+      .select(baseEpisodeSelect)
       .from(episodes)
+      .leftJoin(feeds, eq(episodes.feedId, feeds.id))
       .where(eq(episodes.status, status))
-      .orderBy(desc(episodes.lastPlayedAt));
+      .orderBy(desc(episodes.lastPlayedAt), desc(episodes.updatedAt));
 
-    if (limit) {
-      query = query.limit(limit);
-    }
+    const results = await (limit ? query.limit(limit) : query);
 
-    return await query;
+    return results.map((row) => ({
+      ...row,
+      feedTitle: row.feedTitle ?? undefined,
+      feedCoverUrl: row.feedCoverUrl ?? undefined,
+    }));
   }
 
-  async findRecentlyPlayed(limit = 10): Promise<Episode[]> {
-    return await this.db
-      .select()
+  async findRecentlyPlayed(limit = 10): Promise<EpisodeWithFeed[]> {
+    const results = await this.db
+      .select(baseEpisodeSelect)
       .from(episodes)
+      .leftJoin(feeds, eq(episodes.feedId, feeds.id))
       .where(sql`${episodes.lastPlayedAt} IS NOT NULL`)
-      .orderBy(desc(episodes.lastPlayedAt))
+      .orderBy(desc(episodes.lastPlayedAt), desc(episodes.updatedAt))
       .limit(limit);
+
+    return results.map((row) => ({
+      ...row,
+      feedTitle: row.feedTitle ?? undefined,
+      feedCoverUrl: row.feedCoverUrl ?? undefined,
+    }));
   }
 
-  async findInProgress(limit = 10): Promise<Episode[]> {
-    return await this.db
-      .select()
+  async findInProgress(limit = 10): Promise<EpisodeWithFeed[]> {
+    const results = await this.db
+      .select(baseEpisodeSelect)
       .from(episodes)
+      .leftJoin(feeds, eq(episodes.feedId, feeds.id))
       .where(and(
         eq(episodes.status, 'in_progress'),
         sql`${episodes.lastPositionSec} > 0`
       ))
-      .orderBy(desc(episodes.lastPlayedAt))
+      .orderBy(desc(episodes.lastPlayedAt), desc(episodes.updatedAt))
       .limit(limit);
+
+    return results.map((row) => ({
+      ...row,
+      feedTitle: row.feedTitle ?? undefined,
+      feedCoverUrl: row.feedCoverUrl ?? undefined,
+    }));
   }
 
   // Update
@@ -212,19 +261,26 @@ export class EpisodesDao {
   }
 
   // Search operations
-  async search(query: string, feedId?: number): Promise<Episode[]> {
+  async search(query: string, feedId?: number): Promise<EpisodeWithFeed[]> {
     const searchCondition = sql`${episodes.title} LIKE ${'%' + query + '%'} OR ${episodes.descriptionHtml} LIKE ${'%' + query + '%'}`;
     const feedCondition = feedId ? eq(episodes.feedId, feedId) : sql`1=1`;
 
-    return await this.db
-      .select()
+    const results = await this.db
+      .select(baseEpisodeSelect)
       .from(episodes)
+      .leftJoin(feeds, eq(episodes.feedId, feeds.id))
       .where(and(searchCondition, feedCondition))
-      .orderBy(desc(episodes.pubDate));
+      .orderBy(desc(episodes.pubDate), desc(episodes.createdAt));
+
+    return results.map((row) => ({
+      ...row,
+      feedTitle: row.feedTitle ?? undefined,
+      feedCoverUrl: row.feedCoverUrl ?? undefined,
+    }));
   }
 
   // Full-text search using FTS5
-  async fullTextSearch(query: string, limit = 20): Promise<Episode[]> {
+  async fullTextSearch(query: string, limit = 20): Promise<EpisodeWithFeed[]> {
     // TODO: Implement FTS5 search when available
     // For now, fall back to LIKE search
     return await this.search(query);

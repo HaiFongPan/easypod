@@ -1,5 +1,7 @@
 // Core data types based on the PRD requirements
 
+import type { Episode as StoreEpisode } from '../store/episodesStore';
+
 export interface Feed {
   id: string;
   title: string;
@@ -10,22 +12,7 @@ export interface Feed {
   meta: Record<string, any>;
 }
 
-export interface Episode {
-  id: string;
-  feedId: string;
-  guid: string;
-  title: string;
-  descriptionHtml: string;
-  audioUrl: string;
-  pubDate: Date;
-  durationSec?: number;
-  episodeImageUrl?: string;
-  localAudioPath?: string;
-  status: 'new' | 'in_progress' | 'played' | 'archived';
-  lastPlayedAt?: Date;
-  lastPositionSec: number;
-  meta: Record<string, any>;
-}
+export type Episode = StoreEpisode;
 
 export interface Chapter {
   id: string;

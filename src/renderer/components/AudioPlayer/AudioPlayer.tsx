@@ -16,7 +16,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ className }) => {
   const {
     currentEpisode,
     isPlaying,
-    currentTime,
+    position: currentTime,
     duration,
     volume,
     playbackRate,
@@ -139,7 +139,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ className }) => {
         <Button
           variant="ghost"
           size="sm"
-          onClick={skipBackward}
+          onClick={() => skipBackward()}
           disabled={!currentEpisode || isLoading}
           icon={
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -175,7 +175,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ className }) => {
         <Button
           variant="ghost"
           size="sm"
-          onClick={skipForward}
+          onClick={() => skipForward()}
           disabled={!currentEpisode || isLoading}
           icon={
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">

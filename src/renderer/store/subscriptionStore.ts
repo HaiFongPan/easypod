@@ -23,6 +23,31 @@ interface SubscriptionActions {
   clearError: () => void;
 }
 
+const VALID_FEED_STATUSES: Feed['status'][] = ['active', 'updating', 'error', 'paused'];
+
+const normalizeFeed = (raw: Partial<Feed>): Feed => {
+  const now = new Date().toISOString();
+  const id = raw.id?.toString() || raw.url || raw.title || `feed-${Date.now().toString(36)}`;
+  const status = VALID_FEED_STATUSES.includes(raw.status as Feed['status'])
+    ? (raw.status as Feed['status'])
+    : 'active';
+
+  return {
+    id,
+    title: raw.title ?? 'Untitled Podcast',
+    url: raw.url ?? '',
+    description: raw.description ?? '',
+    coverUrl: raw.coverUrl,
+    category: raw.category ?? 'Uncategorized',
+    episodeCount: raw.episodeCount ?? 0,
+    lastCheckedAt: raw.lastCheckedAt ?? now,
+    status,
+    error: raw.error,
+    createdAt: raw.createdAt ?? now,
+    updatedAt: raw.updatedAt ?? now,
+  };
+};
+
 export const useSubscriptionStore = create<SubscriptionState & SubscriptionActions>((set, get) => ({
   // State
   feeds: [],
@@ -32,7 +57,7 @@ export const useSubscriptionStore = create<SubscriptionState & SubscriptionActio
   selectedFeed: null,
 
   // Actions
-  setFeeds: (feeds) => set({ feeds }),
+  setFeeds: (feeds) => set({ feeds: feeds.map(normalizeFeed) }),
 
   addFeed: async (url: string, category = 'Default') => {
     set({ isLoading: true, error: null });
@@ -161,7 +186,8 @@ export const useSubscriptionStore = create<SubscriptionState & SubscriptionActio
       }
 
       const feeds = await electron.feeds.getAll();
-      set({ feeds: feeds || [], isLoading: false, error: null });
+      const normalizedFeeds = Array.isArray(feeds) ? feeds.map(normalizeFeed) : [];
+      set({ feeds: normalizedFeeds, isLoading: false, error: null });
     } catch (error) {
       console.error('Error loading feeds:', error);
       // Don't show the error to user for now, just log it
