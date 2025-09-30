@@ -9,6 +9,7 @@ interface EpisodeCardProps {
   onPlay: (episode: Episode) => void;
   onMarkAsPlayed?: (id: number) => void;
   onMarkAsNew?: (id: number) => void;
+  variant?: 'standard' | 'compact';
 }
 
 export const EpisodeCard: React.FC<EpisodeCardProps> = ({
@@ -16,10 +17,13 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
   onPlay,
   onMarkAsPlayed,
   onMarkAsNew,
+  variant = 'standard',
 }) => {
   const progressPercentage = episode.durationSec
     ? (episode.lastPositionSec / episode.durationSec) * 100
     : 0;
+  const isCompact = variant === 'compact';
+  const descriptionLimit = isCompact ? 120 : 200;
 
   const getStatusBadge = () => {
     switch (episode.status) {
@@ -47,9 +51,14 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
   };
 
   return (
-    <div className="flex gap-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow cursor-pointer">
+    <div
+      className={cn(
+        'flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:shadow-md transition-shadow cursor-pointer',
+        isCompact ? 'p-3 gap-3' : 'p-4 gap-4'
+      )}
+    >
       {/* Episode Image */}
-      <div className="relative flex-shrink-0 w-32 h-32">
+      <div className={cn('relative flex-shrink-0', isCompact ? 'w-20 h-20' : 'w-32 h-32')}>
         <img
           src={episode.episodeImageUrl || episode.feedCoverUrl || '/default-cover.png'}
           alt={episode.title}
@@ -71,15 +80,25 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
       {/* Episode Content */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Header with Title and Badge */}
-        <div className="flex items-start gap-3 mb-2">
-          <h3 className="flex-1 text-base font-semibold text-gray-900 dark:text-gray-100 line-clamp-2">
+        <div className="flex items-start gap-2 mb-2">
+          <h3
+            className={cn(
+              'flex-1 font-semibold text-gray-900 dark:text-gray-100 line-clamp-2',
+              isCompact ? 'text-sm' : 'text-base'
+            )}
+          >
             {episode.title}
           </h3>
           {getStatusBadge()}
         </div>
 
         {/* Metadata */}
-        <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-2">
+        <div
+          className={cn(
+            'flex flex-wrap items-center gap-2 text-gray-600 dark:text-gray-400 mb-2',
+            isCompact ? 'text-xs' : 'text-sm'
+          )}
+        >
           <span className="font-medium">{episode.feedTitle || 'Unknown Feed'}</span>
           <span>•</span>
           <span>{formatDate(episode.pubDate)}</span>
@@ -94,15 +113,18 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
         {/* Description */}
         {episode.descriptionHtml && (
           <div
-            className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3"
+            className={cn(
+              'text-gray-600 dark:text-gray-400 line-clamp-2',
+              isCompact ? 'text-xs mb-2' : 'text-sm mb-3'
+            )}
             dangerouslySetInnerHTML={{
-              __html: episode.descriptionHtml.substring(0, 200) + '...'
+              __html: `${episode.descriptionHtml.substring(0, descriptionLimit)}...`
             }}
           />
         )}
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2 mt-auto">
+        <div className={cn('flex items-center gap-2 mt-auto', isCompact && 'flex-wrap gap-y-1')}>
           <Button
             variant="primary"
             size="sm"

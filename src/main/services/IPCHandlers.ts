@@ -150,7 +150,19 @@ export class FeedIPCHandlers {
   private async handleGetAllFeeds(event: IpcMainInvokeEvent): Promise<any[]> {
     try {
       const feeds = await this.feedsDao.findAll();
-      return feeds;
+      const feedIds = feeds
+        .map(feed => feed.id)
+        .filter((id): id is number => typeof id === 'number');
+
+      let episodeCounts: Record<number, number> = {};
+      if (feedIds.length > 0) {
+        episodeCounts = await this.episodesDao.countByFeed(feedIds);
+      }
+
+      return feeds.map(feed => ({
+        ...feed,
+        episodeCount: typeof feed.id === 'number' ? episodeCounts[feed.id] ?? 0 : 0,
+      }));
     } catch (error) {
       console.error('Error getting all feeds:', error);
       return [];

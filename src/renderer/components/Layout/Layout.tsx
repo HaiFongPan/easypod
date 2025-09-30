@@ -98,7 +98,7 @@ const Layout: React.FC<LayoutProps> = ({
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900">
       {/* Title bar (macOS style) */}
-      <div className="h-12 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4">
+      <div className="app-drag h-12 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4">
         <div className="flex items-center space-x-3">
           {/* Window controls space (macOS traffic lights) */}
           <div className="w-16"></div>
@@ -107,7 +107,7 @@ const Layout: React.FC<LayoutProps> = ({
           </h1>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="app-no-drag flex items-center space-x-2">
           <Button
             variant="ghost"
             size="sm"
@@ -179,7 +179,7 @@ const Layout: React.FC<LayoutProps> = ({
         {/* Main content */}
         <div className="flex-1 flex flex-col min-h-0">
           {/* Content area */}
-          <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+        <div className="flex-1 flex flex-col min-h-0 overflow-x-hidden">
             {children}
           </div>
 

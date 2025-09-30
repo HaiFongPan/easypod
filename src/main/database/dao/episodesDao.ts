@@ -322,6 +322,28 @@ export class EpisodesDao {
   }
 
   // Statistics
+  async countByFeed(feedIds: number[]): Promise<Record<number, number>> {
+    if (feedIds.length === 0) {
+      return {};
+    }
+
+    const rows = await this.db
+      .select({
+        feedId: episodes.feedId,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(episodes)
+      .where(inArray(episodes.feedId, feedIds))
+      .groupBy(episodes.feedId);
+
+    return rows.reduce<Record<number, number>>((acc, row) => {
+      if (typeof row.feedId === 'number') {
+        acc[row.feedId] = row.count;
+      }
+      return acc;
+    }, {});
+  }
+
   async getStats(): Promise<{
     total: number;
     new: number;

@@ -31,6 +31,11 @@ const normalizeFeed = (raw: Partial<Feed>): Feed => {
   const status = VALID_FEED_STATUSES.includes(raw.status as Feed['status'])
     ? (raw.status as Feed['status'])
     : 'active';
+  const rawEpisodes = (raw as { episodes?: unknown[] }).episodes;
+  const resolvedEpisodeCount = raw.episodeCount
+    ?? (raw as { episode_count?: number }).episode_count
+    ?? (Array.isArray(rawEpisodes) ? rawEpisodes.length : undefined)
+    ?? 0;
 
   return {
     id,
@@ -39,7 +44,7 @@ const normalizeFeed = (raw: Partial<Feed>): Feed => {
     description: raw.description ?? '',
     coverUrl: raw.coverUrl,
     category: raw.category ?? 'Uncategorized',
-    episodeCount: raw.episodeCount ?? 0,
+    episodeCount: resolvedEpisodeCount,
     lastCheckedAt: raw.lastCheckedAt ?? now,
     status,
     error: raw.error,

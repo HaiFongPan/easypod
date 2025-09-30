@@ -241,7 +241,10 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
       )}
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-6">
+      <div
+        className="flex-1 overflow-y-auto p-6"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
         {isLoading && feeds.length === 0 ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
@@ -277,21 +280,29 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
             </div>
           </div>
         ) : (
-          <div className={cn(
-            viewMode === 'grid'
-              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-              : "space-y-4"
-          )}>
+          <div
+            className={cn(
+              viewMode === 'grid'
+                ? 'flex flex-wrap gap-4'
+                : 'space-y-4'
+            )}
+          >
             {filteredFeeds.map(feed => (
-              <FeedCard
+              <div
                 key={feed.id}
-                feed={feed}
-                viewMode={viewMode}
-                isRefreshing={refreshingFeeds.has(feed.id)}
-                onRefresh={() => refreshFeed(feed.id)}
-                onDelete={() => handleDeleteFeed(feed.id)}
-                onClick={() => handleFeedClick(feed)}
-              />
+                className={cn(
+                  viewMode === 'grid' && 'w-full sm:w-1/2 lg:w-1/3 xl:w-1/4'
+                )}
+              >
+                <FeedCard
+                  feed={feed}
+                  viewMode={viewMode}
+                  isRefreshing={refreshingFeeds.has(feed.id)}
+                  onRefresh={() => refreshFeed(feed.id)}
+                  onDelete={() => handleDeleteFeed(feed.id)}
+                  onClick={() => handleFeedClick(feed)}
+                />
+              </div>
             ))}
           </div>
         )}

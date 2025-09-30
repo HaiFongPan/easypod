@@ -127,20 +127,20 @@ const FeedCard: React.FC<FeedCardProps> = ({
   // Grid view
   return (
     <div
-      className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group"
+      className="group relative flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white transition-shadow hover:shadow-lg cursor-pointer dark:border-gray-700 dark:bg-gray-800"
       onClick={onClick}
     >
-      <div className="relative">
+      <div className="relative aspect-square w-full">
         {!imageError && feed.coverUrl ? (
           <img
             src={feed.coverUrl}
             alt={feed.title}
-            className="w-full h-32 object-cover"
+            className="absolute inset-0 h-full w-full object-cover"
             onError={() => setImageError(true)}
           />
         ) : (
-          <div className="w-full h-32 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-            <svg className="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+            <svg className="h-12 w-12 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm3 2h6v4H7V5zm8 8v2h1v-2h-1zm-2-2H7v4h6v-4z" clipRule="evenodd" />
             </svg>
           </div>
@@ -148,27 +148,27 @@ const FeedCard: React.FC<FeedCardProps> = ({
         <FeedStatusBadge status={isRefreshing ? 'updating' : feed.status} />
       </div>
 
-      <div className="p-4">
-        <h3 className="font-semibold text-sm mb-1 truncate text-gray-900 dark:text-gray-100">
+      <div className="flex flex-1 flex-col p-4 pb-12">
+        <h3 className="mb-1 truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
           {feed.title}
         </h3>
-        <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
+        <p className="mb-2 text-xs text-gray-600 line-clamp-2 dark:text-gray-400">
           {feed.description}
         </p>
 
-        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-3">
+        <div className="mb-3 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
           <span>{feed.episodeCount} episodes</span>
           <span>{formatDate(feed.lastCheckedAt)}</span>
         </div>
 
         {feed.error && (
-          <div className="text-xs text-red-600 dark:text-red-400 mb-2">
+          <div className="mb-2 text-xs text-red-600 dark:text-red-400">
             Error: {feed.error}
           </div>
         )}
       </div>
 
-      <div className="absolute inset-x-0 bottom-0 p-2 bg-white dark:bg-gray-800 opacity-0 group-hover:opacity-100 transition-opacity border-t border-gray-200 dark:border-gray-700">
+      <div className="absolute inset-x-0 bottom-0 border-t border-gray-200 bg-white p-2 opacity-0 transition-opacity group-hover:opacity-100 dark:border-gray-700 dark:bg-gray-800">
         {!showDeleteConfirm ? (
           <div className="flex justify-center space-x-2">
             <Button

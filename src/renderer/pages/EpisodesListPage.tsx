@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { shallow } from 'zustand/shallow';
-import { Virtuoso } from 'react-virtuoso';
 import { useEpisodesStore, Episode } from '../store/episodesStore';
 import { usePlayerStore } from '../store/playerStore';
 import { EpisodeCard } from '../components/Episode/EpisodeCard';
 import { cn } from '../utils/cn';
 import Button from '../components/Button';
+
+const PAGE_SIZE = 10;
+type EpisodesViewMode = 'standard' | 'compact';
 
 export const EpisodesListPage: React.FC = () => {
   const {
@@ -34,6 +36,8 @@ export const EpisodesListPage: React.FC = () => {
 
   const { loadAndPlay } = usePlayerStore();
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [viewMode, setViewMode] = useState<EpisodesViewMode>('standard');
 
   useEffect(() => {
     fetchAllEpisodes();
@@ -42,6 +46,26 @@ export const EpisodesListPage: React.FC = () => {
   useEffect(() => {
     setLocalSearchQuery(searchQuery);
   }, [searchQuery]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(episodes.length / PAGE_SIZE));
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [episodes.length, currentPage]);
+
+  const paginatedEpisodes = useMemo(() => {
+    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    return episodes.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [episodes, currentPage]);
+
+  const totalPages = Math.max(1, Math.ceil(episodes.length / PAGE_SIZE));
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const endIndex = Math.min(startIndex + PAGE_SIZE, episodes.length);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,6 +89,20 @@ export const EpisodesListPage: React.FC = () => {
 
   const handleMarkAsNew = async (id: number) => {
     await markAsNew(id);
+  };
+
+  const handleViewModeChange = (mode: EpisodesViewMode) => {
+    if (mode === viewMode) {
+      return;
+    }
+    setViewMode(mode);
+  };
+
+  const goToPage = (page: number) => {
+    const nextPage = Math.min(Math.max(page, 1), totalPages);
+    if (nextPage !== currentPage) {
+      setCurrentPage(nextPage);
+    }
   };
 
   return (
@@ -92,7 +130,7 @@ export const EpisodesListPage: React.FC = () => {
         </div>
 
         {/* Search and Filters */}
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
           {/* Search Bar */}
           <form className="flex-1" onSubmit={handleSearch}>
             <div className="relative">
@@ -120,41 +158,76 @@ export const EpisodesListPage: React.FC = () => {
           </form>
 
           {/* Status Filter */}
-          <div className="flex space-x-2">
-            <Button
-              variant={statusFilter === 'all' ? 'primary' : 'secondary'}
-              size="sm"
-              onClick={() => handleStatusFilterChange('all')}
-            >
-              All
-            </Button>
-            <Button
-              variant={statusFilter === 'new' ? 'primary' : 'secondary'}
-              size="sm"
-              onClick={() => handleStatusFilterChange('new')}
-            >
-              New
-            </Button>
-            <Button
-              variant={statusFilter === 'in_progress' ? 'primary' : 'secondary'}
-              size="sm"
-              onClick={() => handleStatusFilterChange('in_progress')}
-            >
-              In Progress
-            </Button>
-            <Button
-              variant={statusFilter === 'played' ? 'primary' : 'secondary'}
-              size="sm"
-              onClick={() => handleStatusFilterChange('played')}
-            >
-              Played
-            </Button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+            <div className="flex space-x-2">
+              <Button
+                variant={statusFilter === 'all' ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => handleStatusFilterChange('all')}
+              >
+                All
+              </Button>
+              <Button
+                variant={statusFilter === 'new' ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => handleStatusFilterChange('new')}
+              >
+                New
+              </Button>
+              <Button
+                variant={statusFilter === 'in_progress' ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => handleStatusFilterChange('in_progress')}
+              >
+                In Progress
+              </Button>
+              <Button
+                variant={statusFilter === 'played' ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => handleStatusFilterChange('played')}
+              >
+                Played
+              </Button>
+            </div>
+
+            <div className="flex items-center">
+              <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => handleViewModeChange('standard')}
+                  className={cn(
+                    'p-2 flex items-center justify-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-l',
+                    viewMode === 'standard' ? 'bg-blue-500 text-white dark:text-white' : 'bg-transparent'
+                  )}
+                  aria-label="Standard layout"
+                  aria-pressed={viewMode === 'standard'}
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M4 5a1 1 0 011-1h10a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 6a1 1 0 011-1h7a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1v-2zm0 6a1 1 0 011-1h5a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1v-2z" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleViewModeChange('compact')}
+                  className={cn(
+                    'p-2 flex items-center justify-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-r',
+                    viewMode === 'compact' ? 'bg-blue-500 text-white dark:text-white' : 'bg-transparent'
+                  )}
+                  aria-label="Compact layout"
+                  aria-pressed={viewMode === 'compact'}
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M4 4.5a1 1 0 011-1h10a1 1 0 010 2H5a1 1 0 01-1-1zm0 4a1 1 0 011-1h10a1 1 0 010 2H5a1 1 0 01-1-1zm0 4a1 1 0 011-1h10a1 1 0 010 2H5a1 1 0 01-1-1zm0 4a1 1 0 011-1h6a1 1 0 010 2H5a1 1 0 01-1-1z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+      <div className="flex-1 min-h-0 flex flex-col overflow-x-hidden">
         {/* Loading State */}
         {loading && (
           <div className="flex flex-col items-center justify-center h-full">
@@ -208,25 +281,60 @@ export const EpisodesListPage: React.FC = () => {
           </div>
         )}
 
-        {/* Episodes List with Virtual Scrolling */}
+        {/* Episodes List */}
         {!loading && !error && episodes.length > 0 && (
-          <div className="flex-1 min-h-0 p-6">
-            <Virtuoso
-              className="h-full"
-              style={{ height: '100%' }}
-              data={episodes}
-              itemContent={(index, episode) => (
-                <div className="mb-4" key={episode.id}>
+          <div className="flex-1 min-h-0 p-6 flex flex-col gap-4">
+            <div
+              className="flex-1 min-h-0 overflow-y-auto pr-1"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
+              <div
+                className={cn(
+                  'space-y-4',
+                  viewMode === 'compact' && 'space-y-2'
+                )}
+              >
+                {paginatedEpisodes.map((episode) => (
                   <EpisodeCard
+                    key={episode.id}
                     episode={episode}
                     onPlay={handlePlayEpisode}
                     onMarkAsPlayed={handleMarkAsPlayed}
                     onMarkAsNew={handleMarkAsNew}
+                    variant={viewMode}
                   />
+                ))}
+              </div>
+            </div>
+
+            {episodes.length > PAGE_SIZE && (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Showing {startIndex + 1}-{endIndex} of {episodes.length} episodes
+                </p>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
                 </div>
-              )}
-              overscan={5}
-            />
+              </div>
+            )}
           </div>
         )}
       </div>
