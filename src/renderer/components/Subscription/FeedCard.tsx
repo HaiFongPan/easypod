@@ -11,6 +11,8 @@ interface FeedCardProps {
   onClick: () => void;
   viewMode?: 'grid' | 'list';
   isRefreshing?: boolean;
+  isActive?: boolean;
+  condensed?: boolean;
 }
 
 const FeedCard: React.FC<FeedCardProps> = ({
@@ -20,6 +22,8 @@ const FeedCard: React.FC<FeedCardProps> = ({
   onClick,
   viewMode = 'grid',
   isRefreshing = false,
+  isActive = false,
+  condensed = false,
 }) => {
   const [imageError, setImageError] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -50,10 +54,52 @@ const FeedCard: React.FC<FeedCardProps> = ({
     setShowDeleteConfirm(false);
   };
 
+  if (viewMode === 'grid' && condensed) {
+    return (
+      <div
+        className={cn(
+          'flex w-full cursor-pointer items-center gap-3 rounded-lg border border-gray-200 bg-white p-2 text-left transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800',
+          isActive && 'border-blue-500 dark:border-blue-400 shadow-lg'
+        )}
+        onClick={onClick}
+      >
+        <div className="relative h-32 w-32 flex-shrink-0 overflow-hidden rounded-md">
+          {!imageError && feed.coverUrl ? (
+            <img
+              src={feed.coverUrl}
+              alt={feed.title}
+              className="h-full w-full object-cover"
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-gray-200 dark:bg-gray-700">
+              <svg className="h-10 w-10 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm3 2h6v4H7V5zm8 8v2h1v-2h-1zm-2-2H7v4h6v-4z" clipRule="evenodd" />
+              </svg>
+            </div>
+          )}
+          <FeedStatusBadge status={isRefreshing ? 'updating' : feed.status} className="scale-90" />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 text-xs font-semibold text-gray-900 dark:text-gray-100">
+            {feed.title}
+          </p>
+          <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+            {feed.episodeCount} episodes
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (viewMode === 'list') {
     return (
       <div
-        className="flex items-center p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow cursor-pointer group"
+        className={cn(
+          "flex items-center p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow cursor-pointer group",
+          isActive && "border-blue-500 dark:border-blue-400 shadow-lg"
+        )}
         onClick={onClick}
       >
         <div className="relative w-16 h-16 flex-shrink-0 mr-4">
@@ -127,7 +173,10 @@ const FeedCard: React.FC<FeedCardProps> = ({
   // Grid view
   return (
     <div
-      className="group relative flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white transition-shadow hover:shadow-lg cursor-pointer dark:border-gray-700 dark:bg-gray-800"
+      className={cn(
+        "group relative flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white transition-shadow hover:shadow-lg cursor-pointer dark:border-gray-700 dark:bg-gray-800",
+        isActive && "border-blue-500 dark:border-blue-400 shadow-lg"
+      )}
       onClick={onClick}
     >
       <div className="relative aspect-square w-full">
