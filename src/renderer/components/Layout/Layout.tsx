@@ -179,12 +179,12 @@ const Layout: React.FC<LayoutProps> = ({
         {/* Main content */}
         <div className="flex-1 flex flex-col min-h-0">
           {/* Content area */}
-        <div className="flex-1 flex flex-col min-h-0 overflow-x-hidden">
+          <div className="flex-1 flex flex-col min-h-0 overflow-x-hidden">
             {children}
           </div>
 
-          {/* Audio Player - temporarily hidden */}
-          {/* <AudioPlayer /> */}
+          {/* Audio Player */}
+          <AudioPlayer />
         </div>
       </div>
     </div>

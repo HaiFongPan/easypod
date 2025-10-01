@@ -3,10 +3,10 @@ import { Episode } from '../../store/episodesStore';
 import { formatDuration, formatDate } from '../../utils/formatters';
 import { cn } from '../../utils/cn';
 import Button from '../Button';
+import PlayPauseButton from '../PlayPauseButton';
 
 interface EpisodeCardProps {
   episode: Episode;
-  onPlay: (episode: Episode) => void;
   onMarkAsPlayed?: (id: number) => void;
   onMarkAsNew?: (id: number) => void;
   variant?: 'standard' | 'compact';
@@ -14,7 +14,6 @@ interface EpisodeCardProps {
 
 export const EpisodeCard: React.FC<EpisodeCardProps> = ({
   episode,
-  onPlay,
   onMarkAsPlayed,
   onMarkAsNew,
   variant = 'standard',
@@ -125,13 +124,11 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
 
         {/* Action Buttons */}
         <div className={cn('flex items-center gap-2 mt-auto', isCompact && 'flex-wrap gap-y-1')}>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => onPlay(episode)}
-          >
-            {episode.status === 'in_progress' ? 'Continue' : 'Play'}
-          </Button>
+          <PlayPauseButton
+            episode={episode}
+            size="md"
+            showTooltip
+          />
 
           {episode.status !== 'played' && onMarkAsPlayed && (
             <Button

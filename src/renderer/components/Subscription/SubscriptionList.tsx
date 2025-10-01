@@ -9,6 +9,7 @@ import AddFeedDialog from './AddFeedDialog';
 import { Episode } from '../../store/episodesStore';
 import { getElectronAPI } from '../../utils/electron';
 import { formatDate, formatDuration } from '../../utils/formatters';
+import PlayPauseButton from '../PlayPauseButton';
 
 interface SubscriptionListProps {
   className?: string;
@@ -538,7 +539,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                               key={episode.id}
                               className="flex gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition hover:border-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-500"
                             >
-                            <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-md bg-gray-200 dark:bg-gray-700">
+                            <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-md bg-gray-200 dark:bg-gray-700 group">
                               <img
                                 src={episode.episodeImageUrl || episode.feedCoverUrl || '/default-cover.png'}
                                 alt={episode.title}
@@ -547,6 +548,9 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                                   (e.target as HTMLImageElement).src = '/default-cover.png';
                                 }}
                               />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <PlayPauseButton episode={episode} size="sm" variant="minimal" />
+                              </div>
                             </div>
                               <div className="flex flex-1 flex-col">
                                 <p

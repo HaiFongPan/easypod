@@ -206,6 +206,10 @@ export class AudioPlayer {
     return this.audio.readyState < 2; // HAVE_CURRENT_DATA
   }
 
+  get audioElement(): HTMLAudioElement {
+    return this.audio;
+  }
+
   getState(): AudioPlayerState {
     return {
       isPlaying: this.isPlaying,

@@ -39,6 +39,11 @@ export const useAudioPlayer = (options: UseAudioPlayerOptions = {}) => {
     const config = { ...defaultConfig, ...options.config };
     audioPlayerRef.current = new AudioPlayer(config);
 
+    // Register audio element with playerStore
+    if (audioPlayerRef.current.audioElement) {
+      setAudioRef(audioPlayerRef.current.audioElement);
+    }
+
     // Set up event listeners
     const player = audioPlayerRef.current;
 

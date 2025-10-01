@@ -34,7 +34,6 @@ export const EpisodesListPage: React.FC = () => {
     markAsNew: state.markAsNew,
   }), shallow);
 
-  const { loadAndPlay } = usePlayerStore();
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState<EpisodesViewMode>('standard');
@@ -77,10 +76,6 @@ export const EpisodesListPage: React.FC = () => {
       return;
     }
     setStatusFilter(status);
-  };
-
-  const handlePlayEpisode = (episode: Episode) => {
-    loadAndPlay(episode);
   };
 
   const handleMarkAsPlayed = async (id: number) => {
@@ -298,7 +293,6 @@ export const EpisodesListPage: React.FC = () => {
                   <EpisodeCard
                     key={episode.id}
                     episode={episode}
-                    onPlay={handlePlayEpisode}
                     onMarkAsPlayed={handleMarkAsPlayed}
                     onMarkAsNew={handleMarkAsNew}
                     variant={viewMode}
