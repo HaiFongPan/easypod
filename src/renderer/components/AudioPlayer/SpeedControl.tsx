@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { cn } from '../../utils/cn';
+import React, { useState } from "react";
+import { cn } from "../../utils/cn";
 
 interface SpeedControlProps {
   playbackRate: number;
@@ -18,7 +18,8 @@ const SpeedControl: React.FC<SpeedControlProps> = ({
 
   const handleSpeedSelect = (speed: number) => {
     onRateChange(speed);
-    setShowOptions(false);
+    // 不立即关闭菜单，让用户可以继续选择
+    // setShowOptions(false);
   };
 
   const cycleSpeed = () => {
@@ -28,41 +29,48 @@ const SpeedControl: React.FC<SpeedControlProps> = ({
   };
 
   return (
-    <div
-      className={cn('relative', className)}
-      onMouseEnter={() => setShowOptions(true)}
-      onMouseLeave={() => setShowOptions(false)}
-    >
-      {/* Speed Button */}
-      <button
-        onClick={cycleSpeed}
-        className={cn(
-          'px-3 py-1 rounded-md text-sm font-medium transition-colors',
-          'hover:bg-gray-100 dark:hover:bg-gray-700',
-          playbackRate !== 1.0 && 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300'
-        )}
-        title="Playback Speed"
+    <div className={cn("relative", className)}>
+      {/* Hover Area - 包含按钮和下拉菜单的整个区域 */}
+      <div
+        onMouseEnter={() => setShowOptions(true)}
+        onMouseLeave={() => setShowOptions(false)}
+        className="relative"
       >
-        {playbackRate === 1.0 ? '1×' : `${playbackRate}×`}
-      </button>
+        {/* Speed Button */}
+        <button
+          onClick={cycleSpeed}
+          className={cn(
+            "w-12 px-3 py-1 rounded-md text-sm font-medium transition-colors",
+            "hover:bg-gray-100 dark:hover:bg-gray-700",
+            playbackRate !== 1.0 &&
+              "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300",
+          )}
+          title="Playback Speed"
+        >
+          {playbackRate === 1.0 ? "1×" : `${playbackRate}×`}
+        </button>
 
-      {/* Speed Options Dropdown */}
-      {showOptions && (
-        <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 min-w-[80px] animate-fade-in">
-          {SPEED_OPTIONS.map((speed) => (
-            <button
-              key={speed}
-              onClick={() => handleSpeedSelect(speed)}
-              className={cn(
-                'w-full px-3 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors',
-                speed === playbackRate && 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300'
-              )}
-            >
-              {speed === 1.0 ? '1× (Normal)' : `${speed}×`}
-            </button>
-          ))}
-        </div>
-      )}
+        {/* Speed Options Dropdown */}
+        {showOptions && (
+          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 pb-2">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 min-w-[80px]">
+              {SPEED_OPTIONS.map((speed) => (
+                <button
+                  key={speed}
+                  onClick={() => handleSpeedSelect(speed)}
+                  className={cn(
+                    "w-full px-3 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors",
+                    speed === playbackRate &&
+                      "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300",
+                  )}
+                >
+                  {speed === 1.0 ? "1×" : `${speed}×`}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

@@ -13,6 +13,7 @@ interface PlayerStore {
   playbackRate: number; // 0.5-3.0
   isLoading: boolean;
   error: string | null;
+  isMuted: boolean;
 
   // Audio element reference
   audioRef: HTMLAudioElement | null;
@@ -27,6 +28,7 @@ interface PlayerStore {
   seek: (position: number) => void;
   setVolume: (volume: number) => void;
   setPlaybackRate: (rate: number) => void;
+  toggleMute: () => void;
   skipForward: (seconds?: number) => void;
   skipBackward: (seconds?: number) => void;
   setPosition: (position: number) => void;
@@ -52,6 +54,7 @@ export const usePlayerStore = create<PlayerStore>()(
         playbackRate: settings.defaultPlaybackRate,
         isLoading: false,
         error: null,
+        isMuted: false,
         audioRef: null,
 
         // Actions
@@ -70,6 +73,13 @@ export const usePlayerStore = create<PlayerStore>()(
           if (audioRef) {
             audioRef.src = episode.audioUrl;
             audioRef.currentTime = episode.lastPositionSec || 0;
+
+            // Set loading to false when audio can play
+            const handleCanPlay = () => {
+              set({ isLoading: false });
+              audioRef.removeEventListener('canplay', handleCanPlay);
+            };
+            audioRef.addEventListener('canplay', handleCanPlay);
           }
         },
 
@@ -84,11 +94,15 @@ export const usePlayerStore = create<PlayerStore>()(
         play: () => {
           const { audioRef } = get();
           if (audioRef) {
-            audioRef.play().catch((error) => {
-              set({ error: error.message, isLoading: false });
-            });
+            audioRef.play()
+              .then(() => {
+                set({ isPlaying: true, isLoading: false });
+              })
+              .catch((error) => {
+                console.error('Play error:', error);
+                set({ error: error.message, isLoading: false, isPlaying: false });
+              });
           }
-          set({ isPlaying: true });
         },
 
         pause: () => {
@@ -136,6 +150,14 @@ export const usePlayerStore = create<PlayerStore>()(
             audioRef.playbackRate = clampedRate;
           }
           set({ playbackRate: clampedRate });
+        },
+
+        toggleMute: () => {
+          const { audioRef } = get();
+          if (audioRef) {
+            audioRef.muted = !audioRef.muted;
+            set({ isMuted: audioRef.muted });
+          }
         },
 
         skipForward: (seconds = 10) => {

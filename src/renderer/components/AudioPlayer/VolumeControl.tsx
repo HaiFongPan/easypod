@@ -47,7 +47,7 @@ const VolumeControl: React.FC<VolumeControlProps> = ({
     }
   };
 
-  const handleVolumeClick = useCallback((e: MouseEvent<HTMLDivElement>) => {
+  const handleVolumeChange = useCallback((e: MouseEvent<HTMLDivElement>) => {
     if (!volumeRef.current) return;
 
     const rect = volumeRef.current.getBoundingClientRect();
@@ -58,53 +58,70 @@ const VolumeControl: React.FC<VolumeControlProps> = ({
     onVolumeChange(newVolume);
   }, [onVolumeChange]);
 
+  const handleMouseDown = useCallback((e: MouseEvent<HTMLDivElement>) => {
+    handleVolumeChange(e);
+
+    const handleMouseMove = (moveEvent: globalThis.MouseEvent) => {
+      if (!volumeRef.current) return;
+      const rect = volumeRef.current.getBoundingClientRect();
+      const clickY = moveEvent.clientY - rect.top;
+      const percentage = 1 - (clickY / rect.height);
+      const newVolume = Math.max(0, Math.min(1, percentage));
+      onVolumeChange(newVolume);
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [onVolumeChange]);
+
   const displayVolume = isMuted ? 0 : volume;
 
   return (
-    <div
-      className={cn('relative flex items-center', className)}
-      onMouseEnter={() => setShowSlider(true)}
-      onMouseLeave={() => setShowSlider(false)}
-    >
-      {/* Volume Icon */}
-      <button
-        onClick={onMuteToggle}
-        className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-        title={isMuted ? 'Unmute' : 'Mute'}
+    <div className={cn('relative flex items-center', className)}>
+      {/* Hover Area - 包含按钮和滑块的整个区域 */}
+      <div
+        onMouseEnter={() => setShowSlider(true)}
+        onMouseLeave={() => setShowSlider(false)}
+        className="relative"
       >
-        {getVolumeIcon()}
-      </button>
+        {/* Volume Icon */}
+        <button
+          onClick={onMuteToggle}
+          className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          title={isMuted ? 'Unmute' : 'Mute'}
+        >
+          {getVolumeIcon()}
+        </button>
 
-      {/* Volume Slider */}
-      {showSlider && (
-        <div className="absolute left-full ml-2 bottom-0 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-2 animate-fade-in">
-          <div
-            ref={volumeRef}
-            className="w-6 h-20 bg-gray-200 dark:bg-gray-700 rounded-full relative cursor-pointer"
-            onClick={handleVolumeClick}
-          >
-            {/* Volume fill */}
-            <div
-              className="absolute bottom-0 left-0 w-full bg-primary-600 rounded-full transition-all duration-150"
-              style={{ height: `${displayVolume * 100}%` }}
-            />
+        {/* Volume Slider - 显示在按钮上方 */}
+        {showSlider && (
+          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 pb-2">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 px-4 py-3 flex flex-col items-center">
+              <div
+                ref={volumeRef}
+                className="w-1 h-24 bg-gray-200 dark:bg-gray-700 rounded-full relative cursor-pointer"
+                onMouseDown={handleMouseDown}
+              >
+                {/* Volume fill */}
+                <div
+                  className="absolute bottom-0 left-0 w-full bg-blue-600 dark:bg-blue-500 rounded-full"
+                  style={{ height: `${displayVolume * 100}%` }}
+                />
+              </div>
 
-            {/* Volume thumb */}
-            <div
-              className="absolute w-4 h-4 bg-primary-600 rounded-full transform -translate-x-1/2 -translate-y-1/2 shadow-lg"
-              style={{
-                left: '50%',
-                bottom: `${displayVolume * 100}%`
-              }}
-            />
+              {/* Volume percentage */}
+              <div className="text-xs text-center mt-2 text-gray-600 dark:text-gray-400">
+                {Math.round(displayVolume * 100)}%
+              </div>
+            </div>
           </div>
-
-          {/* Volume percentage */}
-          <div className="text-xs text-center mt-1 text-gray-600 dark:text-gray-400">
-            {Math.round(displayVolume * 100)}%
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
