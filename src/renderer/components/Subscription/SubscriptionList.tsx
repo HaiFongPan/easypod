@@ -537,9 +537,9 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                           return (
                             <div
                               key={episode.id}
-                              className="flex gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition hover:border-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-500"
+                              className="group flex gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition hover:border-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-500"
                             >
-                            <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-md bg-gray-200 dark:bg-gray-700 group">
+                            <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-md bg-gray-200 dark:bg-gray-700">
                               <img
                                 src={episode.episodeImageUrl || episode.feedCoverUrl || '/default-cover.png'}
                                 alt={episode.title}
