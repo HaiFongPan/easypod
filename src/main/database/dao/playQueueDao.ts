@@ -25,7 +25,7 @@ interface QueueRow {
   episode: EpisodeWithFeed;
 }
 
-type InsertPositionStrategy = number | 'start' | 'end' | undefined;
+type InsertPositionStrategy = number | 'play-next' | 'end' | undefined;
 
 export class PlayQueueDao {
   private get db() {
@@ -68,8 +68,12 @@ export class PlayQueueDao {
     return rows.map((row) => this.mapRow(row));
   }
 
-  async add(episodeId: number, strategy?: InsertPositionStrategy): Promise<PlayQueueEntry | null> {
-    const position = await this.computeInsertPosition(strategy);
+  async add(
+    episodeId: number,
+    strategy?: InsertPositionStrategy,
+    currentIndex?: number
+  ): Promise<PlayQueueEntry | null> {
+    const position = await this.computeInsertPosition(strategy, currentIndex);
 
     await this.db
       .insert(playQueue)
@@ -158,41 +162,65 @@ export class PlayQueueDao {
     return this.mapRow(record);
   }
 
-  private async computeInsertPosition(strategy?: InsertPositionStrategy): Promise<number> {
+  private async computeInsertPosition(
+    strategy?: InsertPositionStrategy,
+    currentIndex?: number
+  ): Promise<number> {
     if (typeof strategy === 'number') {
       return strategy;
     }
 
-    const [{ minPosition } = { minPosition: null }] = await this.db
-      .select({ minPosition: playQueue.position })
+    // Get current queue sorted by position
+    const queue = await this.db
+      .select({
+        position: playQueue.position,
+      })
       .from(playQueue)
-      .orderBy(asc(playQueue.position))
-      .limit(1);
+      .orderBy(asc(playQueue.position));
 
-    const [{ maxPosition } = { maxPosition: null }] = await this.db
-      .select({ maxPosition: playQueue.position })
-      .from(playQueue)
-      .orderBy(desc(playQueue.position))
-      .limit(1);
-
-    if (strategy === 'start') {
-      if (minPosition === null) {
+    // Handle 'play-next' strategy
+    if (strategy === 'play-next') {
+      // Case 1: Empty queue
+      if (queue.length === 0) {
         return POSITION_GAP;
       }
-      return minPosition - POSITION_GAP;
+
+      // Case 2: No current playing or invalid currentIndex
+      if (currentIndex === undefined || currentIndex === -1) {
+        // Insert before the first item
+        const minPosition = queue[0].position;
+        return minPosition - POSITION_GAP;
+      }
+
+      // Case 3: currentIndex is at the end of queue
+      if (currentIndex >= queue.length - 1) {
+        // Insert at the end
+        const maxPosition = queue[queue.length - 1].position;
+        return maxPosition + POSITION_GAP;
+      }
+
+      // Case 4: currentIndex is in the middle
+      const currentPosition = queue[currentIndex].position;
+      const nextPosition = queue[currentIndex + 1].position;
+
+      // Calculate middle position
+      return Math.floor((currentPosition + nextPosition) / 2);
     }
 
+    // Handle 'end' strategy
     if (strategy === 'end') {
-      if (maxPosition === null) {
+      if (queue.length === 0) {
         return POSITION_GAP;
       }
+      const maxPosition = queue[queue.length - 1].position;
       return maxPosition + POSITION_GAP;
     }
 
-    if (maxPosition === null) {
+    // Default: add to end
+    if (queue.length === 0) {
       return POSITION_GAP;
     }
-
+    const maxPosition = queue[queue.length - 1].position;
     return maxPosition + POSITION_GAP;
   }
 

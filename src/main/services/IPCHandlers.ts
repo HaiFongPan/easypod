@@ -618,10 +618,11 @@ export class FeedIPCHandlers {
   private async handleAddToPlayQueue(
     event: IpcMainInvokeEvent,
     episodeId: number,
-    strategy?: number | 'start' | 'end'
+    strategy?: number | 'play-next' | 'end',
+    currentIndex?: number
   ): Promise<{ success: boolean; queue: PlayQueueEntry[]; error?: string }> {
     try {
-      await this.playQueueDao.add(episodeId, strategy);
+      await this.playQueueDao.add(episodeId, strategy, currentIndex);
       const queue = await this.playQueueDao.getAll();
       return { success: true, queue };
     } catch (error) {

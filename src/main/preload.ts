@@ -68,8 +68,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Play queue management
   playQueue: {
     getAll: () => ipcRenderer.invoke('playQueue:getAll'),
-    add: (episodeId: number, position?: number | 'start' | 'end') =>
-      ipcRenderer.invoke('playQueue:add', episodeId, position),
+    add: (episodeId: number, strategy?: number | 'play-next' | 'end', currentIndex?: number) =>
+      ipcRenderer.invoke('playQueue:add', episodeId, strategy, currentIndex),
     remove: (episodeId: number) =>
       ipcRenderer.invoke('playQueue:remove', episodeId),
     reorder: (items: Array<{ id: number; position: number }>) =>
@@ -127,7 +127,8 @@ export interface ElectronAPI {
     getAll: () => Promise<any[]>;
     add: (
       episodeId: number,
-      position?: number | 'start' | 'end'
+      strategy?: number | 'play-next' | 'end',
+      currentIndex?: number
     ) => Promise<{ success: boolean; queue: any[]; error?: string }>;
     remove: (episodeId: number) => Promise<{ success: boolean; queue: any[]; error?: string }>;
     reorder: (

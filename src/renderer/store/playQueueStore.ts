@@ -18,7 +18,7 @@ interface PlayQueueStore {
   error: string | null;
 
   loadQueue: () => Promise<void>;
-  addToQueueStart: (episode: Episode) => Promise<void>;
+  addPlayNext: (episode: Episode) => Promise<void>;
   addToQueueEnd: (episode: Episode) => Promise<void>;
   moveToQueueStart: (episode: Episode) => Promise<void>;
   removeFromQueue: (episodeId: number) => Promise<void>;
@@ -75,11 +75,16 @@ export const usePlayQueueStore = create<PlayQueueStore>()(
       }
     },
 
-    async addToQueueStart(episode) {
+    async addPlayNext(episode) {
+      const { currentIndex } = get();
       try {
-        const result = await window.electronAPI.playQueue.add(episode.id, 'start');
+        const result = await window.electronAPI.playQueue.add(
+          episode.id,
+          'play-next',
+          currentIndex
+        );
         if (!result.success) {
-          throw new Error(result.error || 'Unable to add to queue start');
+          throw new Error(result.error || 'Unable to add play next');
         }
         const queue = mapQueueResponse(result.queue);
         set({
@@ -88,9 +93,9 @@ export const usePlayQueueStore = create<PlayQueueStore>()(
           error: null,
         });
       } catch (error) {
-        console.error('[PlayQueueStore] Failed to add to queue start', error);
+        console.error('[PlayQueueStore] Failed to add play next', error);
         set({
-          error: error instanceof Error ? error.message : 'Failed to add to queue',
+          error: error instanceof Error ? error.message : 'Failed to add play next',
         });
       }
     },
@@ -128,8 +133,8 @@ export const usePlayQueueStore = create<PlayQueueStore>()(
           }
         }
 
-        // Add to queue start
-        const result = await window.electronAPI.playQueue.add(episode.id, 'start');
+        // Add to queue start (use play-next with currentIndex = -1 to insert at absolute first position)
+        const result = await window.electronAPI.playQueue.add(episode.id, 'play-next', -1);
         if (!result.success) {
           throw new Error(result.error || 'Unable to move to queue start');
         }

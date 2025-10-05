@@ -550,7 +550,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                                 }}
                               />
                               <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                                <QueueAddButton episode={episode} placement="start" />
+                                <QueueAddButton episode={episode} placement="next" />
                                 <PlayPauseButton episode={episode} size="sm" variant="minimal" />
                                 <QueueAddButton episode={episode} placement="end" />
                               </div>

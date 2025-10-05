@@ -134,7 +134,7 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
         {/* Action Buttons */}
         <div className={cn('flex items-center gap-2 mt-auto', isCompact && 'flex-wrap gap-y-1')}>
           <div className="flex items-center gap-1">
-            <QueueAddButton episode={episode} placement="start" />
+            <QueueAddButton episode={episode} placement="next" />
             <QueueAddButton episode={episode} placement="end" />
           </div>
 

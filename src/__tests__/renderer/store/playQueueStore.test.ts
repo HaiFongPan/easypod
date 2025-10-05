@@ -83,7 +83,7 @@ describe('playQueueStore', () => {
     expect(state.currentIndex).toBe(-1);
   });
 
-  it('adds an episode to queue start and updates state', async () => {
+  it('adds an episode to play next and updates state', async () => {
     const episode = baseEpisode({ id: 2, title: 'Episode B' });
     const playQueueApi = globalAny.window.electronAPI.playQueue;
     playQueueApi.add.mockResolvedValue({
@@ -94,10 +94,10 @@ describe('playQueueStore', () => {
     });
 
     await act(async () => {
-      await usePlayQueueStore.getState().addToQueueStart(episode);
+      await usePlayQueueStore.getState().addPlayNext(episode);
     });
 
-    expect(playQueueApi.add).toHaveBeenCalledWith(episode.id, 'start');
+    expect(playQueueApi.add).toHaveBeenCalledWith(episode.id, 'play-next', -1);
     const state = usePlayQueueStore.getState();
     expect(state.queue).toHaveLength(1);
     expect(state.queue[0].episodeId).toBe(episode.id);

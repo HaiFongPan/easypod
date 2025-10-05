@@ -3,7 +3,7 @@ import { cn } from '../utils/cn';
 import { Episode } from '../store/episodesStore';
 import { usePlayQueueStore } from '../store/playQueueStore';
 
-type QueuePlacement = 'start' | 'end';
+type QueuePlacement = 'next' | 'end';
 
 type QueueAddButtonSize = 'sm' | 'md' | 'lg';
 
@@ -28,12 +28,12 @@ const iconSizeClasses: Record<QueueAddButtonSize, string> = {
 };
 
 const iconPaths: Record<QueuePlacement, string[]> = {
-  start: [
-    'M3 5h6',
-    'M3 12h13',
-    'M3 19h13',
-    'm16 8-3-3 3-3',
-    'M21 19V7a2 2 0 0 0-2-2h-6',
+  next: [
+    'M11 12H3',
+    'M16 6H3',
+    'M16 18H3',
+    'M18 9v6',
+    'M21 12h-6',
   ],
   end: [
     'M16 5H3',
@@ -52,8 +52,8 @@ export const QueueAddButton: React.FC<QueueAddButtonProps> = ({
   stopPropagation = true,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
-  const { addToQueueStart, addToQueueEnd, isInQueue } = usePlayQueueStore((state) => ({
-    addToQueueStart: state.addToQueueStart,
+  const { addPlayNext, addToQueueEnd, isInQueue } = usePlayQueueStore((state) => ({
+    addPlayNext: state.addPlayNext,
     addToQueueEnd: state.addToQueueEnd,
     isInQueue: state.queue.some((item) => item.episodeId === episode.id),
   }));
@@ -69,8 +69,8 @@ export const QueueAddButton: React.FC<QueueAddButtonProps> = ({
 
     setIsLoading(true);
     try {
-      if (placement === 'start') {
-        await addToQueueStart(episode);
+      if (placement === 'next') {
+        await addPlayNext(episode);
       } else {
         await addToQueueEnd(episode);
       }
@@ -79,9 +79,9 @@ export const QueueAddButton: React.FC<QueueAddButtonProps> = ({
     }
   };
 
-  const title = placement === 'start'
-    ? isInQueue ? `Move "${episode.title}" to queue start` : `Add "${episode.title}" to queue start`
-    : isInQueue ? `Move "${episode.title}" to queue end` : `Add "${episode.title}" to queue end`;
+  const title = placement === 'next'
+    ? isInQueue ? `Already in queue` : `Play "${episode.title}" next`
+    : isInQueue ? `Already in queue` : `Add "${episode.title}" to queue end`;
 
   return (
     <button
