@@ -1,19 +1,20 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { cn } from '../../utils/cn';
 import { useAudioPlayer } from '../../hooks/useAudioPlayer';
 import { usePlayerStore } from '../../store/playerStore';
+import { usePlayQueueStore } from '../../store/playQueueStore';
 import ProgressBar from './ProgressBar';
 import VolumeControl from './VolumeControl';
 import SpeedControl from './SpeedControl';
-import Button from '../Button';
-import Loading from '../Loading';
 import PlayPauseButton from '../PlayPauseButton';
+import QueuePanel from './QueuePanel';
 
 interface AudioPlayerProps {
   className?: string;
 }
 
 const AudioPlayer: React.FC<AudioPlayerProps> = ({ className }) => {
+  const [isQueueOpen, setIsQueueOpen] = useState(false);
   const {
     currentEpisode,
     isPlaying,
@@ -43,6 +44,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ className }) => {
       skipBackwardSeconds: 10,
     },
   });
+  const queueLength = usePlayQueueStore((state) => state.queue.length);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -192,6 +194,33 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ className }) => {
           onVolumeChange={setVolume}
           onMuteToggle={toggleMute}
         />
+
+        {/* Queue Panel Toggle */}
+        <div
+          className="relative"
+          onMouseEnter={() => setIsQueueOpen(true)}
+          onMouseLeave={() => setIsQueueOpen(false)}
+        >
+          <button
+            type="button"
+            className={cn(
+              'relative flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-gray-600 shadow-sm transition hover:border-blue-400 hover:text-blue-600 dark:border-gray-600 dark:text-gray-300 dark:hover:border-blue-500 dark:hover:text-blue-400',
+              isQueueOpen && 'border-blue-400 text-blue-600 dark:border-blue-500 dark:text-blue-300'
+            )}
+            title="Show play queue"
+          >
+            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M4 5a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM4 9a1 1 0 011-1h6a1 1 0 110 2H5a1 1 0 01-1-1zM4 13a1 1 0 011-1h4a1 1 0 110 2H5a1 1 0 01-1-1z" />
+            </svg>
+            {queueLength > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-blue-500 px-1 text-xs font-bold text-white">
+                {queueLength}
+              </span>
+            )}
+          </button>
+
+          {isQueueOpen && <QueuePanel />}
+        </div>
       </div>
 
       {/* Error Display */}
