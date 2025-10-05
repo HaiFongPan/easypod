@@ -29,7 +29,7 @@ const PlayPauseButton: React.FC<PlayPauseButtonProps> = ({
       playPause: state.playPause,
     })
   );
-  const addToQueueStart = usePlayQueueStore((state) => state.addToQueueStart);
+  const moveToQueueStart = usePlayQueueStore((state) => state.moveToQueueStart);
 
   // Determine if this episode is currently playing
   const isCurrentEpisode = currentEpisode?.id === episode.id;
@@ -61,7 +61,7 @@ const PlayPauseButton: React.FC<PlayPauseButtonProps> = ({
       playPause(); // Toggle if same episode
     } else {
       if (!skipAutoQueue) {
-        await addToQueueStart(episode);
+        await moveToQueueStart(episode);
       }
       loadAndPlay(episode); // Load and play if different episode
     }

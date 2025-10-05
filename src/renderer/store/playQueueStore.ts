@@ -20,6 +20,7 @@ interface PlayQueueStore {
   loadQueue: () => Promise<void>;
   addToQueueStart: (episode: Episode) => Promise<void>;
   addToQueueEnd: (episode: Episode) => Promise<void>;
+  moveToQueueStart: (episode: Episode) => Promise<void>;
   removeFromQueue: (episodeId: number) => Promise<void>;
   clearQueue: () => Promise<void>;
   playNext: () => void;
@@ -110,6 +111,38 @@ export const usePlayQueueStore = create<PlayQueueStore>()(
         console.error('[PlayQueueStore] Failed to add to queue end', error);
         set({
           error: error instanceof Error ? error.message : 'Failed to add to queue',
+        });
+      }
+    },
+
+    async moveToQueueStart(episode) {
+      const { queue } = get();
+      const isInQueue = queue.some((item) => item.episodeId === episode.id);
+
+      try {
+        if (isInQueue) {
+          // Remove from queue first
+          const removeResult = await window.electronAPI.playQueue.remove(episode.id);
+          if (!removeResult.success) {
+            throw new Error(removeResult.error || 'Unable to remove from queue');
+          }
+        }
+
+        // Add to queue start
+        const result = await window.electronAPI.playQueue.add(episode.id, 'start');
+        if (!result.success) {
+          throw new Error(result.error || 'Unable to move to queue start');
+        }
+        const updatedQueue = mapQueueResponse(result.queue);
+        set({
+          queue: updatedQueue,
+          currentIndex: computeCurrentIndex(updatedQueue),
+          error: null,
+        });
+      } catch (error) {
+        console.error('[PlayQueueStore] Failed to move to queue start', error);
+        set({
+          error: error instanceof Error ? error.message : 'Failed to move to queue start',
         });
       }
     },

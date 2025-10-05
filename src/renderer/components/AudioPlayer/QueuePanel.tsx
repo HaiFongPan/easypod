@@ -12,6 +12,7 @@ const QueuePanel: React.FC = () => {
     clearQueue,
     reorderQueue,
     setCurrentIndex,
+    moveToQueueStart,
   } = usePlayQueueStore((state) => ({
     queue: state.queue,
     currentIndex: state.currentIndex,
@@ -19,6 +20,7 @@ const QueuePanel: React.FC = () => {
     clearQueue: state.clearQueue,
     reorderQueue: state.reorderQueue,
     setCurrentIndex: state.setCurrentIndex,
+    moveToQueueStart: state.moveToQueueStart,
   }));
 
   const { loadAndPlay, currentEpisode } = usePlayerStore((state) => ({
@@ -33,7 +35,8 @@ const QueuePanel: React.FC = () => {
     if (!item) {
       return;
     }
-    setCurrentIndex(index);
+    // Move to queue start before playing
+    await moveToQueueStart(item.episode);
     loadAndPlay(item.episode);
   };
 
@@ -77,8 +80,9 @@ const QueuePanel: React.FC = () => {
   const isEmpty = queue.length === 0;
 
   return (
-    <div className="absolute bottom-full right-0 mb-3 w-96 max-h-96 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800">
-      <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900">
+    <div className="absolute bottom-full right-0 pb-2">
+      <div className="w-96 max-h-96 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800">
+        <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900">
         <div>
           <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Play Queue</p>
           <p className="text-xs text-gray-500 dark:text-gray-400">{queue.length} item{queue.length === 1 ? '' : 's'}</p>
@@ -134,7 +138,6 @@ const QueuePanel: React.FC = () => {
                       episode={item.episode}
                       size="sm"
                       variant="minimal"
-                      skipAutoQueue
                     />
                     <button
                       type="button"
@@ -163,6 +166,7 @@ const QueuePanel: React.FC = () => {
             })}
           </ol>
         )}
+      </div>
       </div>
     </div>
   );

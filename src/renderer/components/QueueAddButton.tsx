@@ -89,10 +89,14 @@ export const QueueAddButton: React.FC<QueueAddButtonProps> = ({
       onClick={handleClick}
       title={title}
       aria-label={title}
-      disabled={isLoading}
+      disabled={isLoading || isInQueue}
       className={cn(
         sizeClasses[size],
-        'flex items-center justify-center rounded-full bg-transparent text-blue-600 hover:text-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-50 transition-colors',
+        'flex items-center justify-center rounded-full bg-transparent transition-colors',
+        isInQueue
+          ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+          : 'text-blue-600 hover:text-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-300',
+        'disabled:cursor-not-allowed disabled:opacity-50',
         className,
       )}
     >
