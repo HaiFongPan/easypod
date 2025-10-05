@@ -707,10 +707,17 @@ export class FeedIPCHandlers {
   private async handleSavePlaybackState(
     event: IpcMainInvokeEvent,
     episodeId: number | null,
-    position: number
+    position: number,
+    duration?: number
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      await this.playbackStateDao.save(episodeId, position);
+      // Use new unified save method if duration is provided
+      if (duration !== undefined && duration > 0) {
+        await this.playbackStateDao.saveWithEpisodeUpdate(episodeId, position, duration);
+      } else {
+        // Fallback to original save for backward compatibility
+        await this.playbackStateDao.save(episodeId, position);
+      }
       return { success: true };
     } catch (error) {
       console.error('Error saving playback state:', error);

@@ -2,6 +2,7 @@ import { eq, sql } from 'drizzle-orm';
 import { getDatabaseManager } from '../connection';
 import { playbackState, episodes, feeds } from '../schema';
 import type { EpisodeWithFeed } from './episodesDao';
+import { EpisodesDao } from './episodesDao';
 
 export interface PlaybackStateEntry {
   id: number;
@@ -16,6 +17,12 @@ export interface PlaybackStateWithEpisode {
 }
 
 export class PlaybackStateDao {
+  private episodesDao: EpisodesDao;
+
+  constructor() {
+    this.episodesDao = new EpisodesDao();
+  }
+
   private get db() {
     return getDatabaseManager().getDrizzle();
   }
@@ -123,5 +130,65 @@ export class PlaybackStateDao {
         updatedAt: sql`CURRENT_TIMESTAMP`,
       })
       .where(eq(playbackState.id, 1));
+  }
+
+  /**
+   * Save playback state and synchronously update episode progress
+   * @param currentEpisodeId - Episode ID being played
+   * @param currentPosition - Current playback position in seconds
+   * @param duration - Total episode duration in seconds (optional)
+   */
+  async saveWithEpisodeUpdate(
+    currentEpisodeId: number | null,
+    currentPosition: number,
+    duration: number = 0
+  ): Promise<void> {
+    const clampedPosition = Number.isFinite(currentPosition) && currentPosition >= 0
+      ? Math.floor(currentPosition)
+      : 0;
+
+    // Save to playbackState table
+    await this.db
+      .insert(playbackState)
+      .values({
+        id: 1,
+        currentEpisodeId,
+        currentPosition: clampedPosition,
+        updatedAt: sql`CURRENT_TIMESTAMP`,
+      })
+      .onConflictDoUpdate({
+        target: playbackState.id,
+        set: {
+          currentEpisodeId,
+          currentPosition: clampedPosition,
+          updatedAt: sql`CURRENT_TIMESTAMP`,
+        },
+      });
+
+    // Update episode progress if episode is being played
+    if (currentEpisodeId && duration > 0) {
+      const progressPercentage = (clampedPosition / duration) * 100;
+      let newStatus: 'new' | 'in_progress' | 'archived';
+
+      // Determine episode status based on progress
+      if (clampedPosition === 0) {
+        newStatus = 'new'; // Not played yet
+      } else if (progressPercentage >= 95) {
+        newStatus = 'archived'; // More than 95% played (consider finished)
+      } else {
+        newStatus = 'in_progress'; // Anything between 0% and 95% is in progress
+      }
+
+      const now = new Date().toISOString();
+      await this.db
+        .update(episodes)
+        .set({
+          lastPositionSec: clampedPosition,
+          lastPlayedAt: now,
+          status: newStatus,
+          updatedAt: now,
+        })
+        .where(eq(episodes.id, currentEpisodeId));
+    }
   }
 }

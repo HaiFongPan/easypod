@@ -34,7 +34,9 @@ interface EpisodesStore {
   searchEpisodes: (query: string) => Promise<void>;
   setSearchQuery: (query: string) => void;
   setStatusFilter: (status: 'all' | 'new' | 'in_progress' | 'played' | 'archived') => void;
-  updateEpisodeProgress: (id: number, lastPositionSec: number, status?: string) => Promise<void>;
+  // Note: Episode progress is now automatically updated via playbackState.save()
+  // updateEpisodeProgress: (id: number, lastPositionSec: number, status?: string) => Promise<void>;
+  updateLocalEpisode: (id: number, updates: Partial<Episode>) => void;
   markAsPlayed: (id: number) => Promise<void>;
   markAsNew: (id: number) => Promise<void>;
   markAsArchived: (id: number) => Promise<void>;
@@ -125,28 +127,16 @@ export const useEpisodesStore = create<EpisodesStore>((set, get) => ({
     get().fetchAllEpisodes();
   },
 
-  updateEpisodeProgress: async (id: number, lastPositionSec: number, status?: string) => {
-    try {
-      const result = await window.electronAPI.episodes.updateProgress({
-        id,
-        lastPositionSec,
-        lastPlayedAt: new Date().toISOString(),
-        status,
-      });
+  // updateEpisodeProgress is removed - episode progress is now automatically
+  // updated via playbackStateDao.saveWithEpisodeUpdate() when saving playback state
 
-      if (result.success) {
-        // Update local state
-        set(state => ({
-          episodes: state.episodes.map(ep =>
-            ep.id === id
-              ? { ...ep, lastPositionSec, status: (status as Episode['status']) || ep.status }
-              : ep
-          )
-        }));
-      }
-    } catch (error) {
-      console.error('Failed to update episode progress:', error);
-    }
+  // Update local episode state (for immediate UI refresh)
+  updateLocalEpisode: (id: number, updates: Partial<Episode>) => {
+    set(state => ({
+      episodes: state.episodes.map(ep =>
+        ep.id === id ? { ...ep, ...updates } : ep
+      )
+    }));
   },
 
   markAsPlayed: async (id: number) => {

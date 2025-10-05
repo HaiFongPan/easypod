@@ -333,6 +333,7 @@ const createMockElectronAPI = (): ElectronAPI => {
       updateProgress: async () => ({ success: true }),
       markAsPlayed: async () => ({ success: true }),
       markAsNew: async () => ({ success: true }),
+      markAsArchived: async () => ({ success: true }),
       getRecentlyPlayed: async () => [],
     },
     playQueue: {

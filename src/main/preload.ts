@@ -80,8 +80,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Playback state persistence
   playbackState: {
     get: () => ipcRenderer.invoke('playbackState:get'),
-    save: (episodeId: number | null, position: number) =>
-      ipcRenderer.invoke('playbackState:save', episodeId, position),
+    save: (episodeId: number | null, position: number, duration?: number) =>
+      ipcRenderer.invoke('playbackState:save', episodeId, position, duration),
   },
 });
 
@@ -137,7 +137,7 @@ export interface ElectronAPI {
   };
   playbackState: {
     get: () => Promise<{ state: { id: number; currentEpisodeId: number | null; currentPosition: number; updatedAt: string | null }; episode: any | null }>;
-    save: (episodeId: number | null, position: number) => Promise<{ success: boolean; error?: string }>;
+    save: (episodeId: number | null, position: number, duration?: number) => Promise<{ success: boolean; error?: string }>;
   };
 }
 

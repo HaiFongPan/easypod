@@ -1,10 +1,12 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { Episode } from './episodesStore';
+import { Episode, useEpisodesStore } from './episodesStore';
 import { useSettingsStore } from './settingsStore';
 
 const PLAYBACK_SAVE_DEBOUNCE = 10_000;
+const PLAYBACK_SAVE_INTERVAL = 5_000; // Auto-save every 5 seconds during playback
 let playbackStateTimeout: ReturnType<typeof setTimeout> | null = null;
+let playbackSaveInterval: ReturnType<typeof setInterval> | null = null;
 
 interface PlayerStore {
   // State
@@ -112,6 +114,13 @@ export const usePlayerStore = create<PlayerStore>()(
             audioRef.play()
               .then(() => {
                 set({ isPlaying: true, isLoading: false });
+                // Start periodic save when playing
+                if (playbackSaveInterval) {
+                  clearInterval(playbackSaveInterval);
+                }
+                playbackSaveInterval = setInterval(() => {
+                  void get().savePlaybackState({ immediate: true });
+                }, PLAYBACK_SAVE_INTERVAL);
               })
               .catch((error) => {
                 console.error('Play error:', error);
@@ -126,6 +135,11 @@ export const usePlayerStore = create<PlayerStore>()(
             audioRef.pause();
           }
           set({ isPlaying: false });
+          // Stop periodic save when paused
+          if (playbackSaveInterval) {
+            clearInterval(playbackSaveInterval);
+            playbackSaveInterval = null;
+          }
           void get().savePlaybackState({ immediate: true });
         },
 
@@ -188,7 +202,7 @@ export const usePlayerStore = create<PlayerStore>()(
 
         setPosition: (position) => {
           set({ position });
-          void get().savePlaybackState();
+          // Don't save here - periodic save will handle it during playback
         },
         setDuration: (duration) => set({ duration }),
         setLoading: (isLoading) => set({ isLoading }),
@@ -232,12 +246,34 @@ export const usePlayerStore = create<PlayerStore>()(
           const { immediate = false } = options;
 
           const performSave = async () => {
-            const { currentEpisode, position } = get();
+            const { currentEpisode, position, duration } = get();
             const episodeId = currentEpisode ? currentEpisode.id : null;
             const clampedPosition = Number.isFinite(position) && position > 0 ? Math.floor(position) : 0;
 
             try {
-              await window.electronAPI.playbackState.save(episodeId, clampedPosition);
+              // Pass duration to enable episode progress update
+              await window.electronAPI.playbackState.save(episodeId, clampedPosition, duration);
+
+              // Update local episode state after successful save
+              if (episodeId && duration > 0) {
+                const progressPercentage = (clampedPosition / duration) * 100;
+                let newStatus: Episode['status'];
+
+                if (clampedPosition === 0) {
+                  newStatus = 'new';
+                } else if (progressPercentage >= 95) {
+                  newStatus = 'archived';
+                } else {
+                  newStatus = 'in_progress';
+                }
+
+                // Sync local state with database
+                useEpisodesStore.getState().updateLocalEpisode(episodeId, {
+                  lastPositionSec: clampedPosition,
+                  status: newStatus,
+                  lastPlayedAt: new Date().toISOString(),
+                });
+              }
             } catch (error) {
               console.error('[PlayerStore] Failed to save playback state', error);
             }
@@ -264,6 +300,11 @@ export const usePlayerStore = create<PlayerStore>()(
         },
 
         reset: () => {
+          // Clear periodic save interval
+          if (playbackSaveInterval) {
+            clearInterval(playbackSaveInterval);
+            playbackSaveInterval = null;
+          }
           set({
             currentEpisode: null,
             isPlaying: false,

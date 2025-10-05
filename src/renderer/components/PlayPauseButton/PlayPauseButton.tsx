@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePlayerStore } from '../../store/playerStore';
-import { Episode, useEpisodesStore } from '../../store/episodesStore';
+import { Episode } from '../../store/episodesStore';
 import { usePlayQueueStore } from '../../store/playQueueStore';
 
 export interface PlayPauseButtonProps {
@@ -30,7 +30,6 @@ const PlayPauseButton: React.FC<PlayPauseButtonProps> = ({
     })
   );
   const moveToQueueStart = usePlayQueueStore((state) => state.moveToQueueStart);
-  const updateEpisodeProgress = useEpisodesStore((state) => state.updateEpisodeProgress);
 
   // Determine if this episode is currently playing
   const isCurrentEpisode = currentEpisode?.id === episode.id;
@@ -61,10 +60,8 @@ const PlayPauseButton: React.FC<PlayPauseButtonProps> = ({
     if (isCurrentEpisode) {
       playPause(); // Toggle if same episode
     } else {
-      // Update status to 'in_progress' when playing (from 'new' or 'archived')
-      if (episode.status === 'new' || episode.status === 'archived') {
-        await updateEpisodeProgress(episode.id, 0, 'in_progress');
-      }
+      // Note: Episode status will be automatically updated to 'in_progress'
+      // when playbackState is saved with duration > 0
 
       if (!skipAutoQueue) {
         await moveToQueueStart(episode);
