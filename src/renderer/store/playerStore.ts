@@ -3,6 +3,9 @@ import { devtools } from 'zustand/middleware';
 import { Episode } from './episodesStore';
 import { useSettingsStore } from './settingsStore';
 
+const PLAYBACK_SAVE_DEBOUNCE = 10_000;
+let playbackStateTimeout: ReturnType<typeof setTimeout> | null = null;
+
 interface PlayerStore {
   // State
   currentEpisode: Episode | null;
@@ -35,6 +38,8 @@ interface PlayerStore {
   setDuration: (duration: number) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  loadPlaybackState: () => Promise<void>;
+  savePlaybackState: (options?: { immediate?: boolean }) => Promise<void>;
   reset: () => void;
 }
 
@@ -58,7 +63,15 @@ export const usePlayerStore = create<PlayerStore>()(
         audioRef: null,
 
         // Actions
-        setAudioRef: (audio) => set({ audioRef: audio }),
+        setAudioRef: (audio) => {
+          const { currentEpisode, position } = get();
+          if (currentEpisode) {
+            audio.src = currentEpisode.audioUrl;
+            audio.currentTime = position;
+            audio.pause();
+          }
+          set({ audioRef: audio });
+        },
 
         loadEpisode: (episode) => {
           const { audioRef } = get();
@@ -69,6 +82,8 @@ export const usePlayerStore = create<PlayerStore>()(
             isLoading: true,
             error: null,
           });
+
+          void get().savePlaybackState({ immediate: true });
 
           if (audioRef) {
             audioRef.src = episode.audioUrl;
@@ -111,6 +126,7 @@ export const usePlayerStore = create<PlayerStore>()(
             audioRef.pause();
           }
           set({ isPlaying: false });
+          void get().savePlaybackState({ immediate: true });
         },
 
         playPause: () => {
@@ -170,12 +186,84 @@ export const usePlayerStore = create<PlayerStore>()(
           get().seek(Math.max(position - seconds, 0));
         },
 
-        setPosition: (position) => set({ position }),
+        setPosition: (position) => {
+          set({ position });
+          void get().savePlaybackState();
+        },
         setDuration: (duration) => set({ duration }),
         setLoading: (isLoading) => set({ isLoading }),
         setError: (error) => set({ error }),
 
-        reset: () =>
+        loadPlaybackState: async () => {
+          try {
+            const result = await window.electronAPI.playbackState.get();
+            if (!result || !result.state) {
+              return;
+            }
+
+            const { state, episode } = result;
+            if (!episode) {
+              return;
+            }
+
+            const restoredPosition = state.currentPosition ?? episode.lastPositionSec ?? 0;
+
+            set({
+              currentEpisode: episode as Episode,
+              position: restoredPosition,
+              duration: episode.durationSec || 0,
+              isPlaying: false,
+              isLoading: false,
+              error: null,
+            });
+
+            const { audioRef } = get();
+            if (audioRef) {
+              audioRef.src = episode.audioUrl;
+              audioRef.currentTime = restoredPosition;
+              audioRef.pause();
+            }
+          } catch (error) {
+            console.error('[PlayerStore] Failed to load playback state', error);
+          }
+        },
+
+        savePlaybackState: async (options = {}) => {
+          const { immediate = false } = options;
+
+          const performSave = async () => {
+            const { currentEpisode, position } = get();
+            const episodeId = currentEpisode ? currentEpisode.id : null;
+            const clampedPosition = Number.isFinite(position) && position > 0 ? Math.floor(position) : 0;
+
+            try {
+              await window.electronAPI.playbackState.save(episodeId, clampedPosition);
+            } catch (error) {
+              console.error('[PlayerStore] Failed to save playback state', error);
+            }
+          };
+
+          if (immediate) {
+            if (playbackStateTimeout) {
+              clearTimeout(playbackStateTimeout);
+              playbackStateTimeout = null;
+            }
+            await performSave();
+            return;
+          }
+
+          if (playbackStateTimeout) {
+            clearTimeout(playbackStateTimeout);
+          }
+
+          playbackStateTimeout = setTimeout(() => {
+            void performSave().finally(() => {
+              playbackStateTimeout = null;
+            });
+          }, PLAYBACK_SAVE_DEBOUNCE);
+        },
+
+        reset: () => {
           set({
             currentEpisode: null,
             isPlaying: false,
@@ -183,7 +271,9 @@ export const usePlayerStore = create<PlayerStore>()(
             duration: 0,
             isLoading: false,
             error: null,
-          }),
+          });
+          void get().savePlaybackState({ immediate: true });
+        },
       };
     },
     { name: 'Player Store' }
