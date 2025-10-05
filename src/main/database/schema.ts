@@ -35,6 +35,25 @@ export const episodes = sqliteTable('episodes', {
   updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
 });
 
+// Play queue table - maintains the playback order
+export const playQueue = sqliteTable('play_queue', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  episodeId: integer('episode_id')
+    .notNull()
+    .references(() => episodes.id, { onDelete: 'cascade' }),
+  position: integer('position').notNull(),
+  addedAt: text('added_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Playback state table - stores the last played episode and position
+export const playbackState = sqliteTable('playback_state', {
+  id: integer('id').primaryKey().default(1),
+  currentEpisodeId: integer('current_episode_id')
+    .references(() => episodes.id, { onDelete: 'set null' }),
+  currentPosition: integer('current_position').default(0),
+  updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
 // Chapters table - episode chapters from various sources
 export const chapters = sqliteTable('chapters', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -158,6 +177,12 @@ export type NewFeed = typeof feeds.$inferInsert;
 
 export type Episode = typeof episodes.$inferSelect;
 export type NewEpisode = typeof episodes.$inferInsert;
+
+export type PlayQueueItem = typeof playQueue.$inferSelect;
+export type NewPlayQueueItem = typeof playQueue.$inferInsert;
+
+export type PlaybackState = typeof playbackState.$inferSelect;
+export type NewPlaybackState = typeof playbackState.$inferInsert;
 
 export type Chapter = typeof chapters.$inferSelect;
 export type NewChapter = typeof chapters.$inferInsert;

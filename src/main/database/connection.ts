@@ -131,6 +131,34 @@ export class DatabaseManager {
       )
     `);
 
+    // Create play queue table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS play_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        episode_id INTEGER NOT NULL UNIQUE,
+        position INTEGER NOT NULL,
+        added_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Create playback state table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS playback_state (
+        id INTEGER PRIMARY KEY DEFAULT 1,
+        current_episode_id INTEGER,
+        current_position INTEGER DEFAULT 0,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (current_episode_id) REFERENCES episodes(id) ON DELETE SET NULL
+      )
+    `);
+
+    // Ensure a single playback state row exists
+    this.db.exec(`
+      INSERT OR IGNORE INTO playback_state (id, current_episode_id, current_position, updated_at)
+      VALUES (1, NULL, 0, CURRENT_TIMESTAMP)
+    `);
+
     // Create other tables...
     // (Additional table creation SQL would go here)
   }

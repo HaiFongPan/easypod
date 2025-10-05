@@ -1,16 +1,22 @@
 import { FeedsDao } from './feedsDao';
 import { EpisodesDao } from './episodesDao';
 import { SearchDao } from './searchDao';
+import { PlayQueueDao } from './playQueueDao';
+import { PlaybackStateDao } from './playbackStateDao';
 
 export * from './feedsDao';
 export * from './episodesDao';
 export * from './searchDao';
+export * from './playQueueDao';
+export * from './playbackStateDao';
 
 // Database service that provides access to all DAOs
 export class DatabaseService {
   private _feeds: FeedsDao | null = null;
   private _episodes: EpisodesDao | null = null;
   private _search: SearchDao | null = null;
+  private _playQueue: PlayQueueDao | null = null;
+  private _playbackState: PlaybackStateDao | null = null;
 
   get feeds(): FeedsDao {
     if (!this._feeds) {
@@ -31,6 +37,20 @@ export class DatabaseService {
       this._search = new SearchDao();
     }
     return this._search;
+  }
+
+  get playQueue(): PlayQueueDao {
+    if (!this._playQueue) {
+      this._playQueue = new PlayQueueDao();
+    }
+    return this._playQueue;
+  }
+
+  get playbackState(): PlaybackStateDao {
+    if (!this._playbackState) {
+      this._playbackState = new PlaybackStateDao();
+    }
+    return this._playbackState;
   }
 
   // Convenience methods for common operations
@@ -65,6 +85,18 @@ export class DatabaseService {
       feeds: feedStats,
       episodes: episodeStats,
       search: searchStats,
+    };
+  }
+
+  async getPlaybackStateWithQueue() {
+    const [state, queue] = await Promise.all([
+      this.playbackState.get(),
+      this.playQueue.getAll(),
+    ]);
+
+    return {
+      playbackState: state,
+      queue,
     };
   }
 
