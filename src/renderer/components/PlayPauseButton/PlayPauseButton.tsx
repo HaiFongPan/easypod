@@ -1,6 +1,7 @@
 import React from 'react';
 import { usePlayerStore } from '../../store/playerStore';
 import { Episode } from '../../store/episodesStore';
+import { usePlayQueueStore } from '../../store/playQueueStore';
 
 export interface PlayPauseButtonProps {
   episode: Episode;
@@ -8,6 +9,7 @@ export interface PlayPauseButtonProps {
   variant?: 'default' | 'minimal';
   className?: string;
   showTooltip?: boolean;
+  skipAutoQueue?: boolean;
 }
 
 const PlayPauseButton: React.FC<PlayPauseButtonProps> = ({
@@ -16,6 +18,7 @@ const PlayPauseButton: React.FC<PlayPauseButtonProps> = ({
   variant = 'default',
   className = '',
   showTooltip = false,
+  skipAutoQueue = false,
 }) => {
   const { currentEpisode, isPlaying, isLoading, loadAndPlay, playPause } = usePlayerStore(
     (state) => ({
@@ -26,6 +29,7 @@ const PlayPauseButton: React.FC<PlayPauseButtonProps> = ({
       playPause: state.playPause,
     })
   );
+  const addToQueueStart = usePlayQueueStore((state) => state.addToQueueStart);
 
   // Determine if this episode is currently playing
   const isCurrentEpisode = currentEpisode?.id === episode.id;
@@ -51,11 +55,14 @@ const PlayPauseButton: React.FC<PlayPauseButtonProps> = ({
     minimal: 'text-white hover:text-gray-100 dark:text-white dark:hover:text-gray-200',
   };
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent parent click handlers
     if (isCurrentEpisode) {
       playPause(); // Toggle if same episode
     } else {
+      if (!skipAutoQueue) {
+        await addToQueueStart(episode);
+      }
       loadAndPlay(episode); // Load and play if different episode
     }
   };

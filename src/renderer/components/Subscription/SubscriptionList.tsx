@@ -10,6 +10,7 @@ import { Episode } from '../../store/episodesStore';
 import { getElectronAPI } from '../../utils/electron';
 import { formatDate, formatDuration } from '../../utils/formatters';
 import PlayPauseButton from '../PlayPauseButton';
+import QueueAddButton from '../QueueAddButton';
 
 interface SubscriptionListProps {
   className?: string;
@@ -548,8 +549,10 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                                   (e.target as HTMLImageElement).src = '/default-cover.png';
                                 }}
                               />
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                                <QueueAddButton episode={episode} placement="start" />
                                 <PlayPauseButton episode={episode} size="sm" variant="minimal" />
+                                <QueueAddButton episode={episode} placement="end" />
                               </div>
                             </div>
                               <div className="flex flex-1 flex-col">

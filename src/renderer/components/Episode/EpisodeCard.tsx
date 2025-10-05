@@ -4,6 +4,7 @@ import { formatDuration, formatDate } from '../../utils/formatters';
 import { cn } from '../../utils/cn';
 import Button from '../Button';
 import PlayPauseButton from '../PlayPauseButton';
+import QueueAddButton from '../QueueAddButton';
 
 interface EpisodeCardProps {
   episode: Episode;
@@ -18,12 +19,12 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
   onMarkAsNew,
   variant = 'standard',
 }) => {
+
   const progressPercentage = episode.durationSec
     ? (episode.lastPositionSec / episode.durationSec) * 100
     : 0;
   const isCompact = variant === 'compact';
   const descriptionLimit = isCompact ? 120 : 200;
-
   const getStatusBadge = () => {
     switch (episode.status) {
       case 'new':
@@ -124,6 +125,11 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
 
         {/* Action Buttons */}
         <div className={cn('flex items-center gap-2 mt-auto', isCompact && 'flex-wrap gap-y-1')}>
+          <div className="flex items-center gap-1">
+            <QueueAddButton episode={episode} placement="start" />
+            <QueueAddButton episode={episode} placement="end" />
+          </div>
+
           <PlayPauseButton
             episode={episode}
             size="md"
