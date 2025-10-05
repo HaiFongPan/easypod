@@ -24,7 +24,8 @@ npm run build:renderer       # Build renderer process with Vite
 
 ### Testing
 ```bash
-npm test                      # Run Jest tests
+npm test                      # Run all Jest tests
+npm test -- --testPathPattern=<pattern>  # Run specific test file
 npm run type-check           # TypeScript type checking without emitting files
 ```
 
@@ -89,6 +90,7 @@ SQLite database managed via Drizzle ORM (`src/main/database/schema.ts`):
 Zustand stores in `src/renderer/store/`:
 - `playerStore` - Audio playback state, controls, current episode
 - `episodesStore` - Episode data, loading states
+- `playQueueStore` - Play queue management with intelligent position tracking
 - `subscriptionStore` - Feed subscriptions, refresh operations
 - `settingsStore` - User preferences (volume, playback rate, skip intervals)
 - `navigationStore` - UI navigation state
@@ -119,8 +121,15 @@ All IPC handlers registered in `FeedIPCHandlers` (`src/main/services/IPCHandlers
 - `episodes:getAll` - Fetch episodes (with filters)
 - `episodes:getByFeed` - Get episodes for specific feed
 - `episodes:updateProgress` - Save playback position
-- `episodes:markAsPlayed` / `markAsNew` - Update episode status
+- `episodes:markAsPlayed` / `markAsNew` / `markAsArchived` - Update episode status
 - `episodes:search` - Full-text episode search
+
+**Play Queue Operations:**
+- `playQueue:getAll` - Get all queued episodes
+- `playQueue:add` - Add episode with strategy ('play-next' | 'end' | position number)
+- `playQueue:remove` - Remove episode from queue
+- `playQueue:reorder` - Reorder queue items
+- `playQueue:clear` - Clear entire queue
 
 ### TypeScript Configuration
 
@@ -201,6 +210,23 @@ src/
 4. `usePlaybackPersistence` hook auto-saves progress every 5s
 5. Progress saved via `episodes:updateProgress` IPC call
 
+### Play Queue Management
+
+**Smart Position Insertion:**
+- `addPlayNext(episode)` - Inserts after currently playing episode using `currentIndex`
+  - Empty queue → insert at first position
+  - No playing (currentIndex = -1) → insert before first item
+  - Playing at end → insert at end
+  - Playing in middle → insert between current and next
+- `addToQueueEnd(episode)` - Always appends to end
+- Position-based insertion uses 1000-gap intervals, auto-rebalances when gap < 10
+
+**Episode Status Model:**
+- `new` - Unplayed episode (lastPositionSec = 0)
+- `in_progress` - Partially played (0 < lastPositionSec < duration - 30s)
+- `played` - Completed (lastPositionSec >= duration - 30s)
+- `archived` - Manually archived by user (removed from main list)
+
 ### Caching Strategy
 
 - Feed responses cached with ETags/Last-Modified headers
@@ -246,14 +272,21 @@ private async handleOperation(
 ### DAO Pattern
 ```typescript
 export class MyDao {
-  private db = getDatabaseManager().getDatabase();
+  private get db() {
+    return getDatabaseManager().getDrizzle();
+  }
 
   async findAll() {
-    return this.db.select().from(table).all();
+    return this.db.select().from(table).orderBy(asc(table.id));
   }
 
   async findById(id: number) {
-    return this.db.select().from(table).where(eq(table.id, id)).get();
+    const results = await this.db
+      .select()
+      .from(table)
+      .where(eq(table.id, id))
+      .limit(1);
+    return results[0] ?? null;
   }
 }
 ```
@@ -267,10 +300,28 @@ Based on `docs/plan.md`, the project is in Stage 2-3 of 5:
 - ⏳ Stage 4: AI summaries and analysis (upcoming)
 - ⏳ Stage 5: Obsidian export and DMG packaging (upcoming)
 
+## Recent Improvements
+
+### Play Queue Refactoring (2025-01)
+- **Play Next Logic**: Replaced "Add to Queue Start" with intelligent "Play Next" that inserts after currently playing episode
+- **Position Tracking**: Uses `currentIndex` parameter throughout IPC chain (Store → IPC → DAO) for accurate insertion
+- **Edge Cases Handled**: Empty queue, no playing, queue start/middle/end positions, auto-rebalance
+- **UI Updates**: Renamed to "Play Next" with List Plus icon, tooltip shows "Play [title] next"
+
+### Episode Status Model Evolution
+- **Archive Model**: Replaced binary played/new with 4-state model (new/in_progress/played/archived)
+- **Progress Persistence**: Unified save mechanism with automatic status calculation based on position
+- **Visual Indicators**: Different UI treatment for archived episodes (removed from main list)
+
 ## Known Constraints
 
 - macOS only (no Windows/Linux support yet)
 - Local-first architecture (no cloud sync)
 - FunASR requires Python environment (Stage 3 implementation)
 - AI features require external API keys (OpenAI-compatible endpoints)
-- Add to Memory, 每次我提出新需求都使用需求 agent 分析和技术 agent 拆解任务
+
+## Workflow Preferences
+
+- 每次提出新需求都使用需求 agent 分析和技术 agent 拆解任务
+- Use requirements-analyst agent for feature requests
+- Use golang-mcp-expert (or appropriate tech agent) for technical task breakdown
