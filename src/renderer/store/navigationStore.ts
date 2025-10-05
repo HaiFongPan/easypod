@@ -8,7 +8,8 @@ export type AppView =
   | 'completed'
   | 'transcriptions'
   | 'ai-summaries'
-  | 'rss-tester';
+  | 'rss-tester'
+  | 'episode-detail';
 
 interface NavigationState {
   currentView: AppView;
@@ -28,6 +29,9 @@ export const useNavigationStore = create<NavigationState & NavigationActions>((s
   // Actions
   setCurrentView: (view) => {
     const { currentView } = get();
+    if (currentView === view) {
+      return;
+    }
     set({
       currentView: view,
       previousView: currentView,

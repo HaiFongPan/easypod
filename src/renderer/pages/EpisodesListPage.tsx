@@ -5,6 +5,7 @@ import { usePlayerStore } from '../store/playerStore';
 import { EpisodeCard } from '../components/Episode/EpisodeCard';
 import { cn } from '../utils/cn';
 import Button from '../components/Button';
+import { useEpisodeDetailNavigation } from '../hooks/useEpisodeDetailNavigation';
 
 const PAGE_SIZE = 10;
 type EpisodesViewMode = 'standard' | 'compact';
@@ -35,6 +36,7 @@ export const EpisodesListPage: React.FC = () => {
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState<EpisodesViewMode>('standard');
+  const openEpisodeDetail = useEpisodeDetailNavigation();
 
   useEffect(() => {
     fetchAllEpisodes();
@@ -282,6 +284,7 @@ export const EpisodesListPage: React.FC = () => {
                     episode={episode}
                     onArchive={handleArchive}
                     variant={viewMode}
+                    onSelect={openEpisodeDetail}
                   />
                 ))}
               </div>

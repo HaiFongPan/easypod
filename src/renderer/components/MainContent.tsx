@@ -4,6 +4,7 @@ import { SubscriptionList } from './Subscription';
 import { FeedTester } from './FeedTester';
 import { EpisodesListPage } from '../pages/EpisodesListPage';
 import PlayQueuePage from '../pages/PlayQueuePage';
+import EpisodeDetailPage from '../pages/EpisodeDetailPage';
 
 // Placeholder components for other views
 const LibraryView: React.FC = () => (
@@ -54,6 +55,8 @@ const MainContent: React.FC = () => {
         return <EpisodesListPage />;
       case 'play-queue':
         return <PlayQueuePage />;
+      case 'episode-detail':
+        return <EpisodeDetailPage />;
       case 'completed':
         return <CompletedView />;
       case 'transcriptions':

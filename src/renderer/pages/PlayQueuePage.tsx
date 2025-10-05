@@ -4,6 +4,7 @@ import { usePlayerStore } from '../store/playerStore';
 import { cn } from '../utils/cn';
 import PlayPauseButton from '../components/PlayPauseButton';
 import Button from '../components/Button';
+import { useEpisodeDetailNavigation } from '../hooks/useEpisodeDetailNavigation';
 
 const PlayQueuePage: React.FC = () => {
   const {
@@ -28,6 +29,7 @@ const PlayQueuePage: React.FC = () => {
   const { currentEpisode } = usePlayerStore((state) => ({
     currentEpisode: state.currentEpisode,
   }));
+  const openEpisodeDetail = useEpisodeDetailNavigation();
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
@@ -150,9 +152,19 @@ const PlayQueuePage: React.FC = () => {
                   <div className="flex flex-1 flex-col min-w-0">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className={cn('text-sm font-semibold text-gray-900 dark:text-gray-100 truncate', isCurrent && 'text-blue-600 dark:text-blue-300')}>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openEpisodeDetail(item.episode);
+                          }}
+                          className={cn(
+                            'truncate text-left text-sm font-semibold text-gray-900 transition hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-gray-100 dark:focus:ring-blue-400',
+                            isCurrent && 'text-blue-600 dark:text-blue-300'
+                          )}
+                        >
                           {item.episode.title}
-                        </p>
+                        </button>
                         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                           {item.episode.feedTitle ?? 'Unknown Podcast'}
                         </p>

@@ -9,12 +9,14 @@ interface EpisodeCardProps {
   episode: Episode;
   onArchive?: (id: number) => void;
   variant?: 'standard' | 'compact';
+  onSelect?: (episode: Episode) => void;
 }
 
 export const EpisodeCard: React.FC<EpisodeCardProps> = ({
   episode,
   onArchive,
   variant = 'standard',
+  onSelect,
 }) => {
 
   const progressPercentage = episode.durationSec
@@ -49,12 +51,27 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
 
   const isArchived = episode.status === 'archived';
 
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!onSelect) {
+      return;
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onSelect(episode);
+    }
+  };
+
   return (
     <div
       className={cn(
-        'flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:shadow-md transition-shadow cursor-pointer',
+        'flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:shadow-md transition-shadow',
+        onSelect ? 'cursor-pointer' : 'cursor-default',
         isCompact ? 'p-3 gap-3' : 'p-4 gap-4'
       )}
+      onClick={onSelect ? () => onSelect(episode) : undefined}
+      role={onSelect ? 'button' : undefined}
+      tabIndex={onSelect ? 0 : undefined}
+      onKeyDown={handleKeyDown}
     >
       {/* Episode Image */}
       <div className={cn('relative flex-shrink-0', isCompact ? 'w-20 h-20' : 'w-32 h-32')}>
@@ -89,7 +106,23 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
                 : 'text-gray-900 dark:text-gray-100'
             )}
           >
-            {episode.title}
+            {onSelect ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelect(episode);
+                }}
+                className={cn(
+                  'text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800',
+                  !isArchived && 'hover:underline'
+                )}
+              >
+                {episode.title}
+              </button>
+            ) : (
+              episode.title
+            )}
           </h3>
           {getStatusBadge()}
         </div>

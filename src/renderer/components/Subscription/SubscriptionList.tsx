@@ -11,6 +11,7 @@ import { getElectronAPI } from '../../utils/electron';
 import { formatDate, formatDuration } from '../../utils/formatters';
 import PlayPauseButton from '../PlayPauseButton';
 import QueueAddButton from '../QueueAddButton';
+import { useEpisodeDetailNavigation } from '../../hooks/useEpisodeDetailNavigation';
 
 interface SubscriptionListProps {
   className?: string;
@@ -18,7 +19,6 @@ interface SubscriptionListProps {
 
 const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
   const subscriptionStore = useSubscriptionStore();
-  console.log('SubscriptionStore state:', subscriptionStore);
 
   const {
     feeds,
@@ -57,6 +57,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
   const [episodesError, setEpisodesError] = useState<string | null>(null);
   const [episodesPage, setEpisodesPage] = useState(0);
   const [hasMoreEpisodes, setHasMoreEpisodes] = useState(false);
+  const openEpisodeDetail = useEpisodeDetailNavigation();
 
   const EPISODES_PAGE_SIZE = 20;
 
@@ -538,7 +539,17 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                           return (
                             <div
                               key={episode.id}
-                              className="group flex gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition hover:border-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-500"
+                              className="group flex gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition hover:border-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-500 cursor-pointer"
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => openEpisodeDetail(episode)}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
+                                  openEpisodeDetail(episode);
+                                }
+                              }}
+                              aria-label={`Open details for ${episode.title}`}
                             >
                             <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-md bg-gray-200 dark:bg-gray-700">
                               <img
@@ -556,16 +567,21 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                               </div>
                             </div>
                               <div className="flex flex-1 flex-col">
-                                <p
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openEpisodeDetail(episode);
+                                  }}
                                   className={cn(
-                                    'text-sm font-medium',
+                                    'text-left text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white transition dark:focus-visible:ring-offset-gray-800',
                                     isPlayed
                                       ? 'text-gray-500 dark:text-gray-500'
-                                      : 'text-gray-900 dark:text-gray-100'
+                                      : 'text-gray-900 hover:underline dark:text-gray-100'
                                   )}
                                 >
                                   {episode.title}
-                                </p>
+                                </button>
                                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                                   <span>{formatDate(episode.pubDate)}</span>
                                   {episode.durationSec ? (

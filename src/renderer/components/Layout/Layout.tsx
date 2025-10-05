@@ -20,6 +20,7 @@ const Layout: React.FC<LayoutProps> = ({
   children,
 }) => {
   const { currentView, setCurrentView } = useNavigationStore();
+  const activeView = currentView === 'episode-detail' ? 'episodes' : currentView;
 
   const navigationItems: { id: AppView; label: string; icon: React.ReactNode }[] = [
     {
@@ -144,7 +145,7 @@ const Layout: React.FC<LayoutProps> = ({
                   onClick={() => handleNavClick(item.id)}
                   className={cn(
                     "flex items-center w-full px-3 py-2 text-sm font-medium rounded-md transition-colors",
-                    currentView === item.id
+                    activeView === item.id
                       ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
                       : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                   )}
@@ -163,7 +164,7 @@ const Layout: React.FC<LayoutProps> = ({
                   onClick={() => handleNavClick(item.id)}
                   className={cn(
                     "flex items-center w-full px-3 py-2 text-sm font-medium rounded-md transition-colors",
-                    currentView === item.id
+                    activeView === item.id
                       ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
                       : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                   )}
