@@ -61,6 +61,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('episodes:updateProgress', data),
     markAsPlayed: (episodeId: number) => ipcRenderer.invoke('episodes:markAsPlayed', episodeId),
     markAsNew: (episodeId: number) => ipcRenderer.invoke('episodes:markAsNew', episodeId),
+    markAsArchived: (episodeId: number) => ipcRenderer.invoke('episodes:markAsArchived', episodeId),
     getRecentlyPlayed: (limit?: number) => ipcRenderer.invoke('episodes:getRecentlyPlayed', limit),
   },
 
@@ -119,6 +120,7 @@ export interface ElectronAPI {
     updateProgress: (data: { id: number; lastPositionSec: number; lastPlayedAt?: string; status?: string }) => Promise<{ success: boolean; error?: string }>;
     markAsPlayed: (episodeId: number) => Promise<{ success: boolean; error?: string }>;
     markAsNew: (episodeId: number) => Promise<{ success: boolean; error?: string }>;
+    markAsArchived: (episodeId: number) => Promise<{ success: boolean; error?: string }>;
     getRecentlyPlayed: (limit?: number) => Promise<any[]>;
   };
   playQueue: {

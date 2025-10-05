@@ -19,8 +19,7 @@ export const EpisodesListPage: React.FC = () => {
     fetchAllEpisodes,
     setSearchQuery,
     setStatusFilter,
-    markAsPlayed,
-    markAsNew,
+    markAsArchived,
   } = useEpisodesStore((state) => ({
     episodes: state.episodes,
     loading: state.loading,
@@ -30,8 +29,7 @@ export const EpisodesListPage: React.FC = () => {
     fetchAllEpisodes: state.fetchAllEpisodes,
     setSearchQuery: state.setSearchQuery,
     setStatusFilter: state.setStatusFilter,
-    markAsPlayed: state.markAsPlayed,
-    markAsNew: state.markAsNew,
+    markAsArchived: state.markAsArchived,
   }), shallow);
 
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
@@ -78,12 +76,8 @@ export const EpisodesListPage: React.FC = () => {
     setStatusFilter(status);
   };
 
-  const handleMarkAsPlayed = async (id: number) => {
-    await markAsPlayed(id);
-  };
-
-  const handleMarkAsNew = async (id: number) => {
-    await markAsNew(id);
+  const handleArchive = async (id: number) => {
+    await markAsArchived(id);
   };
 
   const handleViewModeChange = (mode: EpisodesViewMode) => {
@@ -163,13 +157,6 @@ export const EpisodesListPage: React.FC = () => {
                 All
               </Button>
               <Button
-                variant={statusFilter === 'new' ? 'primary' : 'secondary'}
-                size="sm"
-                onClick={() => handleStatusFilterChange('new')}
-              >
-                New
-              </Button>
-              <Button
                 variant={statusFilter === 'in_progress' ? 'primary' : 'secondary'}
                 size="sm"
                 onClick={() => handleStatusFilterChange('in_progress')}
@@ -177,11 +164,11 @@ export const EpisodesListPage: React.FC = () => {
                 In Progress
               </Button>
               <Button
-                variant={statusFilter === 'played' ? 'primary' : 'secondary'}
+                variant={statusFilter === 'archived' ? 'primary' : 'secondary'}
                 size="sm"
-                onClick={() => handleStatusFilterChange('played')}
+                onClick={() => handleStatusFilterChange('archived')}
               >
-                Played
+                Archived
               </Button>
             </div>
 
@@ -293,8 +280,7 @@ export const EpisodesListPage: React.FC = () => {
                   <EpisodeCard
                     key={episode.id}
                     episode={episode}
-                    onMarkAsPlayed={handleMarkAsPlayed}
-                    onMarkAsNew={handleMarkAsNew}
+                    onArchive={handleArchive}
                     variant={viewMode}
                   />
                 ))}

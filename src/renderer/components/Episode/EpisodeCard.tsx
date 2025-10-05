@@ -2,21 +2,18 @@ import React from 'react';
 import { Episode } from '../../store/episodesStore';
 import { formatDuration, formatDate } from '../../utils/formatters';
 import { cn } from '../../utils/cn';
-import Button from '../Button';
 import PlayPauseButton from '../PlayPauseButton';
 import QueueAddButton from '../QueueAddButton';
 
 interface EpisodeCardProps {
   episode: Episode;
-  onMarkAsPlayed?: (id: number) => void;
-  onMarkAsNew?: (id: number) => void;
+  onArchive?: (id: number) => void;
   variant?: 'standard' | 'compact';
 }
 
 export const EpisodeCard: React.FC<EpisodeCardProps> = ({
   episode,
-  onMarkAsPlayed,
-  onMarkAsNew,
+  onArchive,
   variant = 'standard',
 }) => {
 
@@ -39,16 +36,18 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
             In Progress
           </span>
         );
-      case 'played':
+      case 'archived':
         return (
-          <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 rounded">
-            Played
+          <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 rounded">
+            Archived
           </span>
         );
       default:
         return null;
     }
   };
+
+  const isArchived = episode.status === 'archived';
 
   return (
     <div
@@ -83,8 +82,11 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
         <div className="flex items-start gap-2 mb-2">
           <h3
             className={cn(
-              'flex-1 font-semibold text-gray-900 dark:text-gray-100 line-clamp-2',
-              isCompact ? 'text-sm' : 'text-base'
+              'flex-1 font-semibold line-clamp-2',
+              isCompact ? 'text-sm' : 'text-base',
+              isArchived
+                ? 'text-gray-400 dark:text-gray-600'
+                : 'text-gray-900 dark:text-gray-100'
             )}
           >
             {episode.title}
@@ -95,8 +97,11 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
         {/* Metadata */}
         <div
           className={cn(
-            'flex flex-wrap items-center gap-2 text-gray-600 dark:text-gray-400 mb-2',
-            isCompact ? 'text-xs' : 'text-sm'
+            'flex flex-wrap items-center gap-2 mb-2',
+            isCompact ? 'text-xs' : 'text-sm',
+            isArchived
+              ? 'text-gray-400 dark:text-gray-600'
+              : 'text-gray-600 dark:text-gray-400'
           )}
         >
           <span className="font-medium">{episode.feedTitle || 'Unknown Feed'}</span>
@@ -114,8 +119,11 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
         {episode.descriptionHtml && (
           <div
             className={cn(
-              'text-gray-600 dark:text-gray-400 line-clamp-2',
-              isCompact ? 'text-xs mb-2' : 'text-sm mb-3'
+              'line-clamp-2',
+              isCompact ? 'text-xs mb-2' : 'text-sm mb-3',
+              isArchived
+                ? 'text-gray-400 dark:text-gray-600'
+                : 'text-gray-600 dark:text-gray-400'
             )}
             dangerouslySetInnerHTML={{
               __html: `${episode.descriptionHtml.substring(0, descriptionLimit)}...`
@@ -136,30 +144,32 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
             showTooltip
           />
 
-          {episode.status !== 'played' && onMarkAsPlayed && (
-            <Button
-              variant="secondary"
-              size="sm"
+          {onArchive && (
+            <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onMarkAsPlayed(episode.id);
+                if (episode.status !== 'archived') {
+                  onArchive(episode.id);
+                }
               }}
+              disabled={episode.status === 'archived'}
+              className={cn(
+                'rounded-full p-1.5 transition',
+                episode.status === 'archived'
+                  ? 'text-gray-300 dark:text-gray-700 cursor-not-allowed'
+                  : 'text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700 dark:hover:text-red-400'
+              )}
+              aria-label={episode.status === 'archived' ? 'Already archived' : 'Archive episode'}
+              title={episode.status === 'archived' ? 'Already archived' : 'Archive episode'}
             >
-              Mark as Played
-            </Button>
-          )}
-
-          {episode.status === 'played' && onMarkAsNew && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onMarkAsNew(episode.id);
-              }}
-            >
-              Mark as New
-            </Button>
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="20" height="5" x="2" y="3" rx="1"/>
+                <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/>
+                <path d="m9.5 17 5-5"/>
+                <path d="m9.5 12 5 5"/>
+              </svg>
+            </button>
           )}
         </div>
       </div>

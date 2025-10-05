@@ -207,6 +207,16 @@ export class EpisodesDao {
       .where(eq(episodes.id, id));
   }
 
+  async markAsArchived(id: number): Promise<void> {
+    await this.db
+      .update(episodes)
+      .set({
+        status: 'archived',
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(episodes.id, id));
+  }
+
   // Delete
   async delete(id: number): Promise<boolean> {
     const result = await this.db

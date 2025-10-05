@@ -45,6 +45,7 @@ export class FeedIPCHandlers {
     ipcMain.handle('episodes:updateProgress', this.handleUpdateEpisodeProgress.bind(this));
     ipcMain.handle('episodes:markAsPlayed', this.handleMarkEpisodeAsPlayed.bind(this));
     ipcMain.handle('episodes:markAsNew', this.handleMarkEpisodeAsNew.bind(this));
+    ipcMain.handle('episodes:markAsArchived', this.handleMarkEpisodeAsArchived.bind(this));
     ipcMain.handle('episodes:getRecentlyPlayed', this.handleGetRecentlyPlayed.bind(this));
 
     // Play queue management
@@ -569,6 +570,25 @@ export class FeedIPCHandlers {
   }
 
   /**
+   * Mark episode as archived
+   */
+  private async handleMarkEpisodeAsArchived(
+    event: IpcMainInvokeEvent,
+    episodeId: number
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      await this.episodesDao.markAsArchived(episodeId);
+      return { success: true };
+    } catch (error) {
+      console.error('Error marking episode as archived:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to mark as archived',
+      };
+    }
+  }
+
+  /**
    * Get recently played episodes
    */
   private async handleGetRecentlyPlayed(
@@ -735,6 +755,7 @@ export class FeedIPCHandlers {
       'episodes:updateProgress',
       'episodes:markAsPlayed',
       'episodes:markAsNew',
+      'episodes:markAsArchived',
       'episodes:getRecentlyPlayed',
       'playQueue:getAll',
       'playQueue:add',

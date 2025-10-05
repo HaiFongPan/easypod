@@ -37,6 +37,7 @@ interface EpisodesStore {
   updateEpisodeProgress: (id: number, lastPositionSec: number, status?: string) => Promise<void>;
   markAsPlayed: (id: number) => Promise<void>;
   markAsNew: (id: number) => Promise<void>;
+  markAsArchived: (id: number) => Promise<void>;
   clearEpisodes: () => void;
 }
 
@@ -175,6 +176,21 @@ export const useEpisodesStore = create<EpisodesStore>((set, get) => ({
       }
     } catch (error) {
       console.error('Failed to mark episode as new:', error);
+    }
+  },
+
+  markAsArchived: async (id: number) => {
+    try {
+      const result = await window.electronAPI.episodes.markAsArchived(id);
+      if (result.success) {
+        set(state => ({
+          episodes: state.episodes.map(ep =>
+            ep.id === id ? { ...ep, status: 'archived' as const } : ep
+          )
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to mark episode as archived:', error);
     }
   },
 
