@@ -273,3 +273,4 @@ Based on `docs/plan.md`, the project is in Stage 2-3 of 5:
 - Local-first architecture (no cloud sync)
 - FunASR requires Python environment (Stage 3 implementation)
 - AI features require external API keys (OpenAI-compatible endpoints)
+- Add to Memory, 每次我提出新需求都使用需求 agent 分析和技术 agent 拆解任务
