@@ -101,7 +101,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ className }) => {
         className
       )}>
         <p className="text-gray-500 dark:text-gray-400 text-sm">
-          No episode selected
+          {queueLength === 0 ? 'Empty Play Queue' : 'No episode selected'}
         </p>
       </div>
     );

@@ -13,7 +13,6 @@ const PlayQueuePage: React.FC = () => {
     reorderQueue,
     removeFromQueue,
     clearQueue,
-    setCurrentIndex,
     isLoading,
     error,
   } = usePlayQueueStore((state) => ({
@@ -23,12 +22,10 @@ const PlayQueuePage: React.FC = () => {
     reorderQueue: state.reorderQueue,
     removeFromQueue: state.removeFromQueue,
     clearQueue: state.clearQueue,
-    setCurrentIndex: state.setCurrentIndex,
     isLoading: state.isLoading,
     error: state.error,
   }));
-  const { loadAndPlay, currentEpisode } = usePlayerStore((state) => ({
-    loadAndPlay: state.loadAndPlay,
+  const { currentEpisode } = usePlayerStore((state) => ({
     currentEpisode: state.currentEpisode,
   }));
 
@@ -39,15 +36,6 @@ const PlayQueuePage: React.FC = () => {
       console.error('[PlayQueuePage] Failed to load queue', error);
     });
   }, [loadQueue]);
-
-  const handlePlay = async (index: number) => {
-    const item = queue[index];
-    if (!item) {
-      return;
-    }
-    setCurrentIndex(index);
-    loadAndPlay(item.episode);
-  };
 
   const handleRemove = async (episodeId: number) => {
     await removeFromQueue(episodeId);
@@ -145,8 +133,18 @@ const PlayQueuePage: React.FC = () => {
                     isCurrent && 'border-blue-400 dark:border-blue-500'
                   )}
                 >
-                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md bg-blue-50 text-sm font-semibold text-blue-600 dark:bg-blue-900/40 dark:text-blue-300">
-                    {index + 1}
+                  <div className="relative flex-shrink-0 w-12 h-12">
+                    <img
+                      src={item.episode.episodeImageUrl || item.episode.feedCoverUrl || '/default-cover.png'}
+                      alt={item.episode.title}
+                      className="w-full h-full object-cover rounded-md"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/default-cover.png';
+                      }}
+                    />
+                    <div className="absolute bottom-0 right-0 flex items-center justify-center w-6 h-6 bg-blue-600/80 dark:bg-blue-500/80 text-white text-xs font-bold rounded-sm">
+                      {index + 1}
+                    </div>
                   </div>
 
                   <div className="flex flex-1 flex-col min-w-0">
@@ -164,15 +162,7 @@ const PlayQueuePage: React.FC = () => {
                           episode={item.episode}
                           size="sm"
                           variant="default"
-                          skipAutoQueue
                         />
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handlePlay(index)}
-                        >
-                          Play
-                        </Button>
                         <button
                           type="button"
                           onClick={() => handleRemove(item.episodeId)}

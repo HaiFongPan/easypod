@@ -11,34 +11,19 @@ const QueuePanel: React.FC = () => {
     removeFromQueue,
     clearQueue,
     reorderQueue,
-    setCurrentIndex,
-    moveToQueueStart,
   } = usePlayQueueStore((state) => ({
     queue: state.queue,
     currentIndex: state.currentIndex,
     removeFromQueue: state.removeFromQueue,
     clearQueue: state.clearQueue,
     reorderQueue: state.reorderQueue,
-    setCurrentIndex: state.setCurrentIndex,
-    moveToQueueStart: state.moveToQueueStart,
   }));
 
-  const { loadAndPlay, currentEpisode } = usePlayerStore((state) => ({
-    loadAndPlay: state.loadAndPlay,
+  const { currentEpisode } = usePlayerStore((state) => ({
     currentEpisode: state.currentEpisode,
   }));
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-
-  const handlePlayAtIndex = async (index: number) => {
-    const item = queue[index];
-    if (!item) {
-      return;
-    }
-    // Move to queue start before playing
-    await moveToQueueStart(item.episode);
-    loadAndPlay(item.episode);
-  };
 
   const handleRemove = async (episodeId: number) => {
     await removeFromQueue(episodeId);
@@ -120,9 +105,19 @@ const QueuePanel: React.FC = () => {
                     draggedIndex === index && 'opacity-60'
                   )}
                 >
-                  <span className="text-sm font-medium text-gray-400 dark:text-gray-500 select-none">
-                    {index + 1}
-                  </span>
+                  <div className="relative flex-shrink-0 w-10 h-10">
+                    <img
+                      src={item.episode.episodeImageUrl || item.episode.feedCoverUrl || '/default-cover.png'}
+                      alt={item.episode.title}
+                      className="w-full h-full object-cover rounded"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/default-cover.png';
+                      }}
+                    />
+                    <div className="absolute bottom-0 right-0 flex items-center justify-center w-5 h-5 bg-blue-600/80 dark:bg-blue-500/80 text-white text-xs font-bold rounded-sm">
+                      {index + 1}
+                    </div>
+                  </div>
 
                   <div className="flex-1 min-w-0">
                     <p className={cn('text-sm font-medium truncate', isCurrent ? 'text-blue-600 dark:text-blue-300' : 'text-gray-900 dark:text-gray-100')}>
@@ -139,13 +134,6 @@ const QueuePanel: React.FC = () => {
                       size="sm"
                       variant="minimal"
                     />
-                    <button
-                      type="button"
-                      onClick={() => handlePlayAtIndex(index)}
-                      className="rounded-md border border-blue-200 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/40"
-                    >
-                      Play
-                    </button>
                     <button
                       type="button"
                       onClick={() => handleRemove(item.episodeId)}

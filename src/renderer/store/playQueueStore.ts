@@ -161,8 +161,18 @@ export const usePlayQueueStore = create<PlayQueueStore>()(
           error: null,
         });
 
+        // If removing the currently playing episode
         if (currentEpisode && currentEpisode.id === episodeId) {
-          usePlayerStore.getState().reset();
+          if (queue.length > 0) {
+            // Load the first episode in the queue (but don't auto-play)
+            const nextEpisode = queue[0].episode;
+            const playerStore = usePlayerStore.getState();
+            playerStore.loadEpisode(nextEpisode); // Load episode but don't play
+            set({ currentIndex: 0 });
+          } else {
+            // Queue is empty, reset player
+            usePlayerStore.getState().reset();
+          }
         }
       } catch (error) {
         console.error('[PlayQueueStore] Failed to remove from queue', error);
