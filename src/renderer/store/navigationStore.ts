@@ -4,7 +4,7 @@ export type AppView =
   | 'library'
   | 'subscriptions'
   | 'episodes'
-  | 'recently-played'
+  | 'play-queue'
   | 'completed'
   | 'transcriptions'
   | 'ai-summaries'

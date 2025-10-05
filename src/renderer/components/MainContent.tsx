@@ -3,19 +3,13 @@ import { useNavigationStore, AppView } from '../store/navigationStore';
 import { SubscriptionList } from './Subscription';
 import { FeedTester } from './FeedTester';
 import { EpisodesListPage } from '../pages/EpisodesListPage';
+import PlayQueuePage from '../pages/PlayQueuePage';
 
 // Placeholder components for other views
 const LibraryView: React.FC = () => (
   <div className="p-6">
     <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">Library</h2>
     <p className="text-gray-600 dark:text-gray-400">Your podcast library will appear here.</p>
-  </div>
-);
-
-const RecentlyPlayedView: React.FC = () => (
-  <div className="p-6">
-    <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">Recently Played</h2>
-    <p className="text-gray-600 dark:text-gray-400">Your recently played episodes will appear here.</p>
   </div>
 );
 
@@ -58,8 +52,8 @@ const MainContent: React.FC = () => {
         }
       case 'episodes':
         return <EpisodesListPage />;
-      case 'recently-played':
-        return <RecentlyPlayedView />;
+      case 'play-queue':
+        return <PlayQueuePage />;
       case 'completed':
         return <CompletedView />;
       case 'transcriptions':

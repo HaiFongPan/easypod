@@ -41,11 +41,11 @@ const Layout: React.FC<LayoutProps> = ({
       ),
     },
     {
-      id: 'recently-played',
-      label: 'Recently Played',
+      id: 'play-queue',
+      label: 'Play Queue',
       icon: (
         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 012 0v3.586l1.707 1.707a1 1 0 01-1.414 1.414l-2-2A1 1 0 018 11V7z" clipRule="evenodd" />
+          <path d="M4 4a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM4 8a1 1 0 011-1h7a1 1 0 110 2H5a1 1 0 01-1-1zM4 12a1 1 0 011-1h5a1 1 0 110 2H5a1 1 0 01-1-1zM4 16a1 1 0 011-1h3a1 1 0 110 2H5a1 1 0 01-1-1z" />
         </svg>
       ),
     },

@@ -27,7 +27,7 @@ const SimpleMainContent: React.FC = () => {
             Subscriptions
           </button>
           <button
-            onClick={() => setCurrentView('recently-played')}
+            onClick={() => setCurrentView('play-queue')}
             className="p-4 bg-green-500 text-white rounded-lg hover:bg-green-600"
           >
             Recently Played
@@ -66,7 +66,7 @@ const SimpleMainContent: React.FC = () => {
               <p>This is where your podcast subscriptions would be displayed.</p>
             </div>
           )}
-          {currentView === 'recently-played' && (
+          {currentView === 'play-queue' && (
             <div>
               <h3 className="text-lg font-medium mb-2">Recently Played</h3>
               <p>This is where your recently played episodes would be shown.</p>
