@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { AudioPlayer, AudioPlayerConfig, AudioPlayerState } from '../utils/audioPlayer';
 import { usePlayerStore } from '../store/playerStore';
+import { usePlayQueueStore } from '../store/playQueueStore';
 import { Episode } from '../types';
 
 interface UseAudioPlayerOptions {
@@ -56,6 +57,8 @@ export const useAudioPlayer = (options: UseAudioPlayerOptions = {}) => {
     });
 
     player.on('ended', () => {
+      usePlayerStore.getState().savePlaybackState({ immediate: true });
+      usePlayQueueStore.getState().playNext();
       options.onEnd?.();
     });
 

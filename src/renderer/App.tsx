@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout/Layout';
 import MainContent from './components/MainContent';
 import { useAppStore } from './store/appStore';
+import { usePlayQueueStore } from './store/playQueueStore';
+import { usePlayerStore } from './store/playerStore';
 
 function App() {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -10,6 +12,16 @@ function App() {
   useEffect(() => {
     // Initialize the app store
     initialize();
+
+    const queueStore = usePlayQueueStore.getState();
+    queueStore.loadQueue().catch((error) => {
+      console.error('[App] Failed to load play queue', error);
+    });
+
+    const playerStore = usePlayerStore.getState();
+    playerStore.loadPlaybackState().catch((error) => {
+      console.error('[App] Failed to restore playback state', error);
+    });
 
     // Check system dark mode preference
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');

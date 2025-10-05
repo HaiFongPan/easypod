@@ -335,6 +335,25 @@ const createMockElectronAPI = (): ElectronAPI => {
       markAsNew: async () => ({ success: true }),
       getRecentlyPlayed: async () => [],
     },
+    playQueue: {
+      getAll: async () => [],
+      add: async () => ({ success: true, queue: [] as any[] }),
+      remove: async () => ({ success: true, queue: [] as any[] }),
+      reorder: async () => ({ success: true, queue: [] as any[] }),
+      clear: async () => ({ success: true, queue: [] as any[] }),
+    },
+    playbackState: {
+      get: async () => ({
+        state: {
+          id: 1,
+          currentEpisodeId: null,
+          currentPosition: 0,
+          updatedAt: new Date().toISOString(),
+        },
+        episode: null,
+      }),
+      save: async () => ({ success: true }),
+    },
   };
 };
 
