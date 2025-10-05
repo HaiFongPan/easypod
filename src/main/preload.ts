@@ -63,6 +63,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
     markAsNew: (episodeId: number) => ipcRenderer.invoke('episodes:markAsNew', episodeId),
     getRecentlyPlayed: (limit?: number) => ipcRenderer.invoke('episodes:getRecentlyPlayed', limit),
   },
+
+  // Play queue management
+  playQueue: {
+    getAll: () => ipcRenderer.invoke('playQueue:getAll'),
+    add: (episodeId: number, position?: number | 'start' | 'end') =>
+      ipcRenderer.invoke('playQueue:add', episodeId, position),
+    remove: (episodeId: number) =>
+      ipcRenderer.invoke('playQueue:remove', episodeId),
+    reorder: (items: Array<{ id: number; position: number }>) =>
+      ipcRenderer.invoke('playQueue:reorder', items),
+    clear: () => ipcRenderer.invoke('playQueue:clear'),
+  },
+
+  // Playback state persistence
+  playbackState: {
+    get: () => ipcRenderer.invoke('playbackState:get'),
+    save: (episodeId: number | null, position: number) =>
+      ipcRenderer.invoke('playbackState:save', episodeId, position),
+  },
 });
 
 // Type definitions for the exposed API
@@ -101,6 +120,22 @@ export interface ElectronAPI {
     markAsPlayed: (episodeId: number) => Promise<{ success: boolean; error?: string }>;
     markAsNew: (episodeId: number) => Promise<{ success: boolean; error?: string }>;
     getRecentlyPlayed: (limit?: number) => Promise<any[]>;
+  };
+  playQueue: {
+    getAll: () => Promise<any[]>;
+    add: (
+      episodeId: number,
+      position?: number | 'start' | 'end'
+    ) => Promise<{ success: boolean; queue: any[]; error?: string }>;
+    remove: (episodeId: number) => Promise<{ success: boolean; queue: any[]; error?: string }>;
+    reorder: (
+      items: Array<{ id: number; position: number }>
+    ) => Promise<{ success: boolean; queue: any[]; error?: string }>;
+    clear: () => Promise<{ success: boolean; queue: any[]; error?: string }>;
+  };
+  playbackState: {
+    get: () => Promise<{ state: { id: number; currentEpisodeId: number | null; currentPosition: number; updatedAt: string | null }; episode: any | null }>;
+    save: (episodeId: number | null, position: number) => Promise<{ success: boolean; error?: string }>;
   };
 }
 

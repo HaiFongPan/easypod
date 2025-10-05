@@ -2,6 +2,8 @@ import { ipcMain, IpcMainInvokeEvent } from 'electron';
 import { PodcastFeedParser } from './FeedParser';
 import { FeedsDao } from '../database/dao/feedsDao';
 import { EpisodesDao } from '../database/dao/episodesDao';
+import { PlayQueueDao, type PlayQueueEntry } from '../database/dao/playQueueDao';
+import { PlaybackStateDao, type PlaybackStateWithEpisode } from '../database/dao/playbackStateDao';
 import type { NewFeed, NewEpisode } from '../database/schema';
 
 /**
@@ -12,11 +14,15 @@ export class FeedIPCHandlers {
   private parser: PodcastFeedParser;
   private feedsDao: FeedsDao;
   private episodesDao: EpisodesDao;
+  private playQueueDao: PlayQueueDao;
+  private playbackStateDao: PlaybackStateDao;
 
   constructor() {
     this.parser = new PodcastFeedParser();
     this.feedsDao = new FeedsDao();
     this.episodesDao = new EpisodesDao();
+    this.playQueueDao = new PlayQueueDao();
+    this.playbackStateDao = new PlaybackStateDao();
     this.registerHandlers();
   }
 
@@ -40,6 +46,17 @@ export class FeedIPCHandlers {
     ipcMain.handle('episodes:markAsPlayed', this.handleMarkEpisodeAsPlayed.bind(this));
     ipcMain.handle('episodes:markAsNew', this.handleMarkEpisodeAsNew.bind(this));
     ipcMain.handle('episodes:getRecentlyPlayed', this.handleGetRecentlyPlayed.bind(this));
+
+    // Play queue management
+    ipcMain.handle('playQueue:getAll', this.handleGetPlayQueue.bind(this));
+    ipcMain.handle('playQueue:add', this.handleAddToPlayQueue.bind(this));
+    ipcMain.handle('playQueue:remove', this.handleRemoveFromPlayQueue.bind(this));
+    ipcMain.handle('playQueue:reorder', this.handleReorderPlayQueue.bind(this));
+    ipcMain.handle('playQueue:clear', this.handleClearPlayQueue.bind(this));
+
+    // Playback state persistence
+    ipcMain.handle('playbackState:get', this.handleGetPlaybackState.bind(this));
+    ipcMain.handle('playbackState:save', this.handleSavePlaybackState.bind(this));
 
     // Cache management
     ipcMain.handle('feeds:getCacheStats', this.handleGetCacheStats.bind(this));
@@ -567,6 +584,124 @@ export class FeedIPCHandlers {
   }
 
   /**
+   * Play queue handlers
+   */
+  private async handleGetPlayQueue(): Promise<PlayQueueEntry[]> {
+    try {
+      return await this.playQueueDao.getAll();
+    } catch (error) {
+      console.error('Error loading play queue:', error);
+      return [];
+    }
+  }
+
+  private async handleAddToPlayQueue(
+    event: IpcMainInvokeEvent,
+    episodeId: number,
+    strategy?: number | 'start' | 'end'
+  ): Promise<{ success: boolean; queue: PlayQueueEntry[]; error?: string }> {
+    try {
+      await this.playQueueDao.add(episodeId, strategy);
+      const queue = await this.playQueueDao.getAll();
+      return { success: true, queue };
+    } catch (error) {
+      console.error('Error adding episode to play queue:', error);
+      return {
+        success: false,
+        queue: [],
+        error: error instanceof Error ? error.message : 'Failed to add to queue',
+      };
+    }
+  }
+
+  private async handleRemoveFromPlayQueue(
+    event: IpcMainInvokeEvent,
+    episodeId: number
+  ): Promise<{ success: boolean; queue: PlayQueueEntry[]; error?: string }> {
+    try {
+      await this.playQueueDao.removeByEpisodeId(episodeId);
+      const queue = await this.playQueueDao.getAll();
+      return { success: true, queue };
+    } catch (error) {
+      console.error('Error removing episode from play queue:', error);
+      return {
+        success: false,
+        queue: [],
+        error: error instanceof Error ? error.message : 'Failed to remove from queue',
+      };
+    }
+  }
+
+  private async handleClearPlayQueue(): Promise<{ success: boolean; queue: PlayQueueEntry[]; error?: string }> {
+    try {
+      await this.playQueueDao.clear();
+      return { success: true, queue: [] };
+    } catch (error) {
+      console.error('Error clearing play queue:', error);
+      return {
+        success: false,
+        queue: [],
+        error: error instanceof Error ? error.message : 'Failed to clear queue',
+      };
+    }
+  }
+
+  private async handleReorderPlayQueue(
+    event: IpcMainInvokeEvent,
+    items: Array<{ id: number; position: number }>
+  ): Promise<{ success: boolean; queue: PlayQueueEntry[]; error?: string }> {
+    try {
+      await this.playQueueDao.reorder(items);
+      const queue = await this.playQueueDao.getAll();
+      return { success: true, queue };
+    } catch (error) {
+      console.error('Error reordering play queue:', error);
+      return {
+        success: false,
+        queue: [],
+        error: error instanceof Error ? error.message : 'Failed to reorder queue',
+      };
+    }
+  }
+
+  /**
+   * Playback state handlers
+   */
+  private async handleGetPlaybackState(): Promise<PlaybackStateWithEpisode> {
+    try {
+      return await this.playbackStateDao.get();
+    } catch (error) {
+      console.error('Error loading playback state:', error);
+      return {
+        state: {
+          id: 1,
+          currentEpisodeId: null,
+          currentPosition: 0,
+          updatedAt: null,
+        },
+        episode: null,
+      };
+    }
+  }
+
+  private async handleSavePlaybackState(
+    event: IpcMainInvokeEvent,
+    episodeId: number | null,
+    position: number
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      await this.playbackStateDao.save(episodeId, position);
+      return { success: true };
+    } catch (error) {
+      console.error('Error saving playback state:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to save playback state',
+      };
+    }
+  }
+
+  /**
    * Get cache statistics
    */
   private async handleGetCacheStats(event: IpcMainInvokeEvent): Promise<{ size: number; urls: string[] }> {
@@ -597,6 +732,17 @@ export class FeedIPCHandlers {
       'episodes:getById',
       'episodes:search',
       'episodes:updatePlayback',
+      'episodes:updateProgress',
+      'episodes:markAsPlayed',
+      'episodes:markAsNew',
+      'episodes:getRecentlyPlayed',
+      'playQueue:getAll',
+      'playQueue:add',
+      'playQueue:remove',
+      'playQueue:reorder',
+      'playQueue:clear',
+      'playbackState:get',
+      'playbackState:save',
       'feeds:getCacheStats',
       'feeds:clearCache',
     ];
