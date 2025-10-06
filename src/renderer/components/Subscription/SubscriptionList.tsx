@@ -48,6 +48,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
   } = useSubscriptionFilter(feeds || []);
 
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [autoSwitchedToGrid, setAutoSwitchedToGrid] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [activeFeed, setActiveFeed] = useState<Feed | null>(null);
   const [episodesDrawerOpen, setEpisodesDrawerOpen] = useState(false);
@@ -91,7 +92,11 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
     setActiveFeed(null);
     resetEpisodesState();
     selectFeed(null);
-  }, [resetEpisodesState, selectFeed]);
+    if (autoSwitchedToGrid) {
+      setViewMode('list');
+      setAutoSwitchedToGrid(false);
+    }
+  }, [autoSwitchedToGrid, resetEpisodesState, selectFeed, setAutoSwitchedToGrid, setViewMode]);
 
   const loadEpisodesForFeed = useCallback(async (feedId: string, page = 0, append = false) => {
     const numericId = Number(feedId);
@@ -165,7 +170,16 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
     }
   };
 
+  const handleViewModeChange = useCallback((mode: ViewMode) => {
+    setViewMode(mode);
+    setAutoSwitchedToGrid(false);
+  }, []);
+
   const handleFeedClick = (feed: Feed) => {
+    if (viewMode === 'list') {
+      setViewMode('grid');
+      setAutoSwitchedToGrid(true);
+    }
     selectFeed(feed);
     setActiveFeed(feed);
     setEpisodesDrawerOpen(true);
@@ -304,7 +318,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
               {/* View Mode */}
               <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded">
                 <button
-                  onClick={() => setViewMode('grid')}
+                  onClick={() => handleViewModeChange('grid')}
                   className={cn(
                     "p-1 rounded-l",
                     viewMode === 'grid'
@@ -317,7 +331,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                   </svg>
                 </button>
                 <button
-                  onClick={() => setViewMode('list')}
+                  onClick={() => handleViewModeChange('list')}
                   className={cn(
                     "p-1 rounded-r",
                     viewMode === 'list'
@@ -428,7 +442,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                       viewMode === 'grid'
                         ? episodesDrawerOpen
                           ? 'flex flex-col gap-3'
-                          : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6 xl:gap-8'
+                          : 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 lg:gap-6 xl:gap-8'
                         : 'space-y-4'
                     )}
                   >
