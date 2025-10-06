@@ -4,6 +4,7 @@ import { usePlayerStore } from '../../store/playerStore';
 import PlayPauseButton from '../PlayPauseButton';
 import { cn } from '../../utils/cn';
 import { useEpisodeDetailNavigation } from '../../hooks/useEpisodeDetailNavigation';
+import { Trash2 } from 'lucide-react';
 
 const QueuePanel: React.FC = () => {
   const {
@@ -121,7 +122,7 @@ const QueuePanel: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 mr-2">
                     <button
                       type="button"
                       onClick={(event) => {
@@ -129,7 +130,7 @@ const QueuePanel: React.FC = () => {
                         openEpisodeDetail(item.episode);
                       }}
                       className={cn(
-                        'truncate text-left text-sm font-medium transition hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800',
+                        'block w-full truncate text-left text-sm font-medium transition hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800',
                         isCurrent ? 'text-blue-600 dark:text-blue-300' : 'text-gray-900 dark:text-gray-100'
                       )}
                     >
@@ -140,25 +141,21 @@ const QueuePanel: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <PlayPauseButton
-                      episode={item.episode}
-                      size="sm"
-                      variant="minimal"
-                    />
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <div className="opacity-70 hover:opacity-100 transition-opacity">
+                      <PlayPauseButton
+                        episode={item.episode}
+                        size="sm"
+                        variant="minimal"
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={() => handleRemove(item.episodeId)}
-                      className="rounded-full p-1 text-gray-400 transition hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700"
+                      className="rounded-full p-1 text-gray-400 opacity-70 transition hover:opacity-100 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700"
                       aria-label="Remove from queue"
                     >
-                      <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path
-                          fillRule="evenodd"
-                          d="M8.257 3.099c.366-.446.958-.637 1.53-.484l6 1.5A1 1 0 0116 5.078V16a2 2 0 01-2 2H6a2 2 0 01-2-2V6a1 1 0 01.714-.962l6-1.5a1 1 0 01.543.05zM8 9a1 1 0 10-2 0v5a1 1 0 102 0V9zm3-1a1 1 0 00-1 1v5a1 1 0 102 0V9a1 1 0 00-1-1z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </li>
