@@ -11,6 +11,8 @@ export const feeds = sqliteTable('feeds', {
   lastCheckedAt: text('last_checked_at'), // ISO string
   opmlGroup: text('opml_group'),
   metaJson: text('meta_json'), // JSON string for additional metadata
+  isSubscribed: integer('is_subscribed', { mode: 'boolean' }).default(false).notNull(),
+  subscribedAt: text('subscribed_at'), // ISO string - when user subscribed
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
 });

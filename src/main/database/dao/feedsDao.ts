@@ -29,6 +29,22 @@ export class FeedsDao {
       .orderBy(desc(feeds.createdAt));
   }
 
+  async findSubscribed(): Promise<Feed[]> {
+    return await this.db
+      .select()
+      .from(feeds)
+      .where(eq(feeds.isSubscribed, true))
+      .orderBy(desc(feeds.createdAt));
+  }
+
+  async findUnsubscribed(): Promise<Feed[]> {
+    return await this.db
+      .select()
+      .from(feeds)
+      .where(eq(feeds.isSubscribed, false))
+      .orderBy(desc(feeds.createdAt));
+  }
+
   async findById(id: number): Promise<Feed | null> {
     const result = await this.db
       .select()
@@ -87,6 +103,49 @@ export class FeedsDao {
         updatedAt: new Date().toISOString(),
       })
       .where(eq(feeds.id, id));
+  }
+
+  async subscribe(id: number): Promise<void> {
+    const now = new Date().toISOString();
+    await this.db
+      .update(feeds)
+      .set({
+        isSubscribed: true,
+        subscribedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(feeds.id, id));
+  }
+
+  async unsubscribe(id: number): Promise<void> {
+    await this.db
+      .update(feeds)
+      .set({
+        isSubscribed: false,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(feeds.id, id));
+  }
+
+  async findOrCreate(feedData: Partial<NewFeed> & { url: string }): Promise<Feed> {
+    // Try to find existing feed by URL
+    const existing = await this.findByUrl(feedData.url);
+    if (existing) {
+      return existing;
+    }
+
+    // Create new feed if it doesn't exist
+    const newFeed: NewFeed = {
+      title: feedData.title || 'Unknown Podcast',
+      url: feedData.url,
+      coverUrl: feedData.coverUrl || null,
+      description: feedData.description || null,
+      lastCheckedAt: feedData.lastCheckedAt || null,
+      opmlGroup: feedData.opmlGroup || null,
+      metaJson: feedData.metaJson || null,
+    };
+
+    return await this.create(newFeed);
   }
 
   // Delete

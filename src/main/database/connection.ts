@@ -73,6 +73,9 @@ export class DatabaseManager {
       // Create tables if they don't exist
       await this.createTables();
 
+      // Run migrations
+      await this.runMigrations();
+
       // Create FTS5 search index
       await this.createSearchIndex();
 
@@ -103,6 +106,8 @@ export class DatabaseManager {
         last_checked_at TEXT,
         opml_group TEXT,
         meta_json TEXT,
+        is_subscribed INTEGER NOT NULL DEFAULT 0,
+        subscribed_at TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
@@ -186,6 +191,34 @@ export class DatabaseManager {
         VALUES (new.id, new.title, new.description_html);
       END
     `);
+  }
+
+  private async runMigrations(): Promise<void> {
+    if (!this.db) return;
+
+    try {
+      // Migration 1: Add isSubscribed and subscribedAt to feeds table
+      const feedsInfo = this.db.pragma('table_info(feeds)') as Array<{ name: string }>;
+      const hasIsSubscribed = feedsInfo.some((col) => col.name === 'is_subscribed');
+      const hasSubscribedAt = feedsInfo.some((col) => col.name === 'subscribed_at');
+
+      if (!hasIsSubscribed) {
+        console.log('Running migration: Adding is_subscribed to feeds table');
+        this.db.exec('ALTER TABLE feeds ADD COLUMN is_subscribed INTEGER NOT NULL DEFAULT 1');
+      }
+
+      if (!hasSubscribedAt) {
+        console.log('Running migration: Adding subscribed_at to feeds table');
+        this.db.exec('ALTER TABLE feeds ADD COLUMN subscribed_at TEXT DEFAULT NULL');
+        // Backfill subscribedAt with createdAt for existing feeds
+        this.db.exec('UPDATE feeds SET subscribed_at = created_at WHERE is_subscribed = 1');
+      }
+
+      console.log('Migrations completed successfully');
+    } catch (error) {
+      console.error('Migration failed:', error);
+      throw error;
+    }
   }
 
   private async insertDefaults(): Promise<void> {

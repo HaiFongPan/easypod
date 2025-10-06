@@ -56,9 +56,29 @@ export const useAudioPlayer = (options: UseAudioPlayerOptions = {}) => {
       options.onPause?.();
     });
 
-    player.on('ended', () => {
-      usePlayerStore.getState().savePlaybackState({ immediate: true });
-      usePlayQueueStore.getState().playNext();
+    player.on('ended', async () => {
+      // Save playback state immediately
+      await usePlayerStore.getState().savePlaybackState({ immediate: true });
+
+      // Get current episode and queue
+      const currentEpisode = usePlayerStore.getState().currentEpisode;
+      const { queue, removeFromQueue } = usePlayQueueStore.getState();
+
+      // Remove current episode from queue if it exists
+      if (currentEpisode && queue.some(item => item.episodeId === currentEpisode.id)) {
+        await removeFromQueue(currentEpisode.id);
+
+        // After removal, play the first episode in the updated queue
+        const updatedQueue = usePlayQueueStore.getState().queue;
+        if (updatedQueue.length > 0) {
+          const nextEpisode = updatedQueue[0].episode;
+          usePlayerStore.getState().loadAndPlay(nextEpisode);
+        }
+      } else {
+        // If not in queue, just play next from queue
+        usePlayQueueStore.getState().playNext();
+      }
+
       options.onEnd?.();
     });
 

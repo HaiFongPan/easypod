@@ -77,9 +77,14 @@ export const usePlayerStore = create<PlayerStore>()(
 
         loadEpisode: (episode) => {
           const { audioRef } = get();
+
+          // Reset position to 0 if episode is completed or archived
+          const shouldResetPosition = episode.status === 'played' || episode.status === 'archived';
+          const startPosition = shouldResetPosition ? 0 : (episode.lastPositionSec || 0);
+
           set({
             currentEpisode: episode,
-            position: episode.lastPositionSec || 0,
+            position: startPosition,
             duration: episode.durationSec || 0,
             isLoading: true,
             error: null,
@@ -89,7 +94,7 @@ export const usePlayerStore = create<PlayerStore>()(
 
           if (audioRef) {
             audioRef.src = episode.audioUrl;
-            audioRef.currentTime = episode.lastPositionSec || 0;
+            audioRef.currentTime = startPosition;
 
             // Set loading to false when audio can play
             const handleCanPlay = () => {
