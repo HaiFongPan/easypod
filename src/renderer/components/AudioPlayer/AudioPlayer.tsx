@@ -134,9 +134,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ className }) => {
               {currentEpisode.title}
             </h4>
             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-              {currentEpisode.feedTitle && currentEpisode.author
-                ? `${currentEpisode.feedTitle} • ${currentEpisode.author}`
-                : currentEpisode.feedTitle || currentEpisode.author || 'Unknown Podcast'}
+              {currentEpisode.feedTitle || 'Unknown Podcast'}
             </p>
           </button>
         </div>

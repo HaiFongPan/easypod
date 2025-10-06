@@ -142,13 +142,12 @@ const QueuePanel: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    <div className="opacity-70 hover:opacity-100 transition-opacity">
-                      <PlayPauseButton
-                        episode={item.episode}
-                        size="sm"
-                        variant="minimal"
-                      />
-                    </div>
+                    <PlayPauseButton
+                      episode={item.episode}
+                      size="sm"
+                      variant="default"
+                      className="rounded-full p-1 text-gray-400 opacity-70 transition hover:opacity-100 hover:bg-gray-100 hover:text-blue-600 dark:hover:bg-gray-700"
+                    />
                     <button
                       type="button"
                       onClick={() => handleRemove(item.episodeId)}

@@ -13,6 +13,8 @@ export interface Feed {
   updatedAt: string;
   author?: string | null;
   categories?: string[] | null;
+  isSubscribed?: boolean; // Whether user has subscribed to this feed
+  subscribedAt?: string | null; // When user subscribed (ISO string)
 }
 
 export interface Episode {

@@ -5,7 +5,7 @@ import { usePlayQueueStore } from '../store/playQueueStore';
 
 type QueuePlacement = 'next' | 'end';
 
-type QueueAddButtonSize = 'sm' | 'md' | 'lg';
+type QueueAddButtonSize = 'xs' | 'sm' | 'md' | 'lg';
 
 type QueueAddButtonProps = {
   episode: Episode;
@@ -16,12 +16,14 @@ type QueueAddButtonProps = {
 };
 
 const sizeClasses: Record<QueueAddButtonSize, string> = {
+  xs: 'w-6 h-6',
   sm: 'w-8 h-8',
   md: 'w-10 h-10',
   lg: 'w-12 h-12',
 };
 
 const iconSizeClasses: Record<QueueAddButtonSize, string> = {
+  xs: 'h-4 w-4',
   sm: 'h-4 w-4',
   md: 'h-5 w-5',
   lg: 'h-6 w-6',

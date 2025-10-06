@@ -733,33 +733,40 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                                 }}
                                 aria-label={`Open details for ${episode.title}`}
                               >
-                                <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-md bg-gray-200 dark:bg-gray-700">
-                                  <img
-                                    src={
-                                      episode.episodeImageUrl ||
-                                      episode.feedCoverUrl ||
-                                      "/default-cover.png"
-                                    }
-                                    alt={episode.title}
-                                    className="h-full w-full object-cover"
-                                    onError={(e) => {
-                                      (e.target as HTMLImageElement).src =
-                                        "/default-cover.png";
-                                    }}
-                                  />
-                                  <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                                <div className="flex w-16 flex-shrink-0 flex-col items-center gap-2">
+                                  <div className="relative h-16 w-16 overflow-hidden rounded-md bg-gray-200 dark:bg-gray-700">
+                                    <img
+                                      src={
+                                        episode.episodeImageUrl ||
+                                        episode.feedCoverUrl ||
+                                        "/default-cover.png"
+                                      }
+                                      alt={episode.title}
+                                      className="h-full w-full object-cover"
+                                      onError={(e) => {
+                                        (e.target as HTMLImageElement).src =
+                                          "/default-cover.png";
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <PlayPauseButton
+                                      episode={episode}
+                                      size="xs"
+                                      variant="default"
+                                      className="rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-blue-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                                    />
                                     <QueueAddButton
                                       episode={episode}
                                       placement="next"
-                                    />
-                                    <PlayPauseButton
-                                      episode={episode}
-                                      size="sm"
-                                      variant="minimal"
+                                      size="xs"
+                                      className="text-gray-400 hover:text-blue-600 dark:text-gray-300"
                                     />
                                     <QueueAddButton
                                       episode={episode}
                                       placement="end"
+                                      size="xs"
+                                      className="text-gray-400 hover:text-blue-600 dark:text-gray-300"
                                     />
                                   </div>
                                 </div>

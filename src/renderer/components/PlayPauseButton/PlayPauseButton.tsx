@@ -3,9 +3,11 @@ import { usePlayerStore } from '../../store/playerStore';
 import { Episode } from '../../store/episodesStore';
 import { usePlayQueueStore } from '../../store/playQueueStore';
 
+type PlayPauseButtonSize = 'xs' | 'sm' | 'md' | 'lg';
+
 export interface PlayPauseButtonProps {
   episode: Episode;
-  size?: 'sm' | 'md' | 'lg';
+  size?: PlayPauseButtonSize;
   variant?: 'default' | 'minimal';
   className?: string;
   showTooltip?: boolean;
@@ -37,13 +39,15 @@ const PlayPauseButton: React.FC<PlayPauseButtonProps> = ({
   const shouldShowLoading = isCurrentEpisode && isLoading;
 
   // Size classes for button and icon
-  const sizeClasses = {
+  const sizeClasses: Record<PlayPauseButtonSize, string> = {
+    xs: 'w-6 h-6',
     sm: 'w-8 h-8',
     md: 'w-10 h-10',
     lg: 'w-12 h-12',
   };
 
-  const iconSizes = {
+  const iconSizes: Record<PlayPauseButtonSize, string> = {
+    xs: 'w-4 h-4',
     sm: 'w-6 h-6',
     md: 'w-8 h-8',
     lg: 'w-10 h-10',
