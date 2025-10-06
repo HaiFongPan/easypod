@@ -24,6 +24,15 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
     : 0;
   const isCompact = variant === 'compact';
   const descriptionLimit = isCompact ? 120 : 200;
+  const plainDescription = episode.descriptionHtml
+    ? episode.descriptionHtml
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+    : '';
+  const truncatedDescription = plainDescription
+    ? `${plainDescription.slice(0, descriptionLimit)}${plainDescription.length > descriptionLimit ? '…' : ''}`
+    : '';
   const getStatusBadge = () => {
     switch (episode.status) {
       case 'new':
@@ -149,8 +158,8 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
         </div>
 
         {/* Description */}
-        {episode.descriptionHtml && (
-          <div
+        {truncatedDescription && (
+          <p
             className={cn(
               'line-clamp-2',
               isCompact ? 'text-xs mb-2' : 'text-sm mb-3',
@@ -158,10 +167,9 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
                 ? 'text-gray-400 dark:text-gray-600'
                 : 'text-gray-600 dark:text-gray-400'
             )}
-            dangerouslySetInnerHTML={{
-              __html: `${episode.descriptionHtml.substring(0, descriptionLimit)}...`
-            }}
-          />
+          >
+            {truncatedDescription}
+          </p>
         )}
 
         {/* Action Buttons */}

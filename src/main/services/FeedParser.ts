@@ -28,6 +28,29 @@ import {
   getImageUrl
 } from '../utils/feedNormalizer';
 
+const coerceToString = (value: unknown): string | undefined => {
+  if (value == null) {
+    return undefined;
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map(coerceToString)
+      .filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
+      .join('\n');
+  }
+
+  if (typeof value === 'object' && '_' in (value as Record<string, unknown>)) {
+    return coerceToString((value as Record<string, unknown>)._);
+  }
+
+  return undefined;
+};
+
 /**
  * Comprehensive RSS/Podcast Feed Parser
  * Supports RSS 2.0, iTunes extensions, and Podcast 2.0 standards
@@ -280,11 +303,23 @@ export class PodcastFeedParser {
     const pubDate = parseDate(item.pubDate || item.isoDate);
     const title = item.title || 'Untitled Episode';
 
+    const rawContentEncoded = coerceToString(item['content:encoded']) ?? coerceToString(item.content);
+    const rawDescription = coerceToString(item.description) ?? coerceToString(item['itunes:summary']);
+
+    const sanitizedContentHtml = sanitizeDescription(rawContentEncoded);
+    const sanitizedDescriptionHtml = sanitizeDescription(rawDescription);
+    const sanitizedContentTrimmedLength = sanitizedContentHtml.trim().length;
+    const descriptionHtml = sanitizedContentTrimmedLength > 0
+      ? sanitizedContentHtml
+      : sanitizedDescriptionHtml;
+
+    const rawSummary = coerceToString(item['itunes:summary']) ?? coerceToString(item.summary);
+
     const episode: ParsedEpisode = {
       guid: generateEpisodeGuid(item.guid, audioUrl, title, pubDate),
       title,
-      description: extractTextContent(item['itunes:summary'] || item.summary || item.description),
-      descriptionHtml: sanitizeDescription(item['content:encoded'] || item.description),
+      description: extractTextContent(rawSummary ?? rawDescription ?? ''),
+      descriptionHtml,
       audioUrl,
       pubDate: pubDate || new Date(),
     };

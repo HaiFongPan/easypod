@@ -73,11 +73,14 @@ export function sanitizeDescription(html: string | undefined): string {
   if (!html) return '';
 
   return sanitizeHtml(html, {
-    allowedTags: ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'a', 'ul', 'ol', 'li', 'blockquote'],
-    allowedAttributes: {
-      'a': ['href', 'title'],
+    allowedTags: false,
+    allowedAttributes: false,
+    disallowedTagsMode: 'discard',
+    allowedSchemes: ['http', 'https', 'mailto', 'data'],
+    exclusiveFilter: (frame) => {
+      const tag = frame.tag?.toLowerCase();
+      return tag === 'script' || tag === 'style';
     },
-    allowedSchemes: ['http', 'https', 'mailto'],
   });
 }
 
