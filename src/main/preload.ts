@@ -40,6 +40,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     refresh: (feedId: number) => ipcRenderer.invoke('feeds:refresh', feedId),
     refreshAll: () => ipcRenderer.invoke('feeds:refreshAll'),
     validate: (url: string) => ipcRenderer.invoke('feeds:validate', url),
+    preview: (url: string) => ipcRenderer.invoke('feeds:preview', url),
     getCacheStats: () => ipcRenderer.invoke('feeds:getCacheStats'),
     clearCache: () => ipcRenderer.invoke('feeds:clearCache'),
   },
@@ -104,6 +105,24 @@ export interface ElectronAPI {
     refresh: (feedId: number) => Promise<{ success: boolean; hasUpdates?: boolean; error?: string }>;
     refreshAll: () => Promise<{ updated: number; errors: string[] }>;
     validate: (url: string) => Promise<{ valid: boolean; title?: string; error?: string }>;
+    preview: (url: string) => Promise<{
+      success: boolean;
+      feed?: {
+        title: string;
+        description?: string | null;
+        image?: string | null;
+        author?: string | null;
+        url: string;
+      };
+      episodes?: Array<{
+        id: string;
+        title: string;
+        duration?: number | null;
+        image?: string | null;
+        pubDate?: string | null;
+      }>;
+      error?: string;
+    }>;
     getCacheStats: () => Promise<{ size: number; urls: string[] }>;
     clearCache: () => Promise<{ success: boolean }>;
   };

@@ -35,6 +35,7 @@ export class FeedIPCHandlers {
     ipcMain.handle('feeds:refresh', this.handleRefreshFeed.bind(this));
     ipcMain.handle('feeds:refreshAll', this.handleRefreshAllFeeds.bind(this));
     ipcMain.handle('feeds:validate', this.handleValidateFeedUrl.bind(this));
+    ipcMain.handle('feeds:preview', this.handlePreviewFeed.bind(this));
 
     // Episode management
     ipcMain.handle('episodes:getAll', this.handleGetAllEpisodes.bind(this));
@@ -409,6 +410,63 @@ export class FeedIPCHandlers {
     }
   }
 
+  private async handlePreviewFeed(
+    event: IpcMainInvokeEvent,
+    url: string
+  ): Promise<{
+    success: boolean;
+    feed?: {
+      title: string;
+      description?: string | null;
+      image?: string | null;
+      author?: string | null;
+      url: string;
+    };
+    episodes?: Array<{
+      id: string;
+      title: string;
+      duration?: number | null;
+      image?: string | null;
+      pubDate?: string | null;
+    }>;
+    error?: string;
+  }> {
+    try {
+      const parsedFeed = await this.parser.parseFeed(url);
+      const coverImage =
+        parsedFeed.image ||
+        parsedFeed.episodes.find((episode) => episode.episodeImage)?.episodeImage ||
+        null;
+
+      const episodes = parsedFeed.episodes.slice(0, 20).map((episode) => ({
+        id: episode.guid || episode.audioUrl || `${parsedFeed.url || url}-${episode.title}`.slice(0, 120),
+        title: episode.title,
+        duration: episode.duration ?? null,
+        image: episode.episodeImage || coverImage || null,
+        pubDate:
+          episode.pubDate instanceof Date ? episode.pubDate.toISOString() : null,
+      }));
+
+      return {
+        success: true,
+        feed: {
+          title: parsedFeed.title,
+          description: parsedFeed.description || null,
+          image: coverImage,
+          author: parsedFeed.author || null,
+          url: parsedFeed.url || url,
+        },
+        episodes,
+      };
+    } catch (error) {
+      console.error('Feed preview error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
   /**
    * Get all episodes (with optional filters)
    */
@@ -756,6 +814,7 @@ export class FeedIPCHandlers {
       'feeds:refresh',
       'feeds:refreshAll',
       'feeds:validate',
+      'feeds:preview',
       'episodes:getByFeed',
       'episodes:getById',
       'episodes:search',

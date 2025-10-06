@@ -1,7 +1,45 @@
-import React, { useState } from 'react';
-import { getElectronAPI } from '../../utils/electron';
-import { cn } from '../../utils/cn';
-import Button from '../Button';
+
+import React, { useCallback, useMemo, useState } from "react";
+import { getElectronAPI } from "../../utils/electron";
+import { cn } from "../../utils/cn";
+import Button from "../Button";
+import { formatDuration } from "../../utils/formatters";
+
+type DialogMode = "idle" | "rssPreview" | "itunesResults" | "itunesPreview";
+
+type PreviewFeed = {
+  title: string;
+  description?: string | null;
+  image?: string | null;
+  author?: string | null;
+  url: string;
+};
+
+type PreviewEpisode = {
+  id: string;
+  title: string;
+  duration?: number | null;
+  image?: string | null;
+  pubDate?: string | null;
+};
+
+type PreviewResponse = {
+  success: boolean;
+  feed?: PreviewFeed;
+  episodes?: PreviewEpisode[];
+  error?: string;
+};
+
+type ItunesResult = {
+  trackId: number;
+  trackName: string;
+  collectionName?: string;
+  artistName?: string;
+  feedUrl?: string;
+  artworkUrl60?: string;
+  artworkUrl100?: string;
+  artworkUrl600?: string;
+};
 
 interface AddFeedDialogProps {
   isOpen: boolean;
@@ -10,31 +48,49 @@ interface AddFeedDialogProps {
   availableCategories: string[];
 }
 
+const isProbablyUrl = (value: string) => /^https?:\/\//i.test(value.trim());
+
+const formatEpisodeDuration = (duration?: number | null) => {
+  if (!duration || Number.isNaN(duration) || duration <= 0) {
+    return "Unknown";
+  }
+  return formatDuration(duration);
+};
+
 const AddFeedDialog: React.FC<AddFeedDialogProps> = ({
   isOpen,
   onClose,
   onAdd,
   availableCategories,
 }) => {
-  const [url, setUrl] = useState('');
-  const [category, setCategory] = useState('Default');
-  const [customCategory, setCustomCategory] = useState('');
+  const [inputValue, setInputValue] = useState("");
+  const [mode, setMode] = useState<DialogMode>("idle");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [previewFeed, setPreviewFeed] = useState<PreviewFeed | null>(null);
+  const [previewEpisodes, setPreviewEpisodes] = useState<PreviewEpisode[]>([]);
+  const [itunesResults, setItunesResults] = useState<ItunesResult[]>([]);
+  const [selectedItunes, setSelectedItunes] = useState<ItunesResult | null>(null);
+  const [selectedFeedUrl, setSelectedFeedUrl] = useState<string | null>(null);
+
+  const [category, setCategory] = useState("Default");
+  const [customCategory, setCustomCategory] = useState("");
   const [useCustomCategory, setUseCustomCategory] = useState(false);
-  const [isValidating, setIsValidating] = useState(false);
-  const [validationResult, setValidationResult] = useState<{
-    valid: boolean;
-    title?: string;
-    error?: string;
-  } | null>(null);
   const [isAdding, setIsAdding] = useState(false);
 
   const resetForm = () => {
-    setUrl('');
-    setCategory('Default');
-    setCustomCategory('');
+    setInputValue("");
+    setMode("idle");
+    setIsLoading(false);
+    setErrorMessage(null);
+    setPreviewFeed(null);
+    setPreviewEpisodes([]);
+    setItunesResults([]);
+    setSelectedItunes(null);
+    setSelectedFeedUrl(null);
+    setCategory("Default");
+    setCustomCategory("");
     setUseCustomCategory(false);
-    setValidationResult(null);
-    setIsValidating(false);
     setIsAdding(false);
   };
 
@@ -43,195 +99,431 @@ const AddFeedDialog: React.FC<AddFeedDialogProps> = ({
     onClose();
   };
 
-  const validateUrl = async () => {
-    if (!url.trim()) return;
+  const previewFeedFromUrl = useCallback(async (feedUrl: string, nextMode: DialogMode) => {
+    const electron = getElectronAPI();
+    if (!electron?.feeds?.preview) {
+      setErrorMessage("Feed preview is not available in this build.");
+      return;
+    }
 
-    setIsValidating(true);
-    setValidationResult(null);
-
+    setIsLoading(true);
+    setErrorMessage(null);
     try {
-      const result = await getElectronAPI().feeds.validate(url.trim());
-      setValidationResult(result);
+      const result = (await electron.feeds.preview(feedUrl)) as PreviewResponse;
+      if (!result.success || !result.feed) {
+        throw new Error(result.error || "Failed to preview feed");
+      }
+
+      setPreviewFeed(result.feed);
+      setPreviewEpisodes(result.episodes ?? []);
+      setSelectedFeedUrl(result.feed.url || feedUrl);
+      setMode(nextMode);
     } catch (error) {
-      setValidationResult({
-        valid: false,
-        error: error instanceof Error ? error.message : 'Validation failed'
-      });
+      console.error("Preview error:", error);
+      setPreviewFeed(null);
+      setPreviewEpisodes([]);
+      setSelectedFeedUrl(null);
+      setErrorMessage(error instanceof Error ? error.message : "Failed to load feed preview");
+      setMode("idle");
     } finally {
-      setIsValidating(false);
+      setIsLoading(false);
+    }
+  }, []);
+
+  const performItunesSearch = useCallback(async (term: string) => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    setItunesResults([]);
+    try {
+      const params = new URLSearchParams({
+        term,
+        media: "podcast",
+        limit: "10",
+        attribute: "titleTerm",
+      });
+
+      const response = await fetch(`https://itunes.apple.com/search?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error(`iTunes search failed (${response.status})`);
+      }
+
+      const payload = await response.json();
+      const results: ItunesResult[] = Array.isArray(payload?.results)
+        ? payload.results.filter((item: ItunesResult) => Boolean(item.feedUrl))
+        : [];
+
+      setItunesResults(results.slice(0, 10));
+      setMode(results.length > 0 ? "itunesResults" : "idle");
+      if (results.length === 0) {
+        setErrorMessage("No podcasts found for that keyword.");
+      }
+    } catch (error) {
+      console.error("iTunes search error:", error);
+      setErrorMessage(error instanceof Error ? error.message : "Search failed");
+      setMode("idle");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const handleSearch = async () => {
+    const value = inputValue.trim();
+    if (!value) return;
+
+    setPreviewFeed(null);
+    setPreviewEpisodes([]);
+    setSelectedFeedUrl(null);
+    setSelectedItunes(null);
+    setErrorMessage(null);
+
+    if (isProbablyUrl(value)) {
+      await previewFeedFromUrl(value, "rssPreview");
+    } else {
+      await performItunesSearch(value);
     }
   };
 
-  const handleUrlChange = (value: string) => {
-    setUrl(value);
-    setValidationResult(null);
+  const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      handleSearch();
+    }
   };
 
-  const handleAdd = async () => {
-    if (!url.trim() || !validationResult?.valid) return;
+  const handleItunesSelect = async (result: ItunesResult) => {
+    if (!result.feedUrl) {
+      setErrorMessage("Selected podcast does not provide an RSS feed.");
+      return;
+    }
+    setSelectedItunes(result);
+    await previewFeedFromUrl(result.feedUrl, "itunesPreview");
+  };
+
+  const handleBackToResults = () => {
+    setPreviewFeed(null);
+    setPreviewEpisodes([]);
+    setSelectedFeedUrl(null);
+    setMode("itunesResults");
+  };
+
+  const handleAdd = useCallback(async () => {
+    const feedUrl = selectedFeedUrl ?? (isProbablyUrl(inputValue) ? inputValue.trim() : null);
+    if (!feedUrl || isAdding) {
+      if (!feedUrl) {
+        setErrorMessage("Preview a podcast before adding it.");
+      }
+      return;
+    }
+
+    const finalCategory = useCustomCategory && customCategory.trim()
+      ? customCategory.trim()
+      : category;
 
     setIsAdding(true);
+    setErrorMessage(null);
     try {
-      const finalCategory = useCustomCategory && customCategory.trim()
-        ? customCategory.trim()
-        : category;
-
-      await onAdd(url.trim(), finalCategory);
+      await onAdd(feedUrl, finalCategory);
       handleClose();
     } catch (error) {
-      // Error will be handled by the parent component
-      console.error('Failed to add feed:', error);
+      console.error("Add podcast error:", error);
+      setErrorMessage(error instanceof Error ? error.message : "Failed to add podcast");
     } finally {
       setIsAdding(false);
     }
+  }, [category, customCategory, handleClose, inputValue, onAdd, selectedFeedUrl, useCustomCategory, isAdding]);
+
+  const handleAddFromIcon = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    handleAdd();
   };
 
-  const isUrlValid = url.trim() && (url.startsWith('http://') || url.startsWith('https://'));
+  const isAddDisabled = useMemo(() => !selectedFeedUrl || isAdding, [selectedFeedUrl, isAdding]);
+
+  const renderEpisodeList = () => {
+    if (!previewFeed) {
+      return null;
+    }
+
+    return (
+      <div className="rounded-md border border-gray-200 dark:border-gray-700 max-h-64 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
+        {previewEpisodes.length === 0 ? (
+          <div className="p-4 text-sm text-gray-500 dark:text-gray-400">
+            No recent episodes available for preview.
+          </div>
+        ) : (
+          previewEpisodes.map((episode) => {
+            const artwork = episode.image || previewFeed.image || null;
+            const durationLabel = formatEpisodeDuration(episode.duration);
+
+            return (
+              <div key={episode.id} className="flex items-center gap-3 p-3 text-left">
+                <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-md bg-gray-200 dark:bg-gray-700">
+                  {artwork ? (
+                    <img src={artwork} alt="Episode artwork" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-gray-400">
+                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 7v10M7 12h10" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-1">
+                    {episode.title}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{durationLabel}</div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    );
+  };
+
+  const renderItunesResults = () => (
+    <div className="rounded-md border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-800 max-h-64 overflow-y-auto">
+      {itunesResults.map((result) => {
+        const artwork = result.artworkUrl100 || result.artworkUrl600 || result.artworkUrl60;
+        return (
+          <button
+            key={result.trackId}
+            type="button"
+            onClick={() => handleItunesSelect(result)}
+            className="flex w-full items-center gap-3 p-3 text-left transition hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-md bg-gray-200 dark:bg-gray-700">
+              {artwork ? (
+                <img src={artwork} alt={result.trackName} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-gray-400">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7v10M7 12h10" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+              )}
+            </div>
+            <div className="flex-1">
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100 line-clamp-1">
+                {result.trackName}
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">
+                {result.artistName || result.collectionName || "Unknown artist"}
+              </div>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const renderPreviewHeader = () => {
+    if (!previewFeed) return null;
+
+    return (
+      <div className="flex items-start gap-4">
+        <div className="relative h-20 w-20 flex-shrink-0">
+          <div className="absolute inset-0 overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700">
+            {previewFeed.image ? (
+              <img src={previewFeed.image} alt={previewFeed.title} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-gray-400">
+                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+                  <rect x="3" y="4" width="18" height="16" rx="2" />
+                  <path d="M3 10h18" />
+                </svg>
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={handleAddFromIcon}
+            disabled={isAddDisabled}
+            className={cn(
+              "absolute -top-2 -right-2 rounded-full bg-blue-600 p-2 text-white shadow-lg transition hover:bg-blue-500", 
+              isAddDisabled && "cursor-not-allowed opacity-60"
+            )}
+            aria-label="Add podcast"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+              <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+        <div className="flex-1 space-y-2">
+          <div className="flex items-center gap-2">
+            {mode === "itunesPreview" && (
+              <button
+                type="button"
+                onClick={handleBackToResults}
+                className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                  <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Back
+              </button>
+            )}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {previewFeed.title}
+              </h3>
+              {(previewFeed.author || selectedItunes?.artistName) && (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {previewFeed.author || selectedItunes?.artistName}
+                </p>
+              )}
+            </div>
+          </div>
+          {previewFeed.description && (
+            <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3">
+              {previewFeed.description}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderCategorySelection = () => (
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        Category
+      </label>
+      <div className="space-y-2">
+        <div className="flex items-center space-x-2">
+          <input
+            type="radio"
+            id="existing-category"
+            checked={!useCustomCategory}
+            onChange={() => setUseCustomCategory(false)}
+            className="text-blue-600"
+          />
+          <label htmlFor="existing-category" className="text-sm text-gray-700 dark:text-gray-300">
+            Use existing category
+          </label>
+        </div>
+
+        {!useCustomCategory && (
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+          >
+            <option value="Default">Default</option>
+            {availableCategories
+              .filter((cat) => cat !== "Default")
+              .map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+          </select>
+        )}
+
+        <div className="flex items-center space-x-2">
+          <input
+            type="radio"
+            id="custom-category"
+            checked={useCustomCategory}
+            onChange={() => setUseCustomCategory(true)}
+            className="text-blue-600"
+          />
+          <label htmlFor="custom-category" className="text-sm text-gray-700 dark:text-gray-300">
+            Create new category
+          </label>
+        </div>
+
+        {useCustomCategory && (
+          <input
+            type="text"
+            value={customCategory}
+            onChange={(e) => setCustomCategory(e.target.value)}
+            placeholder="Enter category name"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+          />
+        )}
+      </div>
+    </div>
+  );
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-2xl rounded-lg bg-white shadow-xl dark:bg-gray-800">
         <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               Add New Podcast
             </h2>
             <button
               onClick={handleClose}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              className="text-gray-400 transition hover:text-gray-600 dark:hover:text-gray-300"
+              aria-label="Close"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
           </div>
 
-          <div className="space-y-4">
-            {/* URL Input */}
+          <div className="mt-4 space-y-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                RSS Feed URL
+              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Enter an RSS feed URL or podcast keyword
               </label>
-              <div className="flex space-x-2">
+              <div className="flex gap-2">
                 <input
-                  type="url"
-                  value={url}
-                  onChange={(e) => handleUrlChange(e.target.value)}
-                  placeholder="https://example.com/feed.xml"
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="https://example.com/feed.xml or podcast name"
+                  className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
                 />
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={validateUrl}
-                  disabled={!isUrlValid || isValidating}
-                >
-                  {isValidating ? 'Checking...' : 'Validate'}
+                <Button variant="secondary" onClick={handleSearch} disabled={!inputValue.trim() || isLoading}>
+                  {isLoading ? "Loading..." : "Search"}
                 </Button>
               </div>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                URLs load directly from RSS. Keywords search Apple Podcasts.
+              </p>
             </div>
 
-            {/* Validation Result */}
-            {validationResult && (
-              <div className={cn(
-                "p-3 rounded-md text-sm",
-                validationResult.valid
-                  ? "bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800"
-                  : "bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800"
-              )}>
-                {validationResult.valid ? (
-                  <div>
-                    <div className="font-medium">✓ Valid podcast feed</div>
-                    {validationResult.title && (
-                      <div className="mt-1">Title: {validationResult.title}</div>
-                    )}
-                  </div>
-                ) : (
-                  <div>
-                    <div className="font-medium">✗ Invalid feed</div>
-                    {validationResult.error && (
-                      <div className="mt-1">{validationResult.error}</div>
-                    )}
-                  </div>
-                )}
+            {errorMessage && (
+              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+                {errorMessage}
               </div>
             )}
 
-            {/* Category Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Category
-              </label>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="radio"
-                    id="existing-category"
-                    checked={!useCustomCategory}
-                    onChange={() => setUseCustomCategory(false)}
-                    className="text-blue-600"
-                  />
-                  <label htmlFor="existing-category" className="text-sm text-gray-700 dark:text-gray-300">
-                    Use existing category
-                  </label>
-                </div>
+            {mode === "itunesResults" && renderItunesResults()}
 
-                {!useCustomCategory && (
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
-                  >
-                    <option value="Default">Default</option>
-                    {availableCategories.filter(cat => cat !== 'Default').map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-                )}
-
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="radio"
-                    id="custom-category"
-                    checked={useCustomCategory}
-                    onChange={() => setUseCustomCategory(true)}
-                    className="text-blue-600"
-                  />
-                  <label htmlFor="custom-category" className="text-sm text-gray-700 dark:text-gray-300">
-                    Create new category
-                  </label>
-                </div>
-
-                {useCustomCategory && (
-                  <input
-                    type="text"
-                    value={customCategory}
-                    onChange={(e) => setCustomCategory(e.target.value)}
-                    placeholder="Enter category name"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
-                  />
-                )}
+            {(mode === "rssPreview" || mode === "itunesPreview") && (
+              <div className="space-y-4">
+                {renderPreviewHeader()}
+                {renderEpisodeList()}
               </div>
-            </div>
+            )}
+
+            {mode === "idle" && !previewFeed && !itunesResults.length && !isLoading && (
+              <div className="rounded-md border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                Start by entering an RSS feed URL or a podcast keyword.
+              </div>
+            )}
+
+            {renderCategorySelection()}
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-end space-x-3 mt-6">
-            <Button
-              variant="ghost"
-              onClick={handleClose}
-              disabled={isAdding}
-            >
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="ghost" onClick={handleClose} disabled={isAdding}>
               Cancel
             </Button>
-            <Button
-              variant="primary"
-              onClick={handleAdd}
-              disabled={!validationResult?.valid || isAdding}
-            >
-              {isAdding ? 'Adding...' : 'Add Podcast'}
+            <Button variant="primary" onClick={handleAdd} disabled={isAddDisabled}>
+              {isAdding ? "Adding..." : "Add Podcast"}
             </Button>
           </div>
         </div>

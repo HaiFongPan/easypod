@@ -311,6 +311,24 @@ const createMockElectronAPI = (): ElectronAPI => {
           return { valid: false, error: normalizeError(error) };
         }
       },
+      preview: async (url: string) => {
+        try {
+          const metadata = await fetchFeedMetadata(url);
+          return {
+            success: true,
+            feed: {
+              title: metadata.title,
+              description: metadata.description,
+              image: metadata.coverUrl ?? null,
+              author: null,
+              url,
+            },
+            episodes: [],
+          };
+        } catch (error) {
+          return { success: false, error: normalizeError(error) };
+        }
+      },
       getCacheStats: async () => {
         const feeds = loadStoredFeeds();
         return {
