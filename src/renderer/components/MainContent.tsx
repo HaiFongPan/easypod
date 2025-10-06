@@ -35,6 +35,15 @@ const AISummariesView: React.FC = () => (
   </div>
 );
 
+const SettingsView: React.FC = () => (
+  <div className="p-6 space-y-4">
+    <div>
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h2>
+      <p className="mt-2 text-gray-600 dark:text-gray-400">Manage your EasyPod preferences here.</p>
+    </div>
+  </div>
+);
+
 const MainContent: React.FC = () => {
   const currentView = useNavigationStore(state => state.currentView);
 
@@ -63,6 +72,8 @@ const MainContent: React.FC = () => {
         return <TranscriptionsView />;
       case 'ai-summaries':
         return <AISummariesView />;
+      case 'settings':
+        return <SettingsView />;
       case 'rss-tester':
         return <FeedTester />;
       default:

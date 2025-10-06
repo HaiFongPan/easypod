@@ -9,6 +9,7 @@ export type AppView =
   | 'transcriptions'
   | 'ai-summaries'
   | 'rss-tester'
+  | 'settings'
   | 'episode-detail';
 
 interface NavigationState {

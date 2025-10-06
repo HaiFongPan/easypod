@@ -3,22 +3,8 @@ import Button from "../components/Button";
 import { useEpisodeDetailStore } from "../store/episodeDetailStore";
 import { useNavigationStore } from "../store/navigationStore";
 import { usePlayerStore } from "../store/playerStore";
-import { formatDate, formatDuration } from "../utils/formatters";
+import { formatDate } from "../utils/formatters";
 import { cn } from "../utils/cn";
-
-const pad = (value: number) => String(value).padStart(2, "0");
-const fmtTime = (seconds: number | null | undefined) => {
-  if (!seconds || Number.isNaN(seconds) || seconds < 0) {
-    return "00:00";
-  }
-  const totalSeconds = Math.floor(seconds);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const secs = totalSeconds % 60;
-  return hours > 0
-    ? `${hours}:${pad(minutes)}:${pad(secs)}`
-    : `${minutes}:${pad(secs)}`;
-};
 
 const stripHtml = (html: string | null | undefined) => {
   if (!html) return "";
@@ -32,7 +18,7 @@ const extractTags = (text: string, feedTitle?: string | null) => {
   if (!text) {
     return feedTitle ? [feedTitle] : [];
   }
-  const words = text.toLowerCase().match(/[a-z0-9\-]{4,}/g);
+  const words = text.toLowerCase().match(/[a-z0-9-]{4,}/g);
   if (!words) return feedTitle ? [feedTitle] : [];
   const stopWords = new Set([
     "that",
@@ -99,11 +85,15 @@ const buildChapters = (duration: number, description: string) => {
 };
 
 type TabKey<T extends string> = T;
+type CompactTabKey = 'notes' | 'transcript' | 'summary' | 'mindmap';
 interface TabsProps<T extends string> {
   tabs: { key: TabKey<T>; label: React.ReactNode }[];
   value: TabKey<T>;
   onChange: (value: TabKey<T>) => void;
   children: React.ReactNode;
+  onContentScroll?: React.UIEventHandler<HTMLDivElement>;
+  contentRef?: React.Ref<HTMLDivElement>;
+  contentClassName?: string;
 }
 
 function Tabs<T extends string>({
@@ -111,6 +101,9 @@ function Tabs<T extends string>({
   value,
   onChange,
   children,
+  onContentScroll,
+  contentRef,
+  contentClassName,
 }: TabsProps<T>) {
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -140,7 +133,13 @@ function Tabs<T extends string>({
           );
         })}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto pb-20">{children}</div>
+      <div
+        ref={contentRef}
+        onScroll={onContentScroll}
+        className={cn('min-h-0 flex-1 overflow-y-auto pb-20', contentClassName)}
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -326,9 +325,12 @@ const EpisodeDetailPage: React.FC = () => {
     ? position
     : (episode?.lastPositionSec ?? 0);
 
-  const [scrubValue, setScrubValue] = useState<number | null>(null);
   const [leftTab, setLeftTab] = useState<"notes" | "transcript">("notes");
   const [rightTab, setRightTab] = useState<"summary" | "mindmap">("summary");
+  const [compactTab, setCompactTab] = useState<CompactTabKey>("notes");
+  const [isHeaderCompact, setIsHeaderCompact] = useState(false);
+  const [isCompactLayout, setIsCompactLayout] = useState(false);
+  const leftPanelScrollRef = useRef<HTMLDivElement | null>(null);
   const didSkipStrictCleanup = useRef(false);
 
   useEffect(() => {
@@ -341,9 +343,74 @@ const EpisodeDetailPage: React.FC = () => {
     };
   }, [clearEpisode]);
 
+
   useEffect(() => {
-    setScrubValue(null);
-  }, [isCurrentEpisode]);
+    const updateLayout = () => {
+      if (typeof window === "undefined") {
+        return;
+      }
+      setIsCompactLayout(window.innerWidth < 1024);
+    };
+
+    updateLayout();
+    window.addEventListener("resize", updateLayout);
+    return () => window.removeEventListener("resize", updateLayout);
+  }, []);
+
+  useEffect(() => {
+    if (!isCompactLayout) {
+      return;
+    }
+    setCompactTab((prev) => {
+      if (prev === "summary" || prev === "mindmap") {
+        return rightTab;
+      }
+      return leftTab;
+    });
+  }, [isCompactLayout, leftTab, rightTab]);
+
+  useEffect(() => {
+    if (isCompactLayout) {
+      return;
+    }
+    if (compactTab === "notes" || compactTab === "transcript") {
+      setLeftTab(compactTab);
+    } else {
+      setRightTab(compactTab);
+    }
+  }, [isCompactLayout, compactTab]);
+
+  useEffect(() => {
+    setIsHeaderCompact(false);
+    if (leftPanelScrollRef.current) {
+      leftPanelScrollRef.current.scrollTop = 0;
+    }
+  }, [episode?.id]);
+
+  useEffect(() => {
+    if (!isCompactLayout) {
+      setIsHeaderCompact(false);
+    }
+  }, [isCompactLayout]);
+
+  useEffect(() => {
+    if (isCompactLayout && !(compactTab === "notes" || compactTab === "transcript")) {
+      setIsHeaderCompact(false);
+    }
+  }, [compactTab, isCompactLayout]);
+
+  useEffect(() => {
+    if (!leftPanelScrollRef.current) {
+      return;
+    }
+    if (isCompactLayout) {
+      if (compactTab === "notes" || compactTab === "transcript") {
+        leftPanelScrollRef.current.scrollTop = 0;
+      }
+      return;
+    }
+    leftPanelScrollRef.current.scrollTop = 0;
+  }, [leftTab, compactTab, isCompactLayout]);
 
   const descriptionText = useMemo(
     () => stripHtml(episode?.descriptionHtml),
@@ -362,7 +429,6 @@ const EpisodeDetailPage: React.FC = () => {
     [playbackDuration, episode?.durationSec, descriptionText],
   );
 
-  const displayPosition = scrubValue ?? playbackPosition;
 
   if (!episode) {
     return (
@@ -400,18 +466,6 @@ const EpisodeDetailPage: React.FC = () => {
     }
   };
 
-  const handleScrubCommit = () => {
-    if (scrubValue === null || !episode) return;
-    if (isCurrentEpisode) {
-      seek(scrubValue);
-    } else {
-      loadAndPlay(episode);
-      setTimeout(() => {
-        seek(scrubValue);
-      }, 400);
-    }
-    setScrubValue(null);
-  };
 
   const handleJump = (start: number) => {
     if (!episode) return;
@@ -425,258 +479,350 @@ const EpisodeDetailPage: React.FC = () => {
     }
   };
 
-  const handleBack = () => {
-    clearEpisode();
-    if (previousView) {
-      goBack();
-    } else {
-      setCurrentView("episodes");
+  const handleLeftTabChange = (value: "notes" | "transcript") => {
+    setLeftTab(value);
+    if (isCompactLayout) {
+      setCompactTab(value);
     }
   };
 
-  return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
-      <div className="flex-1 overflow-hidden">
-        <div className="grid h-full grid-rows-[auto_1fr]">
-          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-800">
-            <Button variant="ghost" size="sm" onClick={handleBack}>
-              <span className="mr-2 inline-flex items-center">
-                <svg
-                  className="h-4 w-4"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M12.707 4.293a1 1 0 010 1.414L9.414 9H17a1 1 0 110 2H9.414l3.293 3.293a1 1 0 11-1.414 1.414l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </span>
-              Back
-            </Button>
-            <div className="inline-flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-              <span>Detail View</span>
-              <span>•</span>
-              <span>{episode.feedTitle ?? "Podcast"}</span>
+  const handleRightTabChange = (value: "summary" | "mindmap") => {
+    setRightTab(value);
+    if (isCompactLayout) {
+      setCompactTab(value);
+    }
+  };
+
+  const handleCompactTabChange = (value: CompactTabKey) => {
+    setCompactTab(value);
+    if (value === "notes" || value === "transcript") {
+      setLeftTab(value);
+    } else {
+      setRightTab(value);
+    }
+  };
+
+  const handleScrollableContentScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const scrollContext = isCompactLayout ? compactTab : leftTab;
+    if (!(scrollContext === "notes" || scrollContext === "transcript")) {
+      setIsHeaderCompact(false);
+      return;
+    }
+    const shouldCompact = event.currentTarget.scrollTop > 80;
+    setIsHeaderCompact(shouldCompact);
+  };
+
+
+const handleBack = () => {
+  clearEpisode();
+  if (previousView) {
+    goBack();
+  } else {
+    setCurrentView("episodes");
+  }
+};
+
+const notesPanel = episode.descriptionHtml ? (
+  <div
+    className="prose prose-sm max-w-none select-text px-6 py-6 pb-24 text-gray-700 dark:prose-invert dark:text-gray-300"
+    dangerouslySetInnerHTML={{
+      __html: episode.descriptionHtml,
+    }}
+  />
+) : (
+  <div className="prose prose-sm max-w-none select-text px-6 py-6 pb-24 text-gray-700 dark:prose-invert dark:text-gray-300">
+    <p>No show notes were provided for this episode.</p>
+  </div>
+);
+
+const transcriptPanel = (
+  <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+    <svg className="h-12 w-12 text-gray-300 dark:text-gray-600" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v13a1 1 0 01-1.447.894L12 15.618l-5.553 3.276A1 1 0 015 18V5z" />
+    </svg>
+    <h3 className="mt-4 text-lg font-semibold text-gray-800 dark:text-gray-200">
+      Transcript coming soon
+    </h3>
+    <p className="mt-2 max-w-sm text-sm text-gray-500 dark:text-gray-400">
+      We're working on generating a transcript for this episode. Check back after the AI processing is complete.
+    </p>
+  </div>
+);
+
+const summaryPanel = (
+  <div className="space-y-4 px-4 py-6">
+    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Episode Summary</h3>
+      <p className="mt-3 text-sm text-gray-400 dark:text-gray-500">（内容留空）</p>
+    </section>
+
+    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Tags</h3>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <span
+            key={`tag-placeholder-${index}`}
+            className="rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-400 dark:border-gray-700 dark:text-gray-500"
+          >
+            （留空）
+          </span>
+        ))}
+      </div>
+    </section>
+
+    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Chapters</h3>
+        <span className="text-xs text-gray-400 dark:text-gray-500">（待填写）</span>
+      </div>
+      <ol className="mt-4 space-y-3 text-sm">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <li key={`chapter-placeholder-${index}`} className="flex items-start gap-3">
+            <div className="mt-1 text-xs font-semibold text-gray-400 dark:text-gray-500">{index + 1}.</div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="rounded border border-gray-200 px-2 py-0.5 text-xs text-gray-400 dark:border-gray-700 dark:text-gray-500">
+                  --:--
+                </span>
+                <p className="font-medium text-gray-400 dark:text-gray-500">章节标题（留空）</p>
+              </div>
+              <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">章节摘要内容留空，占位展示样式。</p>
             </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+
+    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Episode Card</h3>
+      <p className="mt-3 text-sm text-gray-400 dark:text-gray-500">（内容留空）</p>
+    </section>
+
+    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Play Queue</h3>
+      <p className="mt-3 text-sm text-gray-400 dark:text-gray-500">（内容留空）</p>
+    </section>
+  </div>
+);
+
+
+const mindmapPanel = (
+  <Mindmap
+    episodeTitle={episode.title}
+    tags={tags}
+    chapters={chapters}
+    onJump={handleJump}
+  />
+);
+
+
+const shouldShowCover = !isCompactLayout;
+const coverSizeClass = shouldShowCover
+  ? (isHeaderCompact ? 'h-16 w-16' : 'h-40 w-40')
+  : '';
+const titleSizeClass = isCompactLayout
+  ? 'text-xl'
+  : isHeaderCompact
+    ? 'text-xl lg:text-2xl'
+    : 'text-2xl lg:text-3xl';
+const publishInfoClass = isHeaderCompact ? 'mt-1 text-xs' : 'mt-2 text-sm';
+const actionButtonSizeClass = isHeaderCompact || isCompactLayout ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm';
+
+
+const headerSection = (
+  <div
+    className={cn(
+      "border-b border-gray-200 px-6 dark:border-gray-800",
+      isHeaderCompact ? "py-3" : "py-5",
+    )}
+  >
+    <div
+      className={cn(
+        "flex flex-col gap-4 lg:flex-row",
+        isCompactLayout ? "lg:flex-col" : undefined,
+        shouldShowCover && isHeaderCompact && !isCompactLayout ? "lg:items-center" : "lg:items-start",
+      )}
+    >
+      {shouldShowCover && (
+        <div
+          className={cn(
+            "mx-auto flex-shrink-0 overflow-hidden rounded-xl bg-gray-200 shadow-inner transition-all duration-200 dark:bg-gray-700 lg:mx-0",
+            coverSizeClass,
+          )}
+        >
+          <img
+            src={
+              episode.episodeImageUrl ||
+              episode.feedCoverUrl ||
+              "/default-cover.png"
+            }
+            alt={episode.title}
+            className="h-full w-full object-cover"
+            onError={(event) => {
+              (event.target as HTMLImageElement).src = "/default-cover.png";
+            }}
+          />
+        </div>
+      )}
+      <div className="flex-1">
+        <div
+          className={cn(
+            "flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between",
+            isHeaderCompact && !isCompactLayout ? "lg:justify-between lg:items-center" : undefined,
+          )}
+        >
+          <div className={cn("flex flex-col", isCompactLayout ? "gap-1" : "gap-2")}>
+            <p className="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              Episode Detail
+            </p>
+            <h1
+              className={cn(
+                "mt-1 font-bold leading-tight text-gray-900 transition-all duration-200 dark:text-gray-100",
+                titleSizeClass,
+              )}
+            >
+              {episode.title}
+            </h1>
+            {publishInfo && (
+              <p className={cn("text-gray-600 dark:text-gray-400", publishInfoClass)}>{publishInfo}</p>
+            )}
           </div>
-
-          <div className="grid h-full min-h-0 grid-cols-1 divide-y divide-gray-200 dark:divide-gray-800 lg:grid-cols-[1.6fr_1fr] lg:divide-x lg:divide-y-0">
-            <div className="flex h-full min-h-0 min-w-0 flex-col">
-              <div className="border-b border-gray-200 px-6 py-5 dark:border-gray-800">
-                <div className="flex flex-col gap-4 lg:flex-row">
-                  <div className="mx-auto h-40 w-40 flex-shrink-0 overflow-hidden rounded-xl bg-gray-200 shadow-inner dark:bg-gray-700 lg:mx-0">
-                    <img
-                      src={
-                        episode.episodeImageUrl ||
-                        episode.feedCoverUrl ||
-                        "/default-cover.png"
-                      }
-                      alt={episode.title}
-                      className="h-full w-full object-cover"
-                      onError={(event) => {
-                        (event.target as HTMLImageElement).src =
-                          "/default-cover.png";
-                      }}
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                      <div>
-                        <p className="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                          Episode Detail
-                        </p>
-                        <h1 className="mt-1 text-2xl font-bold leading-tight text-gray-900 dark:text-gray-100 lg:text-3xl">
-                          {episode.title}
-                        </h1>
-                        {publishInfo && (
-                          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                            {publishInfo}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={handlePlayToggle}
-                          className={cn(
-                            "inline-flex items-center gap-2 rounded-full border border-gray-300 px-4 py-2 text-sm font-medium transition",
-                            "hover:border-blue-500 hover:text-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
-                            isCurrentEpisode && isPlaying
-                              ? "bg-blue-600 text-white hover:text-white"
-                              : "bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100",
-                          )}
-                          aria-label={
-                            isCurrentEpisode && isPlaying
-                              ? "Pause episode"
-                              : "Play episode"
-                          }
-                        >
-                          {isCurrentEpisode && isPlaying
-                            ? "Pause"
-                            : isLoading
-                              ? "Loading…"
-                              : "Play"}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Progress + metadata can be restored when design finalizes */}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex-1 min-h-0">
-                <Tabs
-                  tabs={[
-                    { key: "notes", label: "Show Notes" },
-                    { key: "transcript", label: "Transcript" },
-                  ]}
-                  value={leftTab}
-                  onChange={setLeftTab}
-                >
-                  {leftTab === "notes" ? (
-                    episode.descriptionHtml ? (
-                      <div
-                        className="prose prose-sm max-w-none select-text px-6 py-6 pb-24 text-gray-700 dark:prose-invert dark:text-gray-300"
-                        dangerouslySetInnerHTML={{
-                          __html: episode.descriptionHtml,
-                        }}
-                      />
-                    ) : (
-                      <div className="prose prose-sm max-w-none select-text px-6 py-6 pb-24 text-gray-700 dark:prose-invert dark:text-gray-300">
-                        <p>No show notes were provided for this episode.</p>
-                      </div>
-                    )
-                  ) : (
-                    <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-                      <svg
-                        className="h-12 w-12 text-gray-300 dark:text-gray-600"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                      >
-                        <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v13a1 1 0 01-1.447.894L12 15.618l-5.553 3.276A1 1 0 015 18V5z" />
-                      </svg>
-                      <h3 className="mt-4 text-lg font-semibold text-gray-800 dark:text-gray-200">
-                        Transcript coming soon
-                      </h3>
-                      <p className="mt-2 max-w-sm text-sm text-gray-500 dark:text-gray-400">
-                        We're working on generating a transcript for this
-                        episode. Check back after the AI processing is complete.
-                      </p>
-                    </div>
-                  )}
-                </Tabs>
-              </div>
-            </div>
-
-            <div className="flex h-full min-h-0 min-w-0 flex-col bg-gray-50 dark:bg-gray-950">
-              <div className="flex-1 min-h-0">
-                <Tabs
-                  tabs={[
-                    { key: "summary", label: "AI Summary" },
-                    { key: "mindmap", label: "Mindmap" },
-                  ]}
-                  value={rightTab}
-                  onChange={setRightTab}
-                >
-                  {rightTab === "summary" ? (
-                    <div className="space-y-4 px-4 py-6">
-                      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                          Episode Summary
-                        </h3>
-                        <p className="mt-3 text-sm text-gray-400 dark:text-gray-500">
-                          （内容留空）
-                        </p>
-                      </section>
-
-                      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                          Tags
-                        </h3>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {Array.from({ length: 5 }).map((_, index) => (
-                            <span
-                              key={`tag-placeholder-${index}`}
-                              className="rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-400 dark:border-gray-700 dark:text-gray-500"
-                            >
-                              （留空）
-                            </span>
-                          ))}
-                        </div>
-                      </section>
-
-                      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            Chapters
-                          </h3>
-                          <span className="text-xs text-gray-400 dark:text-gray-500">
-                            （待填写）
-                          </span>
-                        </div>
-                        <ol className="mt-4 space-y-3 text-sm">
-                          {Array.from({ length: 4 }).map((_, index) => (
-                            <li
-                              key={`chapter-placeholder-${index}`}
-                              className="flex items-start gap-3"
-                            >
-                              <div className="mt-1 text-xs font-semibold text-gray-400 dark:text-gray-500">
-                                {index + 1}.
-                              </div>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="rounded border border-gray-200 px-2 py-0.5 text-xs text-gray-400 dark:border-gray-700 dark:text-gray-500">
-                                    --:--
-                                  </span>
-                                  <p className="font-medium text-gray-400 dark:text-gray-500">
-                                    章节标题（留空）
-                                  </p>
-                                </div>
-                                <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
-                                  章节摘要内容留空，占位展示样式。
-                                </p>
-                              </div>
-                            </li>
-                          ))}
-                        </ol>
-                      </section>
-
-                      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                          Episode Card
-                        </h3>
-                        <p className="mt-3 text-sm text-gray-400 dark:text-gray-500">
-                          （内容留空）
-                        </p>
-                      </section>
-
-                      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                          Play Queue
-                        </h3>
-                        <p className="mt-3 text-sm text-gray-400 dark:text-gray-500">
-                          （内容留空）
-                        </p>
-                      </section>
-                    </div>
-                  ) : (
-                    <Mindmap
-                      episodeTitle={episode.title}
-                      tags={tags}
-                      chapters={chapters}
-                      onJump={handleJump}
-                    />
-                  )}
-                </Tabs>
-              </div>
-            </div>
+          <div
+            className={cn(
+              "flex shrink-0 flex-wrap items-center gap-2",
+              isHeaderCompact && !isCompactLayout ? "lg:justify-end" : undefined,
+            )}
+          >
+            <button
+              type="button"
+              onClick={handlePlayToggle}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full border border-gray-300 font-medium transition",
+                "hover:border-blue-500 hover:text-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
+                actionButtonSizeClass,
+                isCurrentEpisode && isPlaying
+                  ? "bg-blue-600 text-white hover:text-white"
+                  : "bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100",
+              )}
+              aria-label={
+                isCurrentEpisode && isPlaying ? "Pause episode" : "Play episode"
+              }
+            >
+              {isCurrentEpisode && isPlaying
+                ? "Pause"
+                : isLoading
+                  ? "Loading…"
+                  : "Play"}
+            </button>
           </div>
         </div>
       </div>
     </div>
+  </div>
+);
+
+
+return (
+  <div className="flex flex-1 flex-col overflow-hidden bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+    <div className="flex-1 overflow-hidden">
+      <div className="grid h-full grid-rows-[auto_1fr]">
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-800">
+          <Button variant="ghost" size="sm" onClick={handleBack}>
+            <span className="mr-2 inline-flex items-center">
+              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  fillRule="evenodd"
+                  d="M12.707 4.293a1 1 0 010 1.414L9.414 9H17a1 1 0 110 2H9.414l3.293 3.293a1 1 0 11-1.414 1.414l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </span>
+            Back
+          </Button>
+          <div className="inline-flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <span>Detail View</span>
+            <span>•</span>
+            <span>{episode.feedTitle ?? "Podcast"}</span>
+          </div>
+        </div>
+
+        <div className="grid h-full min-h-0 grid-cols-1 divide-y divide-gray-200 dark:divide-gray-800 lg:grid-cols-[1.6fr_1fr] lg:divide-x lg:divide-y-0">
+          {isCompactLayout ? (
+            <div className="flex h-full min-h-0 flex-col">
+              <div className="bg-white dark:bg-gray-900">{headerSection}</div>
+              <div
+                className={cn(
+                  "flex-1 min-h-0",
+                  compactTab === "summary" || compactTab === "mindmap"
+                    ? "bg-gray-50 dark:bg-gray-950"
+                    : "bg-white dark:bg-gray-900",
+                )}
+              >
+                <Tabs
+                  tabs={[
+                    { key: "notes", label: "Show Notes" },
+                    { key: "transcript", label: "Transcript" },
+                    { key: "summary", label: "AI Summary" },
+                    { key: "mindmap", label: "Mindmap" },
+                  ]}
+                  value={compactTab}
+                  onChange={handleCompactTabChange}
+                  onContentScroll={handleScrollableContentScroll}
+                  contentRef={leftPanelScrollRef}
+                  contentClassName="pb-24"
+                >
+                  {compactTab === "notes"
+                    ? notesPanel
+                    : compactTab === "transcript"
+                      ? transcriptPanel
+                      : compactTab === "summary"
+                        ? summaryPanel
+                        : mindmapPanel}
+                </Tabs>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex h-full min-h-0 min-w-0 flex-col bg-white dark:bg-gray-900">
+                {headerSection}
+                <div className="flex-1 min-h-0">
+                  <Tabs
+                    tabs={[
+                      { key: "notes", label: "Show Notes" },
+                      { key: "transcript", label: "Transcript" },
+                    ]}
+                    value={leftTab}
+                    onChange={handleLeftTabChange}
+                    onContentScroll={handleScrollableContentScroll}
+                    contentRef={leftPanelScrollRef}
+                    contentClassName="pb-24"
+                  >
+                    {leftTab === "notes" ? notesPanel : transcriptPanel}
+                  </Tabs>
+                </div>
+              </div>
+
+              <div className="flex h-full min-h-0 min-w-0 flex-col bg-gray-50 dark:bg-gray-950">
+                <div className="flex-1 min-h-0">
+                  <Tabs
+                    tabs={[
+                      { key: "summary", label: "AI Summary" },
+                      { key: "mindmap", label: "Mindmap" },
+                    ]}
+                    value={rightTab}
+                    onChange={handleRightTabChange}
+                    contentClassName="pb-24"
+                  >
+                    {rightTab === "summary" ? summaryPanel : mindmapPanel}
+                  </Tabs>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
   );
 };
 

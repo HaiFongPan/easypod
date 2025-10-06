@@ -38,6 +38,7 @@ interface AppState {
 
   // UI actions
   toggleSidebar: () => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
   setActivePanel: (panel: UIState['activePanel']) => void;
 }
 
@@ -231,6 +232,15 @@ export const useAppStore = create<AppState>()(
             ui: {
               ...state.ui,
               sidebarCollapsed: !state.ui.sidebarCollapsed,
+            },
+          })),
+
+        setSidebarCollapsed: (collapsed) =>
+          set((state) => ({
+            ...state,
+            ui: {
+              ...state.ui,
+              sidebarCollapsed: collapsed,
             },
           })),
 
