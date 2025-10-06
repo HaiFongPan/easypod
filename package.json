@@ -77,6 +77,7 @@
     "clsx": "^2.0.0",
     "drizzle-orm": "^0.28.6",
     "electron-updater": "^6.1.4",
+    "lucide-react": "^0.544.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-virtuoso": "^4.14.1",

@@ -67,7 +67,7 @@ const QueuePanel: React.FC = () => {
   const isEmpty = queue.length === 0;
 
   return (
-    <div className="absolute bottom-full right-0 pb-2">
+    <div className="absolute bottom-full right-0 z-50 pb-2">
       <div className="w-96 max-h-96 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800">
         <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-900">
         <div>

@@ -100,7 +100,7 @@ const VolumeControl: React.FC<VolumeControlProps> = ({
 
         {/* Volume Slider - 显示在按钮上方 */}
         {showSlider && (
-          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 pb-2">
+          <div className="absolute bottom-full left-1/2 z-50 transform -translate-x-1/2 pb-2">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 px-4 py-3 flex flex-col items-center">
               <div
                 ref={volumeRef}
