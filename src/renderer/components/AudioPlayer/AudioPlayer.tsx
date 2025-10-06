@@ -8,6 +8,7 @@ import VolumeControl from './VolumeControl';
 import SpeedControl from './SpeedControl';
 import PlayPauseButton from '../PlayPauseButton';
 import QueuePanel from './QueuePanel';
+import { useEpisodeDetailNavigation } from '../../hooks/useEpisodeDetailNavigation';
 
 interface AudioPlayerProps {
   className?: string;
@@ -15,6 +16,7 @@ interface AudioPlayerProps {
 
 const AudioPlayer: React.FC<AudioPlayerProps> = ({ className }) => {
   const [isQueueOpen, setIsQueueOpen] = useState(false);
+  const openEpisodeDetail = useEpisodeDetailNavigation();
   const {
     currentEpisode,
     isPlaying,
@@ -123,12 +125,20 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ className }) => {
           />
         )}
         <div className="min-w-0 flex-1">
-          <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-            {currentEpisode.title}
-          </h4>
-          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-            Podcast Episode {/* TODO: Get feed name */}
-          </p>
+          <button
+            type="button"
+            onClick={() => openEpisodeDetail(currentEpisode)}
+            className="w-full text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded"
+          >
+            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
+              {currentEpisode.title}
+            </h4>
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+              {currentEpisode.feedTitle && currentEpisode.author
+                ? `${currentEpisode.feedTitle} • ${currentEpisode.author}`
+                : currentEpisode.feedTitle || currentEpisode.author || 'Unknown Podcast'}
+            </p>
+          </button>
         </div>
       </div>
 
