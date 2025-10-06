@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import QueueAddButton from "../components/QueueAddButton";
 import Button from "../components/Button";
 import { useEpisodeDetailStore } from "../store/episodeDetailStore";
 import { useNavigationStore } from "../store/navigationStore";
@@ -114,7 +113,7 @@ function Tabs<T extends string>({
   children,
 }: TabsProps<T>) {
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 border-b border-gray-200 px-4 dark:border-gray-800">
         {tabs.map((tab) => {
           const active = tab.key === value;
@@ -141,7 +140,7 @@ function Tabs<T extends string>({
           );
         })}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+      <div className="min-h-0 flex-1 overflow-y-auto pb-20">{children}</div>
     </div>
   );
 }
@@ -463,8 +462,8 @@ const EpisodeDetailPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid h-full grid-cols-1 divide-y lg:grid-cols-[1.6fr_1fr] lg:divide-x lg:divide-y-0">
-            <div className="flex min-w-0 flex-col">
+          <div className="grid h-full min-h-0 grid-cols-1 divide-y divide-gray-200 dark:divide-gray-800 lg:grid-cols-[1.6fr_1fr] lg:divide-x lg:divide-y-0">
+            <div className="flex h-full min-h-0 min-w-0 flex-col">
               <div className="border-b border-gray-200 px-6 py-5 dark:border-gray-800">
                 <div className="flex flex-col gap-4 lg:flex-row">
                   <div className="mx-auto h-40 w-40 flex-shrink-0 overflow-hidden rounded-xl bg-gray-200 shadow-inner dark:bg-gray-700 lg:mx-0">
@@ -523,50 +522,7 @@ const EpisodeDetailPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* <div className="mt-4 flex flex-col gap-3"> */}
-                    {/*   <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400"> */}
-                    {/*     <span className="tabular-nums w-14 text-right"> */}
-                    {/*       {fmtTime(displayPosition)} */}
-                    {/*     </span> */}
-                    {/*     <input */}
-                    {/*       type="range" */}
-                    {/*       min={0} */}
-                    {/*       max={playbackDuration || 0} */}
-                    {/*       step={1} */}
-                    {/*       value={Math.min( */}
-                    {/*         displayPosition, */}
-                    {/*         playbackDuration || 0, */}
-                    {/*       )} */}
-                    {/*       onChange={(event) => */}
-                    {/*         setScrubValue(Number(event.target.value)) */}
-                    {/*       } */}
-                    {/*       onMouseUp={handleScrubCommit} */}
-                    {/*       onTouchEnd={handleScrubCommit} */}
-                    {/*       onKeyUp={(event) => { */}
-                    {/*         if (event.key === "Enter" || event.key === " ") { */}
-                    {/*           handleScrubCommit(); */}
-                    {/*         } */}
-                    {/*       }} */}
-                    {/*       className="flex-1 accent-blue-500" */}
-                    {/*       disabled={!playbackDuration} */}
-                    {/*       aria-label="Episode progress" */}
-                    {/*     /> */}
-                    {/*     <span className="tabular-nums w-14"> */}
-                    {/*       {fmtTime(playbackDuration)} */}
-                    {/*     </span> */}
-                    {/*   </div> */}
-                    {/* <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400"> */}
-                    {/*   <span>Last played position: {fmtTime(episode.lastPositionSec)}</span> */}
-                    {/*   <span>•</span> */}
-                    {/*   <span>Duration: {fmtTime(episode.durationSec)}</span> */}
-                    {/*   {descriptionText && ( */}
-                    {/*     <> */}
-                    {/*       <span>•</span> */}
-                    {/*       <span>{Math.max(descriptionText.length, 1)} characters of notes</span> */}
-                    {/*     </> */}
-                    {/*   )} */}
-                    {/* </div> */}
-                    {/* </div> */}
+                    {/* Progress + metadata can be restored when design finalizes */}
                   </div>
                 </div>
               </div>
@@ -581,17 +537,18 @@ const EpisodeDetailPage: React.FC = () => {
                   onChange={setLeftTab}
                 >
                   {leftTab === "notes" ? (
-                    <div className="prose prose-sm max-w-none px-6 py-6 text-gray-700 dark:prose-invert dark:text-gray-300">
-                      {episode.descriptionHtml ? (
-                        <div
-                          dangerouslySetInnerHTML={{
-                            __html: episode.descriptionHtml,
-                          }}
-                        />
-                      ) : (
+                    episode.descriptionHtml ? (
+                      <div
+                        className="prose prose-sm max-w-none select-text px-6 py-6 pb-24 text-gray-700 dark:prose-invert dark:text-gray-300"
+                        dangerouslySetInnerHTML={{
+                          __html: episode.descriptionHtml,
+                        }}
+                      />
+                    ) : (
+                      <div className="prose prose-sm max-w-none select-text px-6 py-6 pb-24 text-gray-700 dark:prose-invert dark:text-gray-300">
                         <p>No show notes were provided for this episode.</p>
-                      )}
-                    </div>
+                      </div>
+                    )
                   ) : (
                     <div className="flex h-full flex-col items-center justify-center px-6 text-center">
                       <svg
@@ -605,7 +562,7 @@ const EpisodeDetailPage: React.FC = () => {
                         Transcript coming soon
                       </h3>
                       <p className="mt-2 max-w-sm text-sm text-gray-500 dark:text-gray-400">
-                        We’re working on generating a transcript for this
+                        We're working on generating a transcript for this
                         episode. Check back after the AI processing is complete.
                       </p>
                     </div>
@@ -614,92 +571,107 @@ const EpisodeDetailPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex min-w-0 flex-col bg-gray-50 dark:bg-gray-950">
-              <Tabs
-                tabs={[
-                  { key: "summary", label: "AI Summary" },
-                  { key: "mindmap", label: "Mindmap" },
-                ]}
-                value={rightTab}
-                onChange={setRightTab}
-              >
-                {rightTab === "summary" ? (
-                  <div className="space-y-4 px-4 py-6">
-                    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                        Episode Summary
-                      </h3>
-                      <p className="mt-3 text-sm text-gray-400 dark:text-gray-500">（内容留空）</p>
-                    </section>
-
-                    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                        Tags
-                      </h3>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {Array.from({ length: 5 }).map((_, index) => (
-                          <span
-                            key={`tag-placeholder-${index}`}
-                            className="rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-400 dark:border-gray-700 dark:text-gray-500"
-                          >
-                            （留空）
-                          </span>
-                        ))}
-                      </div>
-                    </section>
-
-                    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                      <div className="flex items-center justify-between">
+            <div className="flex h-full min-h-0 min-w-0 flex-col bg-gray-50 dark:bg-gray-950">
+              <div className="flex-1 min-h-0">
+                <Tabs
+                  tabs={[
+                    { key: "summary", label: "AI Summary" },
+                    { key: "mindmap", label: "Mindmap" },
+                  ]}
+                  value={rightTab}
+                  onChange={setRightTab}
+                >
+                  {rightTab === "summary" ? (
+                    <div className="space-y-4 px-4 py-6">
+                      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
                         <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                          Chapters
+                          Episode Summary
                         </h3>
-                        <span className="text-xs text-gray-400 dark:text-gray-500">（待填写）</span>
-                      </div>
-                      <ol className="mt-4 space-y-3 text-sm">
-                        {Array.from({ length: 4 }).map((_, index) => (
-                          <li key={`chapter-placeholder-${index}`} className="flex items-start gap-3">
-                            <div className="mt-1 text-xs font-semibold text-gray-400 dark:text-gray-500">
-                              {index + 1}.
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="rounded border border-gray-200 px-2 py-0.5 text-xs text-gray-400 dark:border-gray-700 dark:text-gray-500">
-                                  --:--
-                                </span>
-                                <p className="font-medium text-gray-400 dark:text-gray-500">章节标题（留空）</p>
+                        <p className="mt-3 text-sm text-gray-400 dark:text-gray-500">
+                          （内容留空）
+                        </p>
+                      </section>
+
+                      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                          Tags
+                        </h3>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {Array.from({ length: 5 }).map((_, index) => (
+                            <span
+                              key={`tag-placeholder-${index}`}
+                              className="rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-400 dark:border-gray-700 dark:text-gray-500"
+                            >
+                              （留空）
+                            </span>
+                          ))}
+                        </div>
+                      </section>
+
+                      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            Chapters
+                          </h3>
+                          <span className="text-xs text-gray-400 dark:text-gray-500">
+                            （待填写）
+                          </span>
+                        </div>
+                        <ol className="mt-4 space-y-3 text-sm">
+                          {Array.from({ length: 4 }).map((_, index) => (
+                            <li
+                              key={`chapter-placeholder-${index}`}
+                              className="flex items-start gap-3"
+                            >
+                              <div className="mt-1 text-xs font-semibold text-gray-400 dark:text-gray-500">
+                                {index + 1}.
                               </div>
-                              <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
-                                章节摘要内容留空，占位展示样式。
-                              </p>
-                            </div>
-                          </li>
-                        ))}
-                      </ol>
-                    </section>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="rounded border border-gray-200 px-2 py-0.5 text-xs text-gray-400 dark:border-gray-700 dark:text-gray-500">
+                                    --:--
+                                  </span>
+                                  <p className="font-medium text-gray-400 dark:text-gray-500">
+                                    章节标题（留空）
+                                  </p>
+                                </div>
+                                <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+                                  章节摘要内容留空，占位展示样式。
+                                </p>
+                              </div>
+                            </li>
+                          ))}
+                        </ol>
+                      </section>
 
-                    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                        Episode Card
-                      </h3>
-                      <p className="mt-3 text-sm text-gray-400 dark:text-gray-500">（内容留空）</p>
-                    </section>
+                      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                          Episode Card
+                        </h3>
+                        <p className="mt-3 text-sm text-gray-400 dark:text-gray-500">
+                          （内容留空）
+                        </p>
+                      </section>
 
-                    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                        Play Queue
-                      </h3>
-                      <p className="mt-3 text-sm text-gray-400 dark:text-gray-500">（内容留空）</p>
-                    </section>
-                  </div>
-                ) : (
-                  <Mindmap
-                    episodeTitle={episode.title}
-                    tags={tags}
-                    chapters={chapters}
-                    onJump={handleJump}
-                  />
-                )}
-              </Tabs>
+                      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                          Play Queue
+                        </h3>
+                        <p className="mt-3 text-sm text-gray-400 dark:text-gray-500">
+                          （内容留空）
+                        </p>
+                      </section>
+                    </div>
+                  ) : (
+                    <Mindmap
+                      episodeTitle={episode.title}
+                      tags={tags}
+                      chapters={chapters}
+                      onJump={handleJump}
+                    />
+                  )}
+                </Tabs>
+              </div>
             </div>
           </div>
         </div>
