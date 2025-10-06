@@ -324,67 +324,96 @@ const AddFeedDialog: React.FC<AddFeedDialogProps> = ({
     if (!previewFeed) return null;
 
     return (
-      <div className="flex items-start gap-4">
-        <div className="relative h-20 w-20 flex-shrink-0">
-          <div className="absolute inset-0 overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700">
-            {previewFeed.image ? (
-              <img src={previewFeed.image} alt={previewFeed.title} className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-gray-400">
-                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-                  <rect x="3" y="4" width="18" height="16" rx="2" />
-                  <path d="M3 10h18" />
-                </svg>
-              </div>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={handleAddFromIcon}
-            disabled={isAddDisabled}
-            className={cn(
-              "absolute -top-2 -right-2 rounded-full bg-blue-600 p-2 text-white shadow-lg transition hover:bg-blue-500", 
-              isAddDisabled && "cursor-not-allowed opacity-60"
-            )}
-            aria-label="Add podcast"
-          >
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-              <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
+
+<div className="flex items-start gap-4">
+  {mode === "itunesPreview" && (
+    <div className="flex flex-col items-start gap-2">
+      <button
+        type="button"
+        onClick={handleBackToResults}
+        className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+      >
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+          <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Back
+      </button>
+      <div className="relative h-20 w-20 overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700">
+        {previewFeed.image ? (
+          <img src={previewFeed.image} alt={previewFeed.title} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-gray-400">
+            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <path d="M3 10h18" />
             </svg>
-          </button>
-        </div>
-        <div className="flex-1 space-y-2">
-          <div className="flex items-center gap-2">
-            {mode === "itunesPreview" && (
-              <button
-                type="button"
-                onClick={handleBackToResults}
-                className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-              >
-                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-                  <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                Back
-              </button>
-            )}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {previewFeed.title}
-              </h3>
-              {(previewFeed.author || selectedItunes?.artistName) && (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {previewFeed.author || selectedItunes?.artistName}
-                </p>
-              )}
-            </div>
           </div>
-          {previewFeed.description && (
-            <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3">
-              {previewFeed.description}
-            </p>
+        )}
+        <button
+          type="button"
+          onClick={handleAddFromIcon}
+          disabled={isAddDisabled}
+          className={cn(
+            "absolute -bottom-2 -right-2 rounded-full bg-blue-600 p-2 text-white shadow-lg transition hover:bg-blue-500",
+            isAddDisabled && "cursor-not-allowed opacity-60"
           )}
-        </div>
+          aria-label="Add podcast"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+            <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
       </div>
+    </div>
+  )}
+  {mode !== "itunesPreview" && (
+    <div className="relative h-20 w-20 overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700">
+      {previewFeed.image ? (
+        <img src={previewFeed.image} alt={previewFeed.title} className="h-full w-full object-cover" />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-gray-400">
+          <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+            <rect x="3" y="4" width="18" height="16" rx="2" />
+            <path d="M3 10h18" />
+          </svg>
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={handleAddFromIcon}
+        disabled={isAddDisabled}
+        className={cn(
+          "absolute -bottom-2 -right-2 rounded-full bg-blue-600 p-2 text-white shadow-lg transition hover:bg-blue-500",
+          isAddDisabled && "cursor-not-allowed opacity-60"
+        )}
+        aria-label="Add podcast"
+      >
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+          <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+    </div>
+  )}
+  <div className="flex-1 space-y-2">
+    <div className="flex items-center gap-2">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          {previewFeed.title}
+        </h3>
+        {(previewFeed.author || selectedItunes?.artistName) && (
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {previewFeed.author || selectedItunes?.artistName}
+          </p>
+        )}
+      </div>
+    </div>
+    {previewFeed.description && (
+      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3">
+        {previewFeed.description.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')}
+      </p>
+    )}
+  </div>
+</div>
     );
   };
 
