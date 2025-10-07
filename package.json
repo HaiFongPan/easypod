@@ -15,6 +15,12 @@
     "build": "npm run build:main && npm run build:renderer",
     "build:main": "tsc -p src/main/tsconfig.json",
     "build:renderer": "vite build",
+    "build:python-runtime": "bash scripts/build-python-runtime.sh",
+    "build:all": "npm run build:python-runtime && npm run build && npm run dist",
+    "verify:python-runtime": "node scripts/verify-runtime.js",
+    "check:python-runtime": "node scripts/check-runtime-status.js",
+    "diagnose:python-runtime": "node scripts/diagnose-runtime.js",
+    "test:python-runtime": "node scripts/test-runtime-fix.js",
     "dist": "npm run build && electron-builder",
     "dist:mac": "npm run build && electron-builder --mac",
     "pack": "npm run build && electron-builder --dir",
@@ -33,7 +39,8 @@
     },
     "files": [
       "dist/**/*",
-      "node_modules/**/*"
+      "node_modules/**/*",
+      "resources/**/*"
     ],
     "mac": {
       "category": "public.app-category.music",
@@ -46,16 +53,11 @@
           ]
         }
       ],
-      "icon": "build/icon.icns",
       "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
+      "gatekeeperAssess": false
     },
     "dmg": {
       "title": "${productName} ${version}",
-      "icon": "build/icon.icns",
-      "background": "build/background.png",
       "contents": [
         {
           "x": 130,
@@ -83,6 +85,7 @@
     "react-virtuoso": "^4.14.1",
     "rss-parser": "^3.13.0",
     "sanitize-html": "^2.17.0",
+    "tar": "^6.2.0",
     "xml2js": "^0.6.2",
     "zustand": "^4.4.3"
   },
@@ -93,6 +96,7 @@
     "@types/react": "^18.2.25",
     "@types/react-dom": "^18.2.11",
     "@types/sanitize-html": "^2.16.0",
+    "@types/tar": "^6.1.13",
     "@typescript-eslint/eslint-plugin": "^6.7.5",
     "@typescript-eslint/parser": "^6.7.5",
     "@vitejs/plugin-react": "^4.1.0",

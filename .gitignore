@@ -102,3 +102,16 @@ out/
 
 # Local configuration
 .claude/
+
+# Python runtime artifacts (too large for git)
+# Note: runtime archives are built locally or in CI
+resources/python-runtime/runtime-*.tar.gz
+resources/python-runtime/runtime-macos/
+resources/python-runtime/runtime-windows/
+resources/python-runtime/runtime-linux/
+resources/python-runtime/.verify-temp/
+
+# Python build temporary files
+scripts/.build-temp/
+*.pyc
+__pycache__/

@@ -3,12 +3,16 @@ import { join } from 'path';
 import { platform } from 'os';
 import { FeedIPCHandlers } from './services/IPCHandlers';
 import { getDatabaseManager } from './database/connection';
+import { FunASRIPCHandlers } from './services/funasr/FunASRIPCHandlers';
+import { getPythonRuntimeManager } from './services/funasr/PythonRuntimeManager';
 
 const isDevelopment = process.argv.includes('--dev') || process.env.NODE_ENV === 'development';
+const debugPythonRuntime = process.env.DEBUG_PYTHON_RUNTIME === '1' || isDevelopment;
 
 // Keep a global reference of the window object
 let mainWindow: BrowserWindow | null = null;
 let feedIPCHandlers: FeedIPCHandlers | null = null;
+let funasrIPCHandlers: FunASRIPCHandlers | null = null;
 
 const createWindow = (): void => {
   // Create the browser window
@@ -69,6 +73,23 @@ app.whenReady().then(async () => {
 
   // Initialize RSS feed IPC handlers
   feedIPCHandlers = new FeedIPCHandlers();
+
+  // Set up Python Runtime logging
+  if (debugPythonRuntime) {
+    const runtimeManager = getPythonRuntimeManager();
+    runtimeManager.on('log', (message: string) => {
+      console.log('[PythonRuntime]', message);
+    });
+    runtimeManager.on('error', (error: Error) => {
+      console.error('[PythonRuntime] Error:', error);
+    });
+    runtimeManager.on('ready', (details: any) => {
+      console.log('[PythonRuntime] Ready:', details);
+    });
+  }
+
+  // Initialize FunASR IPC handlers
+  funasrIPCHandlers = new FunASRIPCHandlers();
 
   // macOS specific: Re-create window when dock icon is clicked
   app.on('activate', () => {
@@ -162,6 +183,10 @@ app.on('before-quit', () => {
   if (feedIPCHandlers) {
     feedIPCHandlers.destroy();
     feedIPCHandlers = null;
+  }
+  if (funasrIPCHandlers) {
+    funasrIPCHandlers.destroy();
+    funasrIPCHandlers = null;
   }
 });
 

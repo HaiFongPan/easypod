@@ -42,6 +42,37 @@ npm run lint                  # Run ESLint
 npm run lint:fix             # Fix auto-fixable ESLint issues
 ```
 
+### Python Runtime (FunASR Transcription)
+```bash
+npm run build:python-runtime  # Build bundled Python runtime with FunASR
+npm run verify:python-runtime # Verify runtime build integrity
+npm run check:python-runtime  # Quick status check
+npm run build:all            # Build runtime + app + package (complete build)
+```
+
+**About the Python Runtime:**
+- EasyPod uses FunASR for local audio transcription, which requires Python 3.10+ and heavy dependencies (~600MB)
+- The bundled runtime allows the app to work without requiring users to install Python
+- Runtime must be built once before creating distributable packages
+- See [docs/python-runtime-build.md](docs/python-runtime-build.md) for detailed instructions
+
+**Quick Start:**
+```bash
+# First time setup or after updating requirements.txt
+npm run build:python-runtime
+
+# Verify the build
+npm run verify:python-runtime
+
+# Package the app with runtime included
+npm run dist:mac
+```
+
+**Development Shortcuts:**
+- Set `EASYPOD_FUNASR_PYTHON=/path/to/python3` to use your system Python (faster iteration)
+- Set `EASYPOD_FUNASR_SKIP_INSTALL=1` to skip dependency installation
+- Runtime is optional for development but required for distribution
+
 ## Architecture
 
 ### Process Structure

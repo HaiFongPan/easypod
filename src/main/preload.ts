@@ -1,4 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type {
+  FunASRHealthResponse,
+  FunASRInitializeRequest,
+  FunASRInitializeResponse,
+  FunASRTaskStatus,
+  FunASRTranscribeRequest,
+  FunASRTranscribeResponse,
+} from './services/funasr/FunASRServiceClient';
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
@@ -84,6 +92,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     save: (episodeId: number | null, position: number, duration?: number) =>
       ipcRenderer.invoke('playbackState:save', episodeId, position, duration),
   },
+
+  funasr: {
+    health: () => ipcRenderer.invoke('funasr:health'),
+    initialize: (payload: FunASRInitializeRequest) =>
+      ipcRenderer.invoke('funasr:initialize', payload),
+    transcribe: (payload: FunASRTranscribeRequest) =>
+      ipcRenderer.invoke('funasr:transcribe', payload),
+    getTask: (taskId: string) => ipcRenderer.invoke('funasr:task:get', taskId),
+    shutdown: () => ipcRenderer.invoke('funasr:shutdown'),
+  },
 });
 
 // Type definitions for the exposed API
@@ -158,6 +176,13 @@ export interface ElectronAPI {
   playbackState: {
     get: () => Promise<{ state: { id: number; currentEpisodeId: number | null; currentPosition: number; updatedAt: string | null }; episode: any | null }>;
     save: (episodeId: number | null, position: number, duration?: number) => Promise<{ success: boolean; error?: string }>;
+  };
+  funasr: {
+    health: () => Promise<FunASRHealthResponse>;
+    initialize: (payload: FunASRInitializeRequest) => Promise<FunASRInitializeResponse>;
+    transcribe: (payload: FunASRTranscribeRequest) => Promise<FunASRTranscribeResponse>;
+    getTask: (taskId: string) => Promise<FunASRTaskStatus>;
+    shutdown: () => Promise<{ success: boolean }>;
   };
 }
 

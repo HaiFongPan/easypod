@@ -1,0 +1,5 @@
+{
+  "version": "2024.03-dev",
+  "python_version": "3.10",
+  "notes": "Placeholder manifest for bundled FunASR runtime. Replace during build with real runtime metadata."
+}

@@ -373,6 +373,13 @@ const createMockElectronAPI = (): ElectronAPI => {
       }),
       save: async () => ({ success: true }),
     },
+    funasr: {
+      health: async () => ({ status: 'ok' as const, models: [], python_version: '0.0.0' }),
+      initialize: async () => ({ status: 'ready' as const, loaded_models: [] as string[] }),
+      transcribe: async () => ({ task_id: 'mock-task', status: 'queued' }),
+      getTask: async () => ({ status: 'completed' as const, progress: 1, segments: [], metadata: {} }),
+      shutdown: async () => ({ success: true }),
+    },
   };
 };
 
