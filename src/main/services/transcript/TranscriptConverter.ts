@@ -1,10 +1,10 @@
-import { getDatabaseManager } from '../../database/connection';
-import { episodeVoiceTexts, episodeTranscripts } from '../../database/schema';
+import { getDatabaseManager } from "../../database/connection";
+import { episodeVoiceTexts, episodeTranscripts } from "../../database/schema";
 import {
   TranscriptService,
   RawTranscriptData,
   SentenceInfo,
-} from '../../types/transcript';
+} from "../../types/transcript";
 
 /**
  * Transcript converter interface
@@ -61,13 +61,13 @@ export abstract class BaseTranscriptConverter implements TranscriptConverter {
       const timeSinceGroupStart = sentence.start - current.start;
 
       const sameSpeaker = current.spk === sentence.spk;
-      const gapWithin10s = timeSinceLastEnd <= 10000;
-      const durationWithin1min = timeSinceGroupStart <= 60000;
+      const gapWithin2s = timeSinceLastEnd <= 2000;
+      const durationWithin20s = timeSinceGroupStart <= 20000;
 
-      if (sameSpeaker && gapWithin10s && durationWithin1min) {
+      if (sameSpeaker && gapWithin2s && durationWithin20s) {
         // Merge with current group
         current = {
-          text: current.text + ' ' + sentence.text,
+          text: current.text + " " + sentence.text,
           start: current.start, // Keep first start
           end: sentence.end, // Update to latest end
           timestamp: [...current.timestamp, ...sentence.timestamp],
@@ -94,7 +94,7 @@ export abstract class BaseTranscriptConverter implements TranscriptConverter {
   async saveTranscript(
     episodeId: number,
     raw: RawTranscriptData,
-    service: TranscriptService
+    service: TranscriptService,
   ): Promise<void> {
     const db = getDatabaseManager().getDrizzle();
 
