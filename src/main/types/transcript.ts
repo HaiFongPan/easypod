@@ -3,7 +3,7 @@
  */
 
 export type TranscriptService = 'funasr' | 'aliyun';
-export type TaskStatus = 'processing' | 'success' | 'failed';
+export type TaskStatus = 'pending' | 'processing' | 'succeeded' | 'failed';
 
 /**
  * Unified sentence info format for subtitles
@@ -84,4 +84,80 @@ export interface EpisodeAiSummary {
 export interface ParsedAiSummary extends Omit<EpisodeAiSummary, 'tags' | 'chapters'> {
   tagsArray: string[];
   chaptersArray: ChapterInfo[];
+}
+
+/**
+ * FunASR raw data format
+ */
+export interface FunasrRawData {
+  key: string; // Audio file name
+  text: string; // Complete text transcript
+  timestamp: number[][]; // Word-level timestamps [[start, end], ...]
+  sentence_info: FunasrSentenceInfo[];
+}
+
+export interface FunasrSentenceInfo {
+  text: string;
+  start: number; // Milliseconds
+  end: number; // Milliseconds
+  timestamp: number[][];
+  spk: number; // Speaker ID
+}
+
+/**
+ * Aliyun raw data format (placeholder for future implementation)
+ */
+export interface AliyunRawData {
+  [key: string]: any;
+}
+
+/**
+ * Raw transcript data union type
+ */
+export type RawTranscriptData = FunasrRawData | AliyunRawData;
+
+/**
+ * Submit task response
+ */
+export interface SubmitTaskResponse {
+  success: boolean;
+  taskId?: string;
+  error?: string;
+  service: TranscriptService;
+}
+
+/**
+ * Query task response
+ */
+export interface QueryTaskResponse {
+  success: boolean;
+  taskId: string;
+  status: TaskStatus;
+  progress?: number; // 0-100
+  result?: RawTranscriptData;
+  error?: string;
+  service: TranscriptService;
+}
+
+/**
+ * Submit options for transcription tasks
+ */
+export interface SubmitOptions {
+  // FunASR configuration
+  modelPath?: string;
+  vadModelPath?: string;
+  puncModelPath?: string;
+  spkModelPath?: string;
+  batchSizeS?: number;
+  wordTimestamp?: boolean;
+
+  // Aliyun configuration
+  model?: 'paraformer-v2' | 'paraformer-v1';
+  languageHints?: string[]; // ['zh', 'en']
+  speakerCount?: number; // Number of speakers
+
+  // Common configuration
+  disfluencyRemoval?: boolean; // Remove disfluency
+  timestampAlignment?: boolean; // Timestamp alignment
+  diarizationEnabled?: boolean; // Enable speaker diarization
 }

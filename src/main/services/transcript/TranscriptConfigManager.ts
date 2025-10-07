@@ -1,5 +1,4 @@
 import { app } from 'electron';
-import path from 'path';
 
 export interface FunASRConfig {
   model: string;
@@ -109,7 +108,8 @@ export class TranscriptConfigManager {
   }
 
   /**
-   * Get default FunASR model paths
+   * Get default FunASR model names (not paths)
+   * These are ModelScope model identifiers that FunASR will download/use
    */
   getDefaultFunASRModels(): {
     model: string;
@@ -117,27 +117,12 @@ export class TranscriptConfigManager {
     puncModel: string;
     spkModel: string;
   } {
-    const modelsDir = this.getFunASRModelsDir();
-
     return {
-      model: path.join(modelsDir, 'speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-pytorch'),
-      vadModel: path.join(modelsDir, 'speech_fsmn_vad_zh-cn-16k-common-pytorch'),
-      puncModel: path.join(modelsDir, 'punc_ct-transformer_zh-cn-common-vocab272727-pytorch'),
-      spkModel: path.join(modelsDir, 'speech_campplus_sv_zh-cn_16k-common'),
+      model: 'iic/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-pytorch',
+      vadModel: 'iic/speech_fsmn_vad_zh-cn-16k-common-pytorch',
+      puncModel: 'iic/punc_ct-transformer_zh-cn-common-vocab272727-pytorch',
+      spkModel: 'iic/speech_campplus_sv_zh-cn_16k-common',
     };
-  }
-
-  /**
-   * Get FunASR models directory
-   */
-  private getFunASRModelsDir(): string {
-    // Development environment
-    if (!app.isPackaged) {
-      return path.join(process.cwd(), 'resources', 'funasr-models');
-    }
-
-    // Production environment
-    return path.join(process.resourcesPath, 'funasr-models');
   }
 
   /**
