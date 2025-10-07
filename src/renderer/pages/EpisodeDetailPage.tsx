@@ -4,6 +4,7 @@ import TranscriptList from "../components/Transcript/TranscriptList";
 import { useEpisodeDetailStore } from "../store/episodeDetailStore";
 import { useNavigationStore } from "../store/navigationStore";
 import { usePlayerStore } from "../store/playerStore";
+import { usePlayQueueStore } from "../store/playQueueStore";
 import { formatDate } from "../utils/formatters";
 import { cn } from "../utils/cn";
 
@@ -605,11 +606,13 @@ const EpisodeDetailPage: React.FC = () => {
     .filter(Boolean)
     .join(" • ");
 
-  const handlePlayToggle = () => {
+  const handlePlayToggle = async () => {
     if (!episode) return;
     if (isCurrentEpisode) {
       playPause();
     } else {
+      // Move episode to queue start before playing
+      await usePlayQueueStore.getState().moveToQueueStart(episode);
       loadAndPlay(episode);
     }
   };
