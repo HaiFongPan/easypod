@@ -26,7 +26,7 @@ export class AliyunConverter extends BaseTranscriptConverter {
       }
     }
 
-    return sentences;
+    return this.mergeSentences(sentences);
   }
 
   extractText(raw: RawTranscriptData): string {

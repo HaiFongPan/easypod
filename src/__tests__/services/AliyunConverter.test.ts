@@ -51,8 +51,12 @@ describe('AliyunConverter', () => {
     ],
   };
 
-  it('converts sentences to unified format', () => {
+  it('converts sentences to unified format with merging', () => {
     const sentenceInfo = converter.convertToSentenceInfo(samplePayload);
+
+    // With merging disabled, we'd have 2 sentences
+    // But these sentences should NOT merge because:
+    // - They have different speakers (spk: 2 vs spk: 0)
     expect(sentenceInfo).toHaveLength(2);
     expect(sentenceInfo[0]).toEqual({
       text: 'Hello world!',
@@ -91,5 +95,73 @@ describe('AliyunConverter', () => {
     expect(converter.convertToSentenceInfo(emptyPayload)).toEqual([]);
     expect(converter.extractText(emptyPayload)).toBe('');
     expect(converter.calculateSpeakerCount(emptyPayload)).toBe(1);
+  });
+
+  it('merges sentences from same speaker within time limits', () => {
+    const mergeablePayload: AliyunRawData = {
+      file_url: 'https://example.com/audio.mp3',
+      properties: samplePayload.properties,
+      transcripts: [
+        {
+          channel_id: 0,
+          content_duration_in_milliseconds: 10000,
+          text: 'First sentence. Second sentence. Third sentence.',
+          sentences: [
+            {
+              begin_time: 0,
+              end_time: 2000,
+              text: 'First sentence.',
+              sentence_id: 1,
+              speaker_id: 1,
+              words: [
+                { begin_time: 0, end_time: 500, text: 'First', punctuation: '' },
+                { begin_time: 500, end_time: 2000, text: 'sentence', punctuation: '.' },
+              ],
+            },
+            {
+              begin_time: 2500,
+              end_time: 4500,
+              text: 'Second sentence.',
+              sentence_id: 2,
+              speaker_id: 1, // Same speaker
+              words: [
+                { begin_time: 2500, end_time: 3000, text: 'Second', punctuation: '' },
+                { begin_time: 3000, end_time: 4500, text: 'sentence', punctuation: '.' },
+              ],
+            },
+            {
+              begin_time: 5000,
+              end_time: 7000,
+              text: 'Third sentence.',
+              sentence_id: 3,
+              speaker_id: 1, // Same speaker, still within 1min
+              words: [
+                { begin_time: 5000, end_time: 5500, text: 'Third', punctuation: '' },
+                { begin_time: 5500, end_time: 7000, text: 'sentence', punctuation: '.' },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const sentenceInfo = converter.convertToSentenceInfo(mergeablePayload);
+
+    // All three sentences should merge into one
+    expect(sentenceInfo).toHaveLength(1);
+    expect(sentenceInfo[0]).toEqual({
+      text: 'First sentence. Second sentence. Third sentence.',
+      start: 0,
+      end: 7000,
+      timestamp: [
+        [0, 500],
+        [500, 2000],
+        [2500, 3000],
+        [3000, 4500],
+        [5000, 5500],
+        [5500, 7000],
+      ],
+      spk: 1,
+    });
   });
 });

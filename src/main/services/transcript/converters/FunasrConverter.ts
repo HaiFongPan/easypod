@@ -11,13 +11,15 @@ export class FunasrConverter extends BaseTranscriptConverter {
     const funasrData = raw as FunasrRawData;
 
     // FunASR's sentence_info is already in standard format
-    return funasrData.sentence_info.map((item: FunasrSentenceInfo) => ({
+    const sentences = funasrData.sentence_info.map((item: FunasrSentenceInfo) => ({
       text: item.text,
       start: item.start,
       end: item.end,
       timestamp: item.timestamp,
       spk: item.spk || 0,
     }));
+
+    return this.mergeSentences(sentences);
   }
 
   extractText(raw: RawTranscriptData): string {

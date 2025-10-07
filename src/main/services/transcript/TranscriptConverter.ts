@@ -35,6 +35,60 @@ export abstract class BaseTranscriptConverter implements TranscriptConverter {
   abstract calculateSpeakerCount(raw: RawTranscriptData): number;
 
   /**
+   * Merge sentences based on speaker continuity and time proximity
+   *
+   * Merge conditions (ALL must be true):
+   * 1. Same speaker: prev.spk === next.spk
+   * 2. Time gap ≤ 10s: next.start - prev.end ≤ 10000ms
+   * 3. Total duration ≤ 1min: next.start - first.start ≤ 60000ms
+   */
+  protected mergeSentences(sentences: SentenceInfo[]): SentenceInfo[] {
+    if (sentences.length <= 1) {
+      return sentences;
+    }
+
+    const merged: SentenceInfo[] = [];
+    let current: SentenceInfo | null = null;
+
+    for (const sentence of sentences) {
+      if (!current) {
+        // First sentence, start a new group
+        current = { ...sentence };
+        continue;
+      }
+
+      const timeSinceLastEnd = sentence.start - current.end;
+      const timeSinceGroupStart = sentence.start - current.start;
+
+      const sameSpeaker = current.spk === sentence.spk;
+      const gapWithin10s = timeSinceLastEnd <= 10000;
+      const durationWithin1min = timeSinceGroupStart <= 60000;
+
+      if (sameSpeaker && gapWithin10s && durationWithin1min) {
+        // Merge with current group
+        current = {
+          text: current.text + ' ' + sentence.text,
+          start: current.start, // Keep first start
+          end: sentence.end, // Update to latest end
+          timestamp: [...current.timestamp, ...sentence.timestamp],
+          spk: current.spk,
+        };
+      } else {
+        // Push current group and start new one
+        merged.push(current);
+        current = { ...sentence };
+      }
+    }
+
+    // Don't forget the last group
+    if (current) {
+      merged.push(current);
+    }
+
+    return merged;
+  }
+
+  /**
    * Save converted transcript to database
    */
   async saveTranscript(
