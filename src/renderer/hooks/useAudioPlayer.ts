@@ -2,6 +2,8 @@ import { useEffect, useRef, useCallback } from 'react';
 import { AudioPlayer, AudioPlayerConfig, AudioPlayerState } from '../utils/audioPlayer';
 import { usePlayerStore } from '../store/playerStore';
 import { usePlayQueueStore } from '../store/playQueueStore';
+import { useNavigationStore } from '../store/navigationStore';
+import { useEpisodeDetailStore } from '../store/episodeDetailStore';
 import { Episode } from '../types';
 
 interface UseAudioPlayerOptions {
@@ -72,10 +74,31 @@ export const useAudioPlayer = (options: UseAudioPlayerOptions = {}) => {
         const updatedQueue = usePlayQueueStore.getState().queue;
         if (updatedQueue.length > 0) {
           const nextEpisode = updatedQueue[0].episode;
+
+          // Update detail page if currently on episode-detail view
+          const currentView = useNavigationStore.getState().currentView;
+          if (currentView === 'episode-detail') {
+            useEpisodeDetailStore.getState().setEpisode(nextEpisode);
+          }
+
           usePlayerStore.getState().loadAndPlay(nextEpisode);
         }
       } else {
         // If not in queue, just play next from queue
+        const updatedQueue = usePlayQueueStore.getState().queue;
+        const currentIndex = usePlayQueueStore.getState().currentIndex;
+        const nextIndex = currentIndex + 1;
+
+        if (nextIndex < updatedQueue.length) {
+          const nextEpisode = updatedQueue[nextIndex].episode;
+
+          // Update detail page if currently on episode-detail view
+          const currentView = useNavigationStore.getState().currentView;
+          if (currentView === 'episode-detail') {
+            useEpisodeDetailStore.getState().setEpisode(nextEpisode);
+          }
+        }
+
         usePlayQueueStore.getState().playNext();
       }
 

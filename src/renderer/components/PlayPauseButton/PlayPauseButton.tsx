@@ -12,6 +12,7 @@ export interface PlayPauseButtonProps {
   className?: string;
   showTooltip?: boolean;
   skipAutoQueue?: boolean;
+  onEpisodeChange?: (episode: Episode) => void;
 }
 
 const PlayPauseButton: React.FC<PlayPauseButtonProps> = ({
@@ -21,6 +22,7 @@ const PlayPauseButton: React.FC<PlayPauseButtonProps> = ({
   className = '',
   showTooltip = false,
   skipAutoQueue = false,
+  onEpisodeChange,
 }) => {
   const { currentEpisode, isPlaying, isLoading, loadAndPlay, playPause } = usePlayerStore(
     (state) => ({
@@ -71,6 +73,9 @@ const PlayPauseButton: React.FC<PlayPauseButtonProps> = ({
         await moveToQueueStart(episode);
       }
       loadAndPlay(episode); // Load and play if different episode
+
+      // Notify parent component about episode change
+      onEpisodeChange?.(episode);
     }
   };
 

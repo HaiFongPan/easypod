@@ -147,6 +147,7 @@ const QueuePanel: React.FC = () => {
                       size="sm"
                       variant="default"
                       className="rounded-full p-1 text-gray-400 opacity-70 transition hover:opacity-100 hover:bg-gray-100 hover:text-blue-600 dark:hover:bg-gray-700"
+                      onEpisodeChange={openEpisodeDetail}
                     />
                     <button
                       type="button"
