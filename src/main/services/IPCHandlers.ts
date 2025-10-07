@@ -522,7 +522,11 @@ export class FeedIPCHandlers {
   ): Promise<any[]> {
     try {
       if (options?.feedId) {
-        return await this.episodesDao.findByFeed(options.feedId, options.limit);
+        return await this.episodesDao.findByFeed(
+          options.feedId,
+          options.limit,
+          options.offset,
+        );
       }
       if (options?.status) {
         return await this.episodesDao.findByStatus(options.status as any, options.limit);
@@ -544,7 +548,7 @@ export class FeedIPCHandlers {
     offset = 0
   ): Promise<any[]> {
     try {
-      const episodes = await this.episodesDao.findByFeed(feedId, limit);
+      const episodes = await this.episodesDao.findByFeed(feedId, limit, offset);
       return episodes;
     } catch (error) {
       console.error('Error getting episodes by feed:', error);

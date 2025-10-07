@@ -84,6 +84,27 @@ const buildChapters = (duration: number, description: string) => {
   });
 };
 
+const TRANSCRIPT_POLL_INTERVAL_MS = 3000;
+const POLLABLE_TRANSCRIPT_STATUSES: Array<"pending" | "processing"> = [
+  "pending",
+  "processing",
+];
+
+const isPollableTranscriptStatus = (
+  status: TranscriptTaskStatus,
+): status is (typeof POLLABLE_TRANSCRIPT_STATUSES)[number] =>
+  POLLABLE_TRANSCRIPT_STATUSES.includes(
+    status as (typeof POLLABLE_TRANSCRIPT_STATUSES)[number],
+  );
+
+type TranscriptTaskStatus =
+  | "none"
+  | "pending"
+  | "processing"
+  | "succeeded"
+  | "failed"
+  | "submitting";
+
 type TabKey<T extends string> = T;
 type CompactTabKey = 'notes' | 'transcript' | 'summary' | 'mindmap';
 interface TabsProps<T extends string> {
@@ -298,7 +319,8 @@ const EpisodeDetailPage: React.FC = () => {
   const setCurrentView = useNavigationStore((state) => state.setCurrentView);
 
   // Transcript task state
-  const [transcriptTaskStatus, setTranscriptTaskStatus] = useState<'none' | 'pending' | 'processing' | 'succeeded' | 'failed' | 'submitting'>('none');
+  const [transcriptTaskStatus, setTranscriptTaskStatus] =
+    useState<TranscriptTaskStatus>('none');
   const [transcriptError, setTranscriptError] = useState<string | null>(null);
 
   const {
@@ -349,27 +371,124 @@ const EpisodeDetailPage: React.FC = () => {
 
   // Check transcript task status when episode changes
   useEffect(() => {
-    if (!episode) return;
+    if (!episode) {
+      setTranscriptTaskStatus('none');
+      setTranscriptError(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const applyStatus = (status: TranscriptTaskStatus, errorMessage?: string | null) => {
+      if (cancelled) {
+        return;
+      }
+      setTranscriptTaskStatus((previous) => (previous === status ? previous : status));
+      setTranscriptError(errorMessage ?? null);
+    };
 
     const checkTaskStatus = async () => {
       try {
         console.log('[EpisodeDetail] Checking transcript task status for episode:', episode.id);
         const result = await window.electronAPI.transcript.getTaskStatus(episode.id);
 
+        if (cancelled) {
+          return;
+        }
+
         if (result.success && result.hasTask) {
           console.log('[EpisodeDetail] Task status:', result.status);
-          setTranscriptTaskStatus(result.status || 'none');
+          const status = (result.status ?? 'none') as TranscriptTaskStatus;
+          const errorMessage =
+            status === 'failed'
+              ? result.error || 'Transcription failed'
+              : null;
+          applyStatus(status, errorMessage);
+        } else if (result.success) {
+          applyStatus('none', null);
         } else {
-          setTranscriptTaskStatus('none');
+          applyStatus('none', result.error || 'Failed to check transcription status');
         }
       } catch (error) {
         console.error('[EpisodeDetail] Failed to check task status:', error);
-        setTranscriptTaskStatus('none');
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Failed to check transcription status';
+        applyStatus('none', message);
       }
     };
 
-    checkTaskStatus();
-  }, [episode]);
+    void checkTaskStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [episode?.id]);
+
+  // Poll transcript task status while pending or processing
+  useEffect(() => {
+    if (!episode) {
+      return;
+    }
+
+    if (!isPollableTranscriptStatus(transcriptTaskStatus)) {
+      return;
+    }
+
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    const runPoll = async () => {
+      try {
+        const result = await window.electronAPI.transcript.getTaskStatus(episode.id);
+
+        if (cancelled) {
+          return;
+        }
+
+        if (result.success && result.hasTask) {
+          const status = (result.status ?? 'none') as TranscriptTaskStatus;
+          setTranscriptTaskStatus((previous) => (previous === status ? previous : status));
+          if (status === 'failed') {
+            setTranscriptError(result.error || 'Transcription failed');
+          } else {
+            setTranscriptError(null);
+          }
+
+          if (isPollableTranscriptStatus(status)) {
+            timeoutId = setTimeout(runPoll, TRANSCRIPT_POLL_INTERVAL_MS);
+          }
+        } else if (result.success) {
+          setTranscriptTaskStatus((previous) => (previous === 'none' ? previous : 'none'));
+          setTranscriptError(null);
+        } else {
+          setTranscriptError(result.error || 'Failed to check transcription status');
+          timeoutId = setTimeout(runPoll, TRANSCRIPT_POLL_INTERVAL_MS);
+        }
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Failed to check transcription status';
+        setTranscriptError(message);
+        timeoutId = setTimeout(runPoll, TRANSCRIPT_POLL_INTERVAL_MS);
+      }
+    };
+
+    runPoll();
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [episode?.id, transcriptTaskStatus]);
 
 
   useEffect(() => {

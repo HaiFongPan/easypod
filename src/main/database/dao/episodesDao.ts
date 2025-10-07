@@ -84,15 +84,23 @@ export class EpisodesDao {
     return result[0] || null;
   }
 
-  async findByFeed(feedId: number, limit?: number): Promise<EpisodeWithFeed[]> {
-    const query = this.db
+  async findByFeed(feedId: number, limit?: number, offset = 0): Promise<EpisodeWithFeed[]> {
+    let query = this.db
       .select(baseEpisodeSelect)
       .from(episodes)
       .leftJoin(feeds, eq(episodes.feedId, feeds.id))
       .where(eq(episodes.feedId, feedId))
       .orderBy(desc(episodes.pubDate), desc(episodes.createdAt));
 
-    const results = await (limit ? query.limit(limit) : query);
+    if (offset) {
+      query = query.offset(offset);
+    }
+
+    if (limit) {
+      query = query.limit(limit);
+    }
+
+    const results = await query;
 
     return results.map((row) => ({
       ...row,
