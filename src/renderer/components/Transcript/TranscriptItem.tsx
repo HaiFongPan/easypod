@@ -25,7 +25,7 @@ const TranscriptItem = React.forwardRef<HTMLDivElement, TranscriptItemProps>(
           'flex gap-3 rounded-lg border-2 px-4 py-3 transition-all duration-200',
           isHighlighted
             ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/20'
-            : 'border-transparent bg-white dark:bg-gray-900'
+            : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900'
         )}
       >
         {/* Speaker Avatar */}
@@ -33,15 +33,20 @@ const TranscriptItem = React.forwardRef<HTMLDivElement, TranscriptItemProps>(
 
         {/* Sentence Content */}
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          {/* Timestamp */}
-          <button
-            type="button"
-            onClick={handleTimestampClick}
-            className="w-fit rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-            title="Click to jump to this time"
-          >
-            {formatTimestamp(sentence.start)}
-          </button>
+          {/* Speaker Label and Timestamp */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              发言人 {sentence.spk + 1}
+            </span>
+            <button
+              type="button"
+              onClick={handleTimestampClick}
+              className="w-fit rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+              title="Click to jump to this time"
+            >
+              {formatTimestamp(sentence.start)}
+            </button>
+          </div>
 
           {/* Text Content */}
           <p className="select-text text-sm leading-relaxed text-gray-900 dark:text-gray-100">

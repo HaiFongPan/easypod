@@ -1,12 +1,6 @@
-import { ElectronAPI } from '../../main/preload';
+/// <reference types="vite/client" />
 
-declare global {
-  interface Window {
-    electronAPI: ElectronAPI;
-  }
-}
-
-// Image module declarations for Vite
+// Image module declarations
 declare module '*.png' {
   const src: string;
   export default src;
@@ -36,5 +30,3 @@ declare module '*.webp' {
   const src: string;
   export default src;
 }
-
-export {};

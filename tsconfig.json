@@ -24,6 +24,7 @@
     "src/types/**/*",
     "src/main/preload.ts"
   ],
+  "typeRoots": ["./node_modules/@types", "./src/renderer/types"],
   "exclude": [
     "node_modules",
     "dist"
