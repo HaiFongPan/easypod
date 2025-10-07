@@ -380,6 +380,24 @@ const createMockElectronAPI = (): ElectronAPI => {
       getTask: async () => ({ status: 'completed' as const, progress: 1, segments: [], metadata: {} }),
       shutdown: async () => ({ success: true }),
     },
+    transcriptConfig: {
+      // FunASR configuration
+      getFunASRConfig: async () => ({ success: true, config: undefined }),
+      setFunASRConfig: async () => ({ success: true }),
+      getDefaultModels: async () => ({ success: true, models: undefined }),
+      validateModelPath: async () => ({ success: true, exists: false }),
+
+      // Aliyun configuration
+      getAliyunConfig: async () => ({ success: true, config: undefined }),
+      setAliyunConfig: async () => ({ success: true }),
+      testAliyunAPI: async () => ({ success: false, error: 'Mock API' }),
+
+      // General configuration
+      getDefaultService: async () => ({ success: true, service: 'funasr' as const }),
+      setDefaultService: async () => ({ success: true }),
+      exportConfig: async () => ({ success: true, config: {} }),
+      importConfig: async () => ({ success: true }),
+    },
   };
 };
 

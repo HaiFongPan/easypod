@@ -5,6 +5,7 @@ import { FeedTester } from './FeedTester';
 import { EpisodesListPage } from '../pages/EpisodesListPage';
 import PlayQueuePage from '../pages/PlayQueuePage';
 import EpisodeDetailPage from '../pages/EpisodeDetailPage';
+import TranscriptSettings from './Settings/TranscriptSettings';
 
 // Placeholder components for other views
 const LibraryView: React.FC = () => (
@@ -35,14 +36,55 @@ const AISummariesView: React.FC = () => (
   </div>
 );
 
-const SettingsView: React.FC = () => (
-  <div className="p-6 space-y-4">
-    <div>
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h2>
-      <p className="mt-2 text-gray-600 dark:text-gray-400">Manage your EasyPod preferences here.</p>
+const SettingsView: React.FC = () => {
+  const [activeSection, setActiveSection] = React.useState<'general' | 'transcript'>('general');
+
+  return (
+    <div className="flex h-full">
+      {/* Sidebar */}
+      <div className="w-64 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <div className="p-6">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">设置</h2>
+        </div>
+        <nav className="px-3 space-y-1">
+          <button
+            onClick={() => setActiveSection('general')}
+            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              activeSection === 'general'
+                ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+            }`}
+          >
+            通用设置
+          </button>
+          <button
+            onClick={() => setActiveSection('transcript')}
+            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              activeSection === 'transcript'
+                ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+            }`}
+          >
+            转写服务
+          </button>
+        </nav>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-6">
+          {activeSection === 'general' && (
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">通用设置</h3>
+              <p className="mt-2 text-gray-600 dark:text-gray-400">应用程序的基本设置</p>
+            </div>
+          )}
+          {activeSection === 'transcript' && <TranscriptSettings />}
+        </div>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const MainContent: React.FC = () => {
   const currentView = useNavigationStore(state => state.currentView);
