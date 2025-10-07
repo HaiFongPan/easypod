@@ -42,8 +42,10 @@
       "node_modules/**/*",
       "resources/**/*"
     ],
+    "icon": "resources/icon.icns",
     "mac": {
       "category": "public.app-category.music",
+      "icon": "resources/icon.icns",
       "target": [
         {
           "target": "dmg",
