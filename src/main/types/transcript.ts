@@ -105,10 +105,80 @@ export interface FunasrSentenceInfo {
 }
 
 /**
- * Aliyun raw data format (placeholder for future implementation)
+ * Aliyun submit task response payload
+ */
+export interface AliyunSubmitResponse {
+  output: {
+    task_status: 'PENDING' | 'RUNNING';
+    task_id: string;
+  };
+  request_id: string;
+}
+
+export interface AliyunTaskResultItem {
+  file_url: string;
+  transcription_url: string;
+  subtask_status: 'SUCCEEDED' | 'FAILED';
+}
+
+/**
+ * Aliyun query task response payload
+ */
+export interface AliyunQueryResponse {
+  request_id: string;
+  output: {
+    task_id: string;
+    task_status: 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED';
+    submit_time: string;
+    scheduled_time?: string;
+    end_time?: string;
+    results?: AliyunTaskResultItem[];
+    task_metrics?: {
+      TOTAL: number;
+      SUCCEEDED: number;
+      FAILED: number;
+    };
+  };
+  usage?: {
+    duration: number;
+  };
+}
+
+export interface AliyunWord {
+  begin_time: number; // Milliseconds
+  end_time: number; // Milliseconds
+  text: string;
+  punctuation: string;
+}
+
+export interface AliyunSentence {
+  begin_time: number;
+  end_time: number;
+  text: string;
+  sentence_id: number;
+  speaker_id?: number;
+  words: AliyunWord[];
+}
+
+export interface AliyunTranscript {
+  channel_id: number;
+  content_duration_in_milliseconds: number;
+  text: string;
+  sentences: AliyunSentence[];
+}
+
+/**
+ * Aliyun raw data format
  */
 export interface AliyunRawData {
-  [key: string]: any;
+  file_url: string;
+  properties: {
+    audio_format: string;
+    channels: number[];
+    original_sampling_rate: number;
+    original_duration_in_milliseconds: number;
+  };
+  transcripts: AliyunTranscript[];
 }
 
 /**

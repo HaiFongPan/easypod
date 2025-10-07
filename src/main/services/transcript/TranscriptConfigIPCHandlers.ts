@@ -2,6 +2,8 @@ import { ipcMain, IpcMainInvokeEvent } from 'electron';
 import { getTranscriptConfigManager, FunASRConfig, AliyunConfig } from './TranscriptConfigManager';
 import { existsSync } from 'fs';
 import axios from 'axios';
+import { VoiceToTextFactory } from './VoiceToTextFactory';
+import { AliyunService } from './AliyunService';
 
 export class TranscriptConfigIPCHandlers {
   private configManager = getTranscriptConfigManager();
@@ -107,6 +109,19 @@ export class TranscriptConfigIPCHandlers {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       await this.configManager.setAliyunConfig(params.config);
+      const updatedConfig = await this.configManager.getAliyunConfig();
+
+      if (updatedConfig?.apiKey) {
+        if (VoiceToTextFactory.hasService('aliyun')) {
+          VoiceToTextFactory.unregister('aliyun');
+        }
+        VoiceToTextFactory.register(new AliyunService(updatedConfig));
+        console.log('[TranscriptConfig] Aliyun service re-registered with new config');
+      } else if (VoiceToTextFactory.hasService('aliyun')) {
+        VoiceToTextFactory.unregister('aliyun');
+        console.warn('[TranscriptConfig] Aliyun config cleared, service unregistered');
+      }
+
       return { success: true };
     } catch (error) {
       return {
@@ -126,7 +141,8 @@ export class TranscriptConfigIPCHandlers {
       }
 
       // Simple API connectivity test
-      const response = await axios.get(`${config.baseURL}/models`, {
+      const baseURL = config.baseURL || 'https://dashscope.aliyuncs.com/api/v1';
+      const response = await axios.get(`${baseURL}/models`, {
         headers: {
           'Authorization': `Bearer ${config.apiKey}`,
         },

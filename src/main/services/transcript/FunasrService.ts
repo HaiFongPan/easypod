@@ -168,11 +168,26 @@ export class FunasrService extends BaseVoiceToTextService {
         service: this.serviceName,
       };
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Query task failed";
+
+      try {
+        await this.updateTaskInDb(taskId, "failed", { error: errorMessage });
+      } catch (updateError) {
+        console.error(
+          "[FunasrService] Failed to mark task as failed after query error",
+          {
+            taskId,
+            error: updateError instanceof Error ? updateError.message : updateError,
+          },
+        );
+      }
+
       return {
         success: false,
         taskId,
         status: "failed",
-        error: error instanceof Error ? error.message : "Query task failed",
+        error: errorMessage,
         service: this.serviceName,
       };
     }

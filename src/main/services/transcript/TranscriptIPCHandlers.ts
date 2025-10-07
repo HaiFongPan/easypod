@@ -1,6 +1,7 @@
 import { ipcMain, IpcMainInvokeEvent } from 'electron';
 import { VoiceToTextFactory } from './VoiceToTextFactory';
 import { FunasrService } from './FunasrService';
+import { AliyunService } from './AliyunService';
 import { getTranscriptConfigManager } from './TranscriptConfigManager';
 import { getDatabaseManager } from '../../database/connection';
 import { episodeVoiceTextTasks, episodes } from '../../database/schema';
@@ -19,15 +20,28 @@ export class TranscriptIPCHandlers {
 
   constructor() {
     this.registerHandlers();
-    this.initializeServices();
+    void this.initializeServices();
     this.startTaskPolling();
   }
 
-  private initializeServices(): void {
+  private async initializeServices(): Promise<void> {
     // Register FunASR service
     const funasrService = new FunasrService();
     VoiceToTextFactory.register(funasrService);
     console.log('[TranscriptIPC] FunASR service registered');
+
+    try {
+      const aliyunConfig = await this.configManager.getAliyunConfig();
+      if (aliyunConfig?.apiKey) {
+        const aliyunService = new AliyunService(aliyunConfig);
+        VoiceToTextFactory.register(aliyunService);
+        console.log('[TranscriptIPC] Aliyun service registered');
+      } else {
+        console.warn('[TranscriptIPC] Aliyun config missing, service not registered');
+      }
+    } catch (error) {
+      console.error('[TranscriptIPC] Failed to initialize Aliyun service', error);
+    }
   }
 
   private registerHandlers(): void {
