@@ -402,6 +402,7 @@ const createMockElectronAPI = (): ElectronAPI => {
       submit: async () => ({ success: false, error: 'Mock implementation' }),
       query: async () => ({ success: false, error: 'Mock implementation' }),
       getTaskStatus: async () => ({ success: true, hasTask: false }),
+      getByEpisode: async () => ({ success: false, error: 'Mock implementation' }),
     },
   };
 };

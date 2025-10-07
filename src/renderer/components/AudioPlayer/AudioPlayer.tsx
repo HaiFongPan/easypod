@@ -3,9 +3,11 @@ import { cn } from '../../utils/cn';
 import { useAudioPlayer } from '../../hooks/useAudioPlayer';
 import { usePlayerStore } from '../../store/playerStore';
 import { usePlayQueueStore } from '../../store/playQueueStore';
+import { useEpisodeDetailStore } from '../../store/episodeDetailStore';
 import ProgressBar from './ProgressBar';
 import VolumeControl from './VolumeControl';
 import SpeedControl from './SpeedControl';
+import FocusControl from './FocusControl';
 import PlayPauseButton from '../PlayPauseButton';
 import QueuePanel from './QueuePanel';
 import { useEpisodeDetailNavigation } from '../../hooks/useEpisodeDetailNavigation';
@@ -17,6 +19,7 @@ interface AudioPlayerProps {
 const AudioPlayer: React.FC<AudioPlayerProps> = ({ className }) => {
   const [isQueueOpen, setIsQueueOpen] = useState(false);
   const openEpisodeDetail = useEpisodeDetailNavigation();
+  const { selectedEpisode: detailPageEpisode } = useEpisodeDetailStore();
   const {
     currentEpisode,
     isPlaying,
@@ -189,6 +192,11 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ className }) => {
 
       {/* Secondary Controls */}
       <div className="flex items-center space-x-2">
+        {/* Focus Control - shows only if playing episode matches detail page */}
+        <FocusControl
+          visible={!!(currentEpisode && detailPageEpisode && currentEpisode.id === detailPageEpisode.id)}
+        />
+
         {/* Speed Control */}
         <SpeedControl
           playbackRate={playbackRate}

@@ -4,6 +4,7 @@ import { FeedsDao } from '../database/dao/feedsDao';
 import { EpisodesDao } from '../database/dao/episodesDao';
 import { PlayQueueDao, type PlayQueueEntry } from '../database/dao/playQueueDao';
 import { PlaybackStateDao, type PlaybackStateWithEpisode } from '../database/dao/playbackStateDao';
+import { EpisodeTranscriptsDao, type TranscriptData } from '../database/dao/episodeTranscriptsDao';
 import type { NewFeed, NewEpisode } from '../database/schema';
 
 /**
@@ -16,6 +17,7 @@ export class FeedIPCHandlers {
   private episodesDao: EpisodesDao;
   private playQueueDao: PlayQueueDao;
   private playbackStateDao: PlaybackStateDao;
+  private episodeTranscriptsDao: EpisodeTranscriptsDao;
 
   constructor() {
     this.parser = new PodcastFeedParser();
@@ -23,6 +25,7 @@ export class FeedIPCHandlers {
     this.episodesDao = new EpisodesDao();
     this.playQueueDao = new PlayQueueDao();
     this.playbackStateDao = new PlaybackStateDao();
+    this.episodeTranscriptsDao = new EpisodeTranscriptsDao();
     this.registerHandlers();
   }
 
@@ -59,6 +62,9 @@ export class FeedIPCHandlers {
     // Playback state persistence
     ipcMain.handle('playbackState:get', this.handleGetPlaybackState.bind(this));
     ipcMain.handle('playbackState:save', this.handleSavePlaybackState.bind(this));
+
+    // Transcript management
+    ipcMain.handle('transcript:getByEpisode', this.handleGetTranscriptByEpisode.bind(this));
 
     // Cache management
     ipcMain.handle('feeds:getCacheStats', this.handleGetCacheStats.bind(this));
@@ -853,6 +859,36 @@ export class FeedIPCHandlers {
   }
 
   /**
+   * Get transcript by episode ID
+   */
+  private async handleGetTranscriptByEpisode(
+    event: IpcMainInvokeEvent,
+    episodeId: number
+  ): Promise<{ success: boolean; transcript?: TranscriptData; error?: string }> {
+    try {
+      const transcript = await this.episodeTranscriptsDao.findByEpisodeId(episodeId);
+
+      if (!transcript) {
+        return {
+          success: false,
+          error: 'No transcript found for this episode',
+        };
+      }
+
+      return {
+        success: true,
+        transcript,
+      };
+    } catch (error) {
+      console.error('[IPCHandlers] Error getting transcript:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get transcript',
+      };
+    }
+  }
+
+  /**
    * Cleanup IPC handlers
    */
   destroy(): void {
@@ -881,6 +917,7 @@ export class FeedIPCHandlers {
       'playQueue:clear',
       'playbackState:get',
       'playbackState:save',
+      'transcript:getByEpisode',
       'feeds:getCacheStats',
       'feeds:clearCache',
     ];

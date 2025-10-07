@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Button from "../components/Button";
+import TranscriptList from "../components/Transcript/TranscriptList";
 import { useEpisodeDetailStore } from "../store/episodeDetailStore";
 import { useNavigationStore } from "../store/navigationStore";
 import { usePlayerStore } from "../store/playerStore";
@@ -717,19 +718,23 @@ const notesPanel = episode.descriptionHtml ? (
   </div>
 );
 
-const transcriptPanel = (
-  <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-    <svg className="h-12 w-12 text-gray-300 dark:text-gray-600" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v13a1 1 0 01-1.447.894L12 15.618l-5.553 3.276A1 1 0 015 18V5z" />
-    </svg>
-    <h3 className="mt-4 text-lg font-semibold text-gray-800 dark:text-gray-200">
-      Transcript coming soon
-    </h3>
-    <p className="mt-2 max-w-sm text-sm text-gray-500 dark:text-gray-400">
-      We're working on generating a transcript for this episode. Check back after the AI processing is complete.
-    </p>
-  </div>
-);
+const transcriptPanel = episode ? (
+  <TranscriptList
+    episodeId={episode.id}
+    scrollContainerRef={leftPanelScrollRef}
+    onJumpToTime={(timeMs) => {
+      const timeSec = timeMs / 1000;
+      if (isCurrentEpisode) {
+        seek(timeSec);
+      } else {
+        loadAndPlay(episode);
+        setTimeout(() => {
+          seek(timeSec);
+        }, 400);
+      }
+    }}
+  />
+) : null;
 
 const summaryPanel = (
   <div className="space-y-4 px-4 py-6">

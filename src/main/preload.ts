@@ -134,6 +134,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('transcript:query', { taskId, service }),
     getTaskStatus: (episodeId: number) =>
       ipcRenderer.invoke('transcript:getTaskStatus', { episodeId }),
+    getByEpisode: (episodeId: number) =>
+      ipcRenderer.invoke('transcript:getByEpisode', episodeId),
   },
 });
 
@@ -244,6 +246,25 @@ export interface ElectronAPI {
       status?: 'pending' | 'processing' | 'succeeded' | 'failed';
       taskId?: string;
       service?: 'funasr' | 'aliyun';
+      error?: string;
+    }>;
+    getByEpisode: (episodeId: number) => Promise<{
+      success: boolean;
+      transcript?: {
+        id: number;
+        episodeId: number;
+        subtitles: Array<{
+          text: string;
+          start: number;
+          end: number;
+          timestamp: number[][];
+          spk: number;
+        }>;
+        text: string;
+        speakerNumber: number;
+        createdAt: string;
+        updatedAt: string;
+      };
       error?: string;
     }>;
   };
