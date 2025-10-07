@@ -16,7 +16,7 @@ interface SubmitTaskResponse {
   success: boolean;
   taskId?: string;
   error?: string;
-  service: TranscriptService;
+  servizce: TranscriptService;
 }
 
 /**
@@ -25,12 +25,13 @@ interface SubmitTaskResponse {
 interface QueryTaskResponse {
   success: boolean;
   taskId: string;
-  status: 'pending' | 'processing' | 'succeeded' | 'failed';
+  status: "pending" | "processing" | "succeeded" | "failed";
   progress?: number; // 0-100
   result?: RawTranscriptData;
   error?: string;
-  service: TranscriptService;
+  service: TransczriptService;
 }
+z;
 
 /**
  * 原始转写数据（服务返回的原始格式）
@@ -50,7 +51,7 @@ interface VoiceToTextService {
   submit(
     audioUrl: string,
     episodeId: number,
-    options?: SubmitOptions
+    options?: SubmitOptions,
   ): Promise<SubmitTaskResponse>;
 
   /**
@@ -82,7 +83,7 @@ interface SubmitOptions {
   spkModelPath?: string;
 
   // 阿里云配置
-  model?: 'paraformer-v2' | 'paraformer-v1';
+  model?: "paraformer-v2" | "paraformer-v1";
   languageHints?: string[]; // ['zh', 'en']
   speakerCount?: number; // 发言人数量
 
@@ -124,7 +125,7 @@ interface TranscriptConverter {
 在 `src/main/services/transcript/VoiceToTextService.ts`:
 
 ```typescript
-import { TranscriptService, TaskStatus } from '@/main/types/transcript';
+import { TranscriptService, TaskStatus } from "@/main/types/transcript";
 
 export abstract class BaseVoiceToTextService implements VoiceToTextService {
   abstract readonly serviceName: TranscriptService;
@@ -135,7 +136,7 @@ export abstract class BaseVoiceToTextService implements VoiceToTextService {
    * - 验证 URL 可访问性
    */
   protected async preprocessAudioUrl(url: string): Promise<string> {
-    const axios = require('axios');
+    const axios = require("axios");
 
     try {
       const response = await axios.head(url, {
@@ -162,7 +163,7 @@ export abstract class BaseVoiceToTextService implements VoiceToTextService {
     episodeId: number,
     taskId: string,
     status: TaskStatus,
-    output?: any
+    output?: any,
   ): Promise<void> {
     const db = getDatabaseManager().getDrizzle();
 
@@ -171,7 +172,7 @@ export abstract class BaseVoiceToTextService implements VoiceToTextService {
       taskId,
       service: this.serviceName,
       status,
-      output: output ? JSON.stringify(output) : '{}',
+      output: output ? JSON.stringify(output) : "{}",
     });
   }
 
@@ -181,7 +182,7 @@ export abstract class BaseVoiceToTextService implements VoiceToTextService {
   protected async updateTaskInDb(
     taskId: string,
     status: TaskStatus,
-    output?: any
+    output?: any,
   ): Promise<void> {
     const db = getDatabaseManager().getDrizzle();
 
@@ -198,7 +199,7 @@ export abstract class BaseVoiceToTextService implements VoiceToTextService {
   abstract submit(
     audioUrl: string,
     episodeId: number,
-    options?: SubmitOptions
+    options?: SubmitOptions,
   ): Promise<SubmitTaskResponse>;
 
   abstract query(taskId: string): Promise<QueryTaskResponse>;
@@ -211,7 +212,8 @@ export abstract class BaseVoiceToTextService implements VoiceToTextService {
 
 ```typescript
 export class VoiceToTextFactory {
-  private static services: Map<TranscriptService, VoiceToTextService> = new Map();
+  private static services: Map<TranscriptService, VoiceToTextService> =
+    new Map();
 
   /**
    * 注册服务实例
@@ -256,42 +258,48 @@ export abstract class BaseTranscriptConverter implements TranscriptConverter {
   async saveTranscript(
     episodeId: number,
     raw: RawTranscriptData,
-    service: TranscriptService
+    service: TranscriptService,
   ): Promise<void> {
     const db = getDatabaseManager().getDrizzle();
 
     // 1. 保存原始 JSON
-    await db.insert(episodeVoiceTexts).values({
-      episodeId,
-      rawJson: JSON.stringify(raw),
-      service,
-    }).onConflictDoUpdate({
-      target: [episodeVoiceTexts.episodeId, episodeVoiceTexts.service],
-      set: {
+    await db
+      .insert(episodeVoiceTexts)
+      .values({
+        episodeId,
         rawJson: JSON.stringify(raw),
-        updatedAt: new Date().toISOString(),
-      },
-    });
+        service,
+      })
+      .onConflictDoUpdate({
+        target: [episodeVoiceTexts.episodeId, episodeVoiceTexts.service],
+        set: {
+          rawJson: JSON.stringify(raw),
+          updatedAt: new Date().toISOString(),
+        },
+      });
 
     // 2. 转换并保存字幕数据
     const sentenceInfo = this.convertToSentenceInfo(raw);
     const text = this.extractText(raw);
     const speakerNumber = this.calculateSpeakerCount(raw);
 
-    await db.insert(episodeTranscripts).values({
-      episodeId,
-      subtitles: JSON.stringify(sentenceInfo),
-      text,
-      speakerNumber,
-    }).onConflictDoUpdate({
-      target: episodeTranscripts.episodeId,
-      set: {
+    await db
+      .insert(episodeTranscripts)
+      .values({
+        episodeId,
         subtitles: JSON.stringify(sentenceInfo),
         text,
         speakerNumber,
-        updatedAt: new Date().toISOString(),
-      },
-    });
+      })
+      .onConflictDoUpdate({
+        target: episodeTranscripts.episodeId,
+        set: {
+          subtitles: JSON.stringify(sentenceInfo),
+          text,
+          speakerNumber,
+          updatedAt: new Date().toISOString(),
+        },
+      });
   }
 }
 ```

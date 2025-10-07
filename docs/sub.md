@@ -296,4 +296,3 @@ interface VoiceToText {
 - [ ] stage 1 完成 funasr 和 aliyun 的集成
   - funasr 需要支持设置模型: model / vad_model / punt_model / spk_model
   - aliyun 需要支持设置 URL, API KEY
-- [ ] stage 2 episode_ai_summarys AI 功能实现
