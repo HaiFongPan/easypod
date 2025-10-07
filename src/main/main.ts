@@ -5,6 +5,7 @@ import { FeedIPCHandlers } from './services/IPCHandlers';
 import { getDatabaseManager } from './database/connection';
 import { FunASRIPCHandlers } from './services/funasr/FunASRIPCHandlers';
 import { getPythonRuntimeManager } from './services/funasr/PythonRuntimeManager';
+import { TranscriptConfigIPCHandlers } from './services/transcript/TranscriptConfigIPCHandlers';
 
 const isDevelopment = process.argv.includes('--dev') || process.env.NODE_ENV === 'development';
 const debugPythonRuntime = process.env.DEBUG_PYTHON_RUNTIME === '1' || isDevelopment;
@@ -13,6 +14,7 @@ const debugPythonRuntime = process.env.DEBUG_PYTHON_RUNTIME === '1' || isDevelop
 let mainWindow: BrowserWindow | null = null;
 let feedIPCHandlers: FeedIPCHandlers | null = null;
 let funasrIPCHandlers: FunASRIPCHandlers | null = null;
+let transcriptConfigIPCHandlers: TranscriptConfigIPCHandlers | null = null;
 
 const createWindow = (): void => {
   // Create the browser window
@@ -90,6 +92,9 @@ app.whenReady().then(async () => {
 
   // Initialize FunASR IPC handlers
   funasrIPCHandlers = new FunASRIPCHandlers();
+
+  // Initialize Transcript Config IPC handlers
+  transcriptConfigIPCHandlers = new TranscriptConfigIPCHandlers();
 
   // macOS specific: Re-create window when dock icon is clicked
   app.on('activate', () => {
@@ -187,6 +192,10 @@ app.on('before-quit', () => {
   if (funasrIPCHandlers) {
     funasrIPCHandlers.destroy();
     funasrIPCHandlers = null;
+  }
+  if (transcriptConfigIPCHandlers) {
+    transcriptConfigIPCHandlers.destroy();
+    transcriptConfigIPCHandlers = null;
   }
 });
 

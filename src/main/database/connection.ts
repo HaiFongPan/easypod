@@ -164,8 +164,74 @@ export class DatabaseManager {
       VALUES (1, NULL, 0, CURRENT_TIMESTAMP)
     `);
 
-    // Create other tables...
-    // (Additional table creation SQL would go here)
+    // Create episode voice text tasks table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS episode_voice_text_tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        episode_id INTEGER NOT NULL,
+        task_id TEXT NOT NULL,
+        output TEXT NOT NULL,
+        service TEXT NOT NULL CHECK(service IN ('funasr', 'aliyun')),
+        status TEXT NOT NULL DEFAULT 'processing' CHECK(status IN ('processing', 'success', 'failed')),
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE
+      )
+    `);
+
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_voice_text_tasks_episode
+      ON episode_voice_text_tasks(episode_id)
+    `);
+
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_voice_text_tasks_status
+      ON episode_voice_text_tasks(status)
+    `);
+
+    // Create episode voice texts table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS episode_voice_texts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        episode_id INTEGER NOT NULL,
+        raw_json TEXT NOT NULL,
+        service TEXT NOT NULL CHECK(service IN ('funasr', 'aliyun')),
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE,
+        UNIQUE(episode_id, service)
+      )
+    `);
+
+    // Create episode transcripts table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS episode_transcripts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        episode_id INTEGER NOT NULL UNIQUE,
+        subtitles TEXT NOT NULL,
+        text TEXT NOT NULL,
+        speaker_number INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Create episode AI summaries table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS episode_ai_summarys (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        episode_id INTEGER NOT NULL UNIQUE,
+        summary TEXT NOT NULL DEFAULT '',
+        tags TEXT NOT NULL DEFAULT '',
+        chapters TEXT NOT NULL DEFAULT '[]',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE
+      )
+    `);
+
+    console.log('All tables created successfully');
   }
 
   private async createSearchIndex(): Promise<void> {

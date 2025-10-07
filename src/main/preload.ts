@@ -7,6 +7,7 @@ import type {
   FunASRTranscribeRequest,
   FunASRTranscribeResponse,
 } from './services/funasr/FunASRServiceClient';
+import type { FunASRConfig, AliyunConfig } from './services/transcript/TranscriptConfigManager';
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
@@ -102,6 +103,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getTask: (taskId: string) => ipcRenderer.invoke('funasr:task:get', taskId),
     shutdown: () => ipcRenderer.invoke('funasr:shutdown'),
   },
+
+  transcriptConfig: {
+    // FunASR configuration
+    getFunASRConfig: () => ipcRenderer.invoke('transcript:config:getFunASR'),
+    setFunASRConfig: (config: Partial<FunASRConfig>) =>
+      ipcRenderer.invoke('transcript:config:setFunASR', { config }),
+    getDefaultModels: () => ipcRenderer.invoke('transcript:config:getDefaultModels'),
+    validateModelPath: (path: string) =>
+      ipcRenderer.invoke('transcript:config:validateModelPath', { path }),
+
+    // Aliyun configuration
+    getAliyunConfig: () => ipcRenderer.invoke('transcript:config:getAliyun'),
+    setAliyunConfig: (config: Partial<AliyunConfig>) =>
+      ipcRenderer.invoke('transcript:config:setAliyun', { config }),
+    testAliyunAPI: () => ipcRenderer.invoke('transcript:config:testAliyunAPI'),
+
+    // General configuration
+    getDefaultService: () => ipcRenderer.invoke('transcript:config:getDefaultService'),
+    setDefaultService: (service: 'funasr' | 'aliyun') =>
+      ipcRenderer.invoke('transcript:config:setDefaultService', { service }),
+    exportConfig: () => ipcRenderer.invoke('transcript:config:export'),
+    importConfig: (config: any) => ipcRenderer.invoke('transcript:config:import', { config }),
+  },
 });
 
 // Type definitions for the exposed API
@@ -183,6 +207,24 @@ export interface ElectronAPI {
     transcribe: (payload: FunASRTranscribeRequest) => Promise<FunASRTranscribeResponse>;
     getTask: (taskId: string) => Promise<FunASRTaskStatus>;
     shutdown: () => Promise<{ success: boolean }>;
+  };
+  transcriptConfig: {
+    // FunASR configuration
+    getFunASRConfig: () => Promise<{ success: boolean; config?: FunASRConfig; error?: string }>;
+    setFunASRConfig: (config: Partial<FunASRConfig>) => Promise<{ success: boolean; error?: string }>;
+    getDefaultModels: () => Promise<{ success: boolean; models?: any; error?: string }>;
+    validateModelPath: (path: string) => Promise<{ success: boolean; exists?: boolean; error?: string }>;
+
+    // Aliyun configuration
+    getAliyunConfig: () => Promise<{ success: boolean; config?: AliyunConfig; error?: string }>;
+    setAliyunConfig: (config: Partial<AliyunConfig>) => Promise<{ success: boolean; error?: string }>;
+    testAliyunAPI: () => Promise<{ success: boolean; message?: string; error?: string }>;
+
+    // General configuration
+    getDefaultService: () => Promise<{ success: boolean; service?: 'funasr' | 'aliyun'; error?: string }>;
+    setDefaultService: (service: 'funasr' | 'aliyun') => Promise<{ success: boolean; error?: string }>;
+    exportConfig: () => Promise<{ success: boolean; config?: any; error?: string }>;
+    importConfig: (config: any) => Promise<{ success: boolean; error?: string }>;
   };
 }
 

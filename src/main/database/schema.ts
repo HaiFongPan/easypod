@@ -173,6 +173,50 @@ export const searchIndex = sqliteTable('search_index_fts', {
   aiSummary: text('ai_summary'),
 });
 
+// Episode voice text tasks - transcription task tracking
+export const episodeVoiceTextTasks = sqliteTable('episode_voice_text_tasks', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  episodeId: integer('episode_id').notNull().references(() => episodes.id, { onDelete: 'cascade' }),
+  taskId: text('task_id').notNull(),
+  output: text('output').notNull(), // Task output data JSON
+  service: text('service', { enum: ['funasr', 'aliyun'] }).notNull(),
+  status: text('status', { enum: ['processing', 'success', 'failed'] }).notNull().default('processing'),
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Episode voice texts - raw transcription data
+export const episodeVoiceTexts = sqliteTable('episode_voice_texts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  episodeId: integer('episode_id').notNull().references(() => episodes.id, { onDelete: 'cascade' }),
+  rawJson: text('raw_json').notNull(), // Raw JSON data from service
+  service: text('service', { enum: ['funasr', 'aliyun'] }).notNull(),
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Episode transcripts - processed transcription data
+export const episodeTranscripts = sqliteTable('episode_transcripts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  episodeId: integer('episode_id').notNull().references(() => episodes.id, { onDelete: 'cascade' }),
+  subtitles: text('subtitles').notNull(), // JSON array of sentence_info
+  text: text('text').notNull(), // Plain text content
+  speakerNumber: integer('speaker_number').notNull().default(1),
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Episode AI summaries - AI analysis results
+export const episodeAiSummarys = sqliteTable('episode_ai_summarys', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  episodeId: integer('episode_id').notNull().references(() => episodes.id, { onDelete: 'cascade' }),
+  summary: text('summary').notNull().default(''),
+  tags: text('tags').notNull().default(''), // Comma-separated tags
+  chapters: text('chapters').notNull().default('[]'), // JSON array of chapters
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
 // Define relationships and types
 export type Feed = typeof feeds.$inferSelect;
 export type NewFeed = typeof feeds.$inferInsert;
@@ -209,3 +253,15 @@ export type NewSetting = typeof settings.$inferInsert;
 
 export type AiProvider = typeof aiProviders.$inferSelect;
 export type NewAiProvider = typeof aiProviders.$inferInsert;
+
+export type EpisodeVoiceTextTask = typeof episodeVoiceTextTasks.$inferSelect;
+export type NewEpisodeVoiceTextTask = typeof episodeVoiceTextTasks.$inferInsert;
+
+export type EpisodeVoiceText = typeof episodeVoiceTexts.$inferSelect;
+export type NewEpisodeVoiceText = typeof episodeVoiceTexts.$inferInsert;
+
+export type EpisodeTranscript = typeof episodeTranscripts.$inferSelect;
+export type NewEpisodeTranscript = typeof episodeTranscripts.$inferInsert;
+
+export type EpisodeAiSummary = typeof episodeAiSummarys.$inferSelect;
+export type NewEpisodeAiSummary = typeof episodeAiSummarys.$inferInsert;
