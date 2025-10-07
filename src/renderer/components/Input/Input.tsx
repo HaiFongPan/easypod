@@ -4,7 +4,7 @@ import { cn } from '../../utils/cn';
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
-  helper?: string;
+  helper?: React.ReactNode;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   onRightIconClick?: () => void;
