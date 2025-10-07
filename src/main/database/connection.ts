@@ -172,7 +172,7 @@ export class DatabaseManager {
         task_id TEXT NOT NULL,
         output TEXT NOT NULL,
         service TEXT NOT NULL CHECK(service IN ('funasr', 'aliyun')),
-        status TEXT NOT NULL DEFAULT 'processing' CHECK(status IN ('processing', 'success', 'failed')),
+        status TEXT NOT NULL DEFAULT 'processing' CHECK(status IN ('pending', 'processing', 'succeeded', 'failed')),
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE
@@ -278,6 +278,79 @@ export class DatabaseManager {
         this.db.exec('ALTER TABLE feeds ADD COLUMN subscribed_at TEXT DEFAULT NULL');
         // Backfill subscribedAt with createdAt for existing feeds
         this.db.exec('UPDATE feeds SET subscribed_at = created_at WHERE is_subscribed = 1');
+      }
+
+      const voiceTextTaskTable = this.db
+        .prepare(
+          "SELECT sql FROM sqlite_master WHERE type='table' AND name='episode_voice_text_tasks'",
+        )
+        .get() as { sql?: string } | undefined;
+
+      const hasLegacyStatusEnum = voiceTextTaskTable?.sql?.includes(
+        "status IN ('processing', 'success', 'failed')",
+      );
+
+      if (hasLegacyStatusEnum) {
+        console.log(
+          'Running migration: Normalizing episode_voice_text_tasks status values',
+        );
+        this.db.exec('BEGIN');
+        try {
+          this.db.exec(
+            "ALTER TABLE episode_voice_text_tasks RENAME TO episode_voice_text_tasks_legacy",
+          );
+
+          this.db.exec(`
+            CREATE TABLE episode_voice_text_tasks (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              episode_id INTEGER NOT NULL,
+              task_id TEXT NOT NULL,
+              output TEXT NOT NULL,
+              service TEXT NOT NULL CHECK(service IN ('funasr', 'aliyun')),
+              status TEXT NOT NULL DEFAULT 'processing' CHECK(status IN ('pending', 'processing', 'succeeded', 'failed')),
+              created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+              updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+              FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE
+            )
+          `);
+
+          this.db.exec(`
+            INSERT INTO episode_voice_text_tasks (
+              id,
+              episode_id,
+              task_id,
+              output,
+              service,
+              status,
+              created_at,
+              updated_at
+            )
+            SELECT
+              id,
+              episode_id,
+              task_id,
+              output,
+              service,
+              CASE WHEN status = 'success' THEN 'succeeded' ELSE status END,
+              created_at,
+              updated_at
+            FROM episode_voice_text_tasks_legacy
+          `);
+
+          this.db.exec('DROP TABLE episode_voice_text_tasks_legacy');
+
+          this.db.exec(
+            'CREATE INDEX IF NOT EXISTS idx_voice_text_tasks_episode ON episode_voice_text_tasks(episode_id)',
+          );
+          this.db.exec(
+            'CREATE INDEX IF NOT EXISTS idx_voice_text_tasks_status ON episode_voice_text_tasks(status)',
+          );
+
+          this.db.exec('COMMIT');
+        } catch (migrationError) {
+          this.db.exec('ROLLBACK');
+          throw migrationError;
+        }
       }
 
       console.log('Migrations completed successfully');

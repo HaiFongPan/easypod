@@ -1,4 +1,4 @@
-import { TranscriptService } from '@/main/types/transcript';
+import { TranscriptService } from '../../types/transcript';
 import { VoiceToTextService } from './VoiceToTextService';
 
 /**

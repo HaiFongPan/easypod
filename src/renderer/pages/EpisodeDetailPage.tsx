@@ -297,6 +297,10 @@ const EpisodeDetailPage: React.FC = () => {
   const goBack = useNavigationStore((state) => state.goBack);
   const setCurrentView = useNavigationStore((state) => state.setCurrentView);
 
+  // Transcript task state
+  const [transcriptTaskStatus, setTranscriptTaskStatus] = useState<'none' | 'pending' | 'processing' | 'succeeded' | 'failed' | 'submitting'>('none');
+  const [transcriptError, setTranscriptError] = useState<string | null>(null);
+
   const {
     currentEpisode,
     isPlaying,
@@ -342,6 +346,30 @@ const EpisodeDetailPage: React.FC = () => {
       clearEpisode();
     };
   }, [clearEpisode]);
+
+  // Check transcript task status when episode changes
+  useEffect(() => {
+    if (!episode) return;
+
+    const checkTaskStatus = async () => {
+      try {
+        console.log('[EpisodeDetail] Checking transcript task status for episode:', episode.id);
+        const result = await window.electronAPI.transcript.getTaskStatus(episode.id);
+
+        if (result.success && result.hasTask) {
+          console.log('[EpisodeDetail] Task status:', result.status);
+          setTranscriptTaskStatus(result.status || 'none');
+        } else {
+          setTranscriptTaskStatus('none');
+        }
+      } catch (error) {
+        console.error('[EpisodeDetail] Failed to check task status:', error);
+        setTranscriptTaskStatus('none');
+      }
+    };
+
+    checkTaskStatus();
+  }, [episode]);
 
 
   useEffect(() => {
@@ -463,6 +491,41 @@ const EpisodeDetailPage: React.FC = () => {
       playPause();
     } else {
       loadAndPlay(episode);
+    }
+  };
+
+  const handleAITranscribe = async () => {
+    if (!episode) return;
+
+    console.log('[EpisodeDetail] AI transcribe button clicked');
+    console.log('[EpisodeDetail] Episode:', {
+      id: episode.id,
+      title: episode.title,
+      audioUrl: episode.audioUrl,
+    });
+
+    setTranscriptTaskStatus('submitting');
+    setTranscriptError(null);
+
+    try {
+      console.log('[EpisodeDetail] Submitting transcription task...');
+      const result = await window.electronAPI.transcript.submit(episode.id);
+
+      console.log('[EpisodeDetail] Submit result:', result);
+
+      if (result.success) {
+        console.log('[EpisodeDetail] Task submitted successfully, taskId:', result.taskId);
+        setTranscriptTaskStatus('processing');
+      } else {
+        console.error('[EpisodeDetail] Failed to submit task:', result.error);
+        setTranscriptError(result.error || 'Failed to submit transcription task');
+        setTranscriptTaskStatus('failed');
+      }
+    } catch (error) {
+      console.error('[EpisodeDetail] Exception when submitting task:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setTranscriptError(errorMessage);
+      setTranscriptTaskStatus('failed');
     }
   };
 
@@ -713,6 +776,43 @@ const headerSection = (
                 : isLoading
                   ? "Loading…"
                   : "Play"}
+            </button>
+            <button
+              type="button"
+              onClick={handleAITranscribe}
+              disabled={transcriptTaskStatus === 'processing' || transcriptTaskStatus === 'succeeded' || transcriptTaskStatus === 'submitting'}
+              title={
+                transcriptTaskStatus === 'processing'
+                  ? 'Transcription in progress...'
+                  : transcriptTaskStatus === 'succeeded'
+                    ? 'Transcription completed'
+                    : transcriptTaskStatus === 'submitting'
+                      ? 'Submitting task...'
+                      : transcriptTaskStatus === 'failed'
+                        ? transcriptError || 'Transcription failed. Click to retry.'
+                        : 'Start AI transcription'
+              }
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full border border-gray-300 font-medium transition",
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
+                actionButtonSizeClass,
+                transcriptTaskStatus === 'processing' || transcriptTaskStatus === 'succeeded' || transcriptTaskStatus === 'submitting'
+                  ? "cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-600"
+                  : transcriptTaskStatus === 'failed'
+                    ? "bg-white text-red-600 hover:border-red-500 hover:text-red-700 dark:bg-gray-800 dark:text-red-400"
+                    : "bg-white text-gray-900 hover:border-blue-500 hover:text-blue-600 dark:bg-gray-800 dark:text-gray-100",
+              )}
+              aria-label="Start AI transcription"
+            >
+              {transcriptTaskStatus === 'submitting'
+                ? 'Submitting…'
+                : transcriptTaskStatus === 'processing'
+                  ? 'Processing…'
+                  : transcriptTaskStatus === 'succeeded'
+                    ? '✓ Done'
+                    : transcriptTaskStatus === 'failed'
+                      ? 'Retry AI'
+                      : 'AI'}
             </button>
           </div>
         </div>

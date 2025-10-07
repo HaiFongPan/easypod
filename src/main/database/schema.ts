@@ -180,7 +180,7 @@ export const episodeVoiceTextTasks = sqliteTable('episode_voice_text_tasks', {
   taskId: text('task_id').notNull(),
   output: text('output').notNull(), // Task output data JSON
   service: text('service', { enum: ['funasr', 'aliyun'] }).notNull(),
-  status: text('status', { enum: ['processing', 'success', 'failed'] }).notNull().default('processing'),
+  status: text('status', { enum: ['pending', 'processing', 'succeeded', 'failed'] }).notNull().default('processing'),
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
 });

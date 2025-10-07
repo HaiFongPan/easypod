@@ -3,14 +3,15 @@ import {
   FunasrRawData,
   SentenceInfo,
   RawTranscriptData,
-} from '@/main/types/transcript';
+  FunasrSentenceInfo,
+} from '../../../types/transcript';
 
 export class FunasrConverter extends BaseTranscriptConverter {
   convertToSentenceInfo(raw: RawTranscriptData): SentenceInfo[] {
     const funasrData = raw as FunasrRawData;
 
     // FunASR's sentence_info is already in standard format
-    return funasrData.sentence_info.map((item) => ({
+    return funasrData.sentence_info.map((item: FunasrSentenceInfo) => ({
       text: item.text,
       start: item.start,
       end: item.end,
@@ -31,7 +32,7 @@ export class FunasrConverter extends BaseTranscriptConverter {
       return 1;
     }
 
-    const maxSpk = Math.max(...funasrData.sentence_info.map((s) => s.spk || 0));
+    const maxSpk = Math.max(...funasrData.sentence_info.map((s: FunasrSentenceInfo) => s.spk || 0));
     return maxSpk + 1; // spk starts from 0
   }
 }

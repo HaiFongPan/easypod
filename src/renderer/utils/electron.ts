@@ -398,6 +398,11 @@ const createMockElectronAPI = (): ElectronAPI => {
       exportConfig: async () => ({ success: true, config: {} }),
       importConfig: async () => ({ success: true }),
     },
+    transcript: {
+      submit: async () => ({ success: false, error: 'Mock implementation' }),
+      query: async () => ({ success: false, error: 'Mock implementation' }),
+      getTaskStatus: async () => ({ success: true, hasTask: false }),
+    },
   };
 };
 

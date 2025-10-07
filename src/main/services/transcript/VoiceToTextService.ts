@@ -1,6 +1,6 @@
 import axios from 'axios';
-import { getDatabaseManager } from '@/main/database/connection';
-import { episodeVoiceTextTasks } from '@/main/database/schema';
+import { getDatabaseManager } from '../../database/connection';
+import { episodeVoiceTextTasks } from '../../database/schema';
 import { eq } from 'drizzle-orm';
 import {
   TranscriptService,
@@ -8,7 +8,7 @@ import {
   SubmitTaskResponse,
   QueryTaskResponse,
   SubmitOptions,
-} from '@/main/types/transcript';
+} from '../../types/transcript';
 
 /**
  * VoiceToText service interface

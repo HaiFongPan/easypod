@@ -1,10 +1,10 @@
-import { getDatabaseManager } from '@/main/database/connection';
-import { episodeVoiceTexts, episodeTranscripts } from '@/main/database/schema';
+import { getDatabaseManager } from '../../database/connection';
+import { episodeVoiceTexts, episodeTranscripts } from '../../database/schema';
 import {
   TranscriptService,
   RawTranscriptData,
   SentenceInfo,
-} from '@/main/types/transcript';
+} from '../../types/transcript';
 
 /**
  * Transcript converter interface

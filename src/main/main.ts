@@ -6,6 +6,7 @@ import { getDatabaseManager } from './database/connection';
 import { FunASRIPCHandlers } from './services/funasr/FunASRIPCHandlers';
 import { getPythonRuntimeManager } from './services/funasr/PythonRuntimeManager';
 import { TranscriptConfigIPCHandlers } from './services/transcript/TranscriptConfigIPCHandlers';
+import { TranscriptIPCHandlers } from './services/transcript/TranscriptIPCHandlers';
 
 const isDevelopment = process.argv.includes('--dev') || process.env.NODE_ENV === 'development';
 const debugPythonRuntime = process.env.DEBUG_PYTHON_RUNTIME === '1' || isDevelopment;
@@ -15,6 +16,7 @@ let mainWindow: BrowserWindow | null = null;
 let feedIPCHandlers: FeedIPCHandlers | null = null;
 let funasrIPCHandlers: FunASRIPCHandlers | null = null;
 let transcriptConfigIPCHandlers: TranscriptConfigIPCHandlers | null = null;
+let transcriptIPCHandlers: TranscriptIPCHandlers | null = null;
 
 const createWindow = (): void => {
   // Create the browser window
@@ -95,6 +97,10 @@ app.whenReady().then(async () => {
 
   // Initialize Transcript Config IPC handlers
   transcriptConfigIPCHandlers = new TranscriptConfigIPCHandlers();
+
+  // Initialize Transcript IPC handlers
+  transcriptIPCHandlers = new TranscriptIPCHandlers();
+  console.log('[Transcript] Transcript IPC handlers initialized');
 
   // macOS specific: Re-create window when dock icon is clicked
   app.on('activate', () => {
@@ -196,6 +202,10 @@ app.on('before-quit', () => {
   if (transcriptConfigIPCHandlers) {
     transcriptConfigIPCHandlers.destroy();
     transcriptConfigIPCHandlers = null;
+  }
+  if (transcriptIPCHandlers) {
+    transcriptIPCHandlers.destroy();
+    transcriptIPCHandlers = null;
   }
 });
 

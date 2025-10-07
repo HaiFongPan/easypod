@@ -1,5 +1,17 @@
 import { app } from 'electron';
 
+type ElectronStoreModule = typeof import('electron-store');
+
+// Use runtime dynamic import to load ESM-only electron-store from CommonJS build output.
+const dynamicImport = new Function(
+  'specifier',
+  'return import(specifier);',
+) as (specifier: string) => Promise<ElectronStoreModule>;
+
+async function loadElectronStore(): Promise<ElectronStoreModule> {
+  return dynamicImport('electron-store');
+}
+
 export interface FunASRConfig {
   model: string;
   vadModel?: string;
@@ -57,7 +69,7 @@ export class TranscriptConfigManager {
 
   private async initStore(): Promise<void> {
     try {
-      const ElectronStore = (await import('electron-store')).default;
+      const ElectronStore = (await loadElectronStore()).default;
       this.store = new ElectronStore<TranscriptConfigSchema>({
         name: 'transcript-config',
         cwd: app.getPath('userData'),

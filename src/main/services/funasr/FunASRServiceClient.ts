@@ -22,18 +22,23 @@ export interface FunASRTranscribeResponse {
   status: string;
 }
 
-export interface FunASRSegment {
-  start_ms: number;
-  end_ms: number;
-  text: string;
-  speaker?: string;
-}
-
 export interface FunASRTaskStatus {
   status: 'queued' | 'processing' | 'completed' | 'failed';
   progress?: number;
   error?: string;
-  segments?: FunASRSegment[];
+  /**
+   * Raw transcription result returned by the Python service.
+   */
+  result?: Record<string, unknown>;
+  /**
+   * Legacy payload emitted by older Python runtime builds.
+   */
+  segments?: Array<{
+    start_ms: number;
+    end_ms: number;
+    text: string;
+    speaker?: string;
+  }>;
   metadata?: Record<string, unknown>;
 }
 

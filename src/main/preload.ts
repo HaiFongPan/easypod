@@ -126,6 +126,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     exportConfig: () => ipcRenderer.invoke('transcript:config:export'),
     importConfig: (config: any) => ipcRenderer.invoke('transcript:config:import', { config }),
   },
+
+  transcript: {
+    submit: (episodeId: number) =>
+      ipcRenderer.invoke('transcript:submit', { episodeId }),
+    query: (taskId: string, service: 'funasr' | 'aliyun') =>
+      ipcRenderer.invoke('transcript:query', { taskId, service }),
+    getTaskStatus: (episodeId: number) =>
+      ipcRenderer.invoke('transcript:getTaskStatus', { episodeId }),
+  },
 });
 
 // Type definitions for the exposed API
@@ -225,6 +234,18 @@ export interface ElectronAPI {
     setDefaultService: (service: 'funasr' | 'aliyun') => Promise<{ success: boolean; error?: string }>;
     exportConfig: () => Promise<{ success: boolean; config?: any; error?: string }>;
     importConfig: (config: any) => Promise<{ success: boolean; error?: string }>;
+  };
+  transcript: {
+    submit: (episodeId: number) => Promise<{ success: boolean; taskId?: string; error?: string }>;
+    query: (taskId: string, service: 'funasr' | 'aliyun') => Promise<any>;
+    getTaskStatus: (episodeId: number) => Promise<{
+      success: boolean;
+      hasTask?: boolean;
+      status?: 'pending' | 'processing' | 'succeeded' | 'failed';
+      taskId?: string;
+      service?: 'funasr' | 'aliyun';
+      error?: string;
+    }>;
   };
 }
 
