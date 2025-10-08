@@ -136,6 +136,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('transcript:getTaskStatus', { episodeId }),
     getByEpisode: (episodeId: number) =>
       ipcRenderer.invoke('transcript:getByEpisode', episodeId),
+    getTasksList: (page: number, pageSize: number, nameFilter?: string) =>
+      ipcRenderer.invoke('transcript:getTasksList', { page, pageSize, nameFilter }),
+    deleteTask: (episodeId: number) =>
+      ipcRenderer.invoke('transcript:deleteTask', { episodeId }),
+    retryTask: (episodeId: number) =>
+      ipcRenderer.invoke('transcript:retryTask', { episodeId }),
   },
 
   // LLM Providers
@@ -285,6 +291,14 @@ export interface ElectronAPI {
       service?: 'funasr' | 'aliyun';
       error?: string;
     }>;
+    getTasksList: (page: number, pageSize: number, nameFilter?: string) => Promise<{
+      success: boolean;
+      tasks?: any[];
+      total?: number;
+      error?: string;
+    }>;
+    deleteTask: (episodeId: number) => Promise<{ success: boolean; error?: string }>;
+    retryTask: (episodeId: number) => Promise<{ success: boolean; taskId?: string; error?: string }>;
     getByEpisode: (episodeId: number) => Promise<{
       success: boolean;
       transcript?: {

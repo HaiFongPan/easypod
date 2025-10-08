@@ -1,11 +1,9 @@
-
-import React, { useEffect, useRef } from 'react';
-import { cn } from '../../utils/cn';
-import Button from '../Button';
-import AudioPlayer from '../AudioPlayer';
-import { useNavigationStore, AppView } from '../../store/navigationStore';
-import { useAppStore } from '../../store/appStore';
-
+import React, { useEffect, useRef } from "react";
+import { cn } from "../../utils/cn";
+import Button from "../Button";
+import AudioPlayer from "../AudioPlayer";
+import { useNavigationStore, AppView } from "../../store/navigationStore";
+import { useAppStore } from "../../store/appStore";
 
 const SidebarIcon: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <svg
@@ -49,13 +47,6 @@ const PlayQueueIcon: React.FC = () => (
   </SidebarIcon>
 );
 
-const CompletedIcon: React.FC = () => (
-  <SidebarIcon>
-    <circle cx="12" cy="12" r="9" />
-    <path d="M9 12l2 2 4-4" />
-  </SidebarIcon>
-);
-
 const SettingsIcon: React.FC = () => (
   <SidebarIcon>
     <circle cx="12" cy="12" r="3" />
@@ -63,11 +54,11 @@ const SettingsIcon: React.FC = () => (
   </SidebarIcon>
 );
 
-const RssIcon: React.FC = () => (
+const TranscriptTasksIcon: React.FC = () => (
   <SidebarIcon>
-    <path d="M4 11a9 9 0 0 1 9 9" />
-    <path d="M4 4a16 16 0 0 1 16 16" />
-    <circle cx="5" cy="19" r="1.5" />
+    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+    <line x1="12" y1="19" x2="12" y2="22" />
   </SidebarIcon>
 );
 
@@ -87,16 +78,18 @@ const Layout: React.FC<LayoutProps> = ({
   children,
 }) => {
   const { currentView, setCurrentView } = useNavigationStore();
-  const { sidebarCollapsed, toggleSidebar, setSidebarCollapsed } = useAppStore((state) => ({
-    sidebarCollapsed: state.ui.sidebarCollapsed,
-    toggleSidebar: state.toggleSidebar,
-    setSidebarCollapsed: state.setSidebarCollapsed,
-  }));
+  const { sidebarCollapsed, toggleSidebar, setSidebarCollapsed } = useAppStore(
+    (state) => ({
+      sidebarCollapsed: state.ui.sidebarCollapsed,
+      toggleSidebar: state.toggleSidebar,
+      setSidebarCollapsed: state.setSidebarCollapsed,
+    }),
+  );
   const autoCollapseRef = useRef(false);
 
   useEffect(() => {
     const handleResize = () => {
-      if (typeof window === 'undefined') {
+      if (typeof window === "undefined") {
         return;
       }
       const shouldCollapse = window.innerWidth < 1024;
@@ -114,24 +107,30 @@ const Layout: React.FC<LayoutProps> = ({
     };
 
     handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, [sidebarCollapsed, setSidebarCollapsed]);
 
+  const activeView =
+    currentView === "episode-detail" ? "episodes" : currentView;
 
-  const activeView = currentView === 'episode-detail' ? 'episodes' : currentView;
-
-  const navigationItems: { id: AppView; label: string; icon: React.ReactNode }[] = [
-    { id: 'subscriptions', label: 'All Podcasts', icon: <LibraryIcon /> },
-    { id: 'episodes', label: 'All Episodes', icon: <EpisodesIcon /> },
-    { id: 'play-queue', label: 'Play Queue', icon: <PlayQueueIcon /> },
-    { id: 'completed', label: 'Completed', icon: <CompletedIcon /> },
+  const navigationItems: {
+    id: AppView;
+    label: string;
+    icon: React.ReactNode;
+  }[] = [
+    { id: "subscriptions", label: "All Podcasts", icon: <LibraryIcon /> },
+    { id: "episodes", label: "All Episodes", icon: <EpisodesIcon /> },
+    { id: "play-queue", label: "Play Queue", icon: <PlayQueueIcon /> },
+    {
+      id: "transcript-tasks",
+      label: "AI Transcript",
+      icon: <TranscriptTasksIcon />,
+    },
   ];
 
-  const settingsItems: { id: AppView; label: string; icon: React.ReactNode }[] = [
-    { id: 'settings', label: 'Settings', icon: <SettingsIcon /> },
-    { id: 'rss-tester', label: 'RSS Tester', icon: <RssIcon /> },
-  ];
+  const settingsItems: { id: AppView; label: string; icon: React.ReactNode }[] =
+    [{ id: "settings", label: "Settings", icon: <SettingsIcon /> }];
 
   const handleNavClick = (viewId: AppView) => {
     if (viewId === currentView) {
@@ -142,26 +141,26 @@ const Layout: React.FC<LayoutProps> = ({
 
   const renderNavButton = (
     item: { id: AppView; label: string; icon: React.ReactNode },
-    isActive: boolean
+    isActive: boolean,
   ) => (
     <button
       key={item.id}
       type="button"
       onClick={() => handleNavClick(item.id)}
       title={item.label}
-      aria-current={isActive ? 'page' : undefined}
+      aria-current={isActive ? "page" : undefined}
       className={cn(
-        'flex w-full items-center rounded-md px-3 py-2 text-sm font-medium transition-colors',
-        sidebarCollapsed ? 'justify-center px-0' : 'justify-start',
+        "flex w-full items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
+        sidebarCollapsed ? "justify-center px-0" : "justify-start",
         isActive
-          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
-          : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+          ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+          : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700",
       )}
     >
       <span
         className={cn(
-          'flex items-center justify-center',
-          sidebarCollapsed ? 'h-10 w-10' : 'mr-3'
+          "flex items-center justify-center",
+          sidebarCollapsed ? "h-10 w-10" : "mr-3",
         )}
       >
         {item.icon}
@@ -183,7 +182,11 @@ const Layout: React.FC<LayoutProps> = ({
             onClick={onToggleDarkMode}
             icon={
               isDarkMode ? (
-                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                <svg
+                  className="h-4 w-4"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
                   <path
                     fillRule="evenodd"
                     d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
@@ -191,29 +194,33 @@ const Layout: React.FC<LayoutProps> = ({
                   />
                 </svg>
               ) : (
-                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                <svg
+                  className="h-4 w-4"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
                   <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
                 </svg>
               )
             }
           >
-            {isDarkMode ? 'Light' : 'Dark'}
+            {isDarkMode ? "Light" : "Dark"}
           </Button>
         </div>
       </div>
       <div className="flex min-h-0 flex-1">
         <div
           className={cn(
-            'flex h-full flex-shrink-0 flex-col border-r border-gray-200 bg-white transition-all duration-200 ease-in-out dark:border-gray-700 dark:bg-gray-800',
-            sidebarCollapsed ? 'w-16' : 'w-64'
+            "flex h-full flex-shrink-0 flex-col border-r border-gray-200 bg-white transition-all duration-200 ease-in-out dark:border-gray-700 dark:bg-gray-800",
+            sidebarCollapsed ? "w-16" : "w-64",
           )}
         >
           <div className="flex flex-col">
             <div className="border-b border-gray-200 px-3 py-3 dark:border-gray-700">
               <div
                 className={cn(
-                  'flex items-center gap-2',
-                  sidebarCollapsed ? 'justify-center' : 'justify-between'
+                  "flex items-center gap-2",
+                  sidebarCollapsed ? "justify-center" : "justify-between",
                 )}
               >
                 {!sidebarCollapsed && (
@@ -224,11 +231,17 @@ const Layout: React.FC<LayoutProps> = ({
                 <button
                   type="button"
                   onClick={toggleSidebar}
-                  aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                  aria-label={
+                    sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
+                  }
                   className="rounded-md p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
                 >
                   {sidebarCollapsed ? (
-                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                    <svg
+                      className="h-4 w-4"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
                       <path
                         fillRule="evenodd"
                         d="M7.293 14.707a1 1 0 010-1.414L9.586 11H4a1 1 0 110-2h5.586L7.293 6.707a1 1 0 111.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
@@ -236,7 +249,11 @@ const Layout: React.FC<LayoutProps> = ({
                       />
                     </svg>
                   ) : (
-                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                    <svg
+                      className="h-4 w-4"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
                       <path
                         fillRule="evenodd"
                         d="M12.707 5.293a1 1 0 010 1.414L10.414 9H16a1 1 0 110 2h-5.586l2.293 2.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
@@ -251,11 +268,13 @@ const Layout: React.FC<LayoutProps> = ({
               <div>
                 {!sidebarCollapsed && (
                   <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    Library
+                    Feeds
                   </div>
                 )}
                 <div className="space-y-1">
-                  {navigationItems.map((item) => renderNavButton(item, activeView === item.id))}
+                  {navigationItems.map((item) =>
+                    renderNavButton(item, activeView === item.id),
+                  )}
                 </div>
               </div>
               <div>
@@ -265,14 +284,18 @@ const Layout: React.FC<LayoutProps> = ({
                   </div>
                 )}
                 <div className="space-y-1">
-                  {settingsItems.map((item) => renderNavButton(item, activeView === item.id))}
+                  {settingsItems.map((item) =>
+                    renderNavButton(item, activeView === item.id),
+                  )}
                 </div>
               </div>
             </nav>
           </div>
         </div>
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden">{children}</div>
+          <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden">
+            {children}
+          </div>
           <AudioPlayer />
         </div>
       </div>

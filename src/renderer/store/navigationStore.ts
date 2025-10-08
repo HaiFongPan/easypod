@@ -7,6 +7,7 @@ export type AppView =
   | 'play-queue'
   | 'completed'
   | 'transcriptions'
+  | 'transcript-tasks'
   | 'ai-summaries'
   | 'rss-tester'
   | 'settings'

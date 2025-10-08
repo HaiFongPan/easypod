@@ -178,6 +178,31 @@ export const useEpisodesStore = create<EpisodesStore>((set, get) => ({
             ep.id === id ? { ...ep, status: 'archived' as const } : ep
           )
         }));
+
+        // Import necessary stores
+        const { usePlayerStore } = await import('./playerStore');
+        const { usePlayQueueStore } = await import('./playQueueStore');
+
+        const playerStore = usePlayerStore.getState();
+        const playQueueStore = usePlayQueueStore.getState();
+
+        // Check if the archived episode is currently playing
+        const isCurrentlyPlaying = playerStore.currentEpisode?.id === id;
+
+        // Remove from play queue if present
+        const isInQueue = playQueueStore.queue.some(item => item.episodeId === id);
+        if (isInQueue) {
+          // If it's currently playing, stop playback first
+          if (isCurrentlyPlaying && playerStore.isPlaying) {
+            playerStore.pause();
+          }
+
+          // Remove from queue (this will handle loading next episode or resetting player)
+          await playQueueStore.removeFromQueue(id);
+        } else if (isCurrentlyPlaying) {
+          // If playing but not in queue, just reset the player
+          playerStore.reset();
+        }
       }
     } catch (error) {
       console.error('Failed to mark episode as archived:', error);

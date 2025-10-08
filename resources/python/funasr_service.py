@@ -105,6 +105,10 @@ def _load_model(payload: InitializePayload) -> Any:
     if punc_model:
         kwargs["punc_model"] = punc_model
 
+    spk_model = options.get("spk_model")
+    if spk_model:
+        kwargs["spk_model"] = spk_model
+
     if payload.device:
         kwargs["device"] = payload.device
 

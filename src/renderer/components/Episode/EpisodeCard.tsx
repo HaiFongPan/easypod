@@ -23,6 +23,9 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
     ? (episode.lastPositionSec / episode.durationSec) * 100
     : 0;
   const isCompact = variant === 'compact';
+  const actionButtonSize = isCompact ? 'sm' : 'md';
+  const actionButtonDimensions = actionButtonSize === 'sm' ? 'h-8 w-8' : 'h-10 w-10';
+  const actionIconDimensions = actionButtonSize === 'sm' ? 'h-4 w-4' : 'h-5 w-5';
   const descriptionLimit = isCompact ? 120 : 200;
   const plainDescription = episode.descriptionHtml
     ? episode.descriptionHtml
@@ -175,13 +178,13 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
         {/* Action Buttons */}
         <div className={cn('flex items-center gap-2 mt-auto', isCompact && 'flex-wrap gap-y-1')}>
           <div className="flex items-center gap-1">
-            <QueueAddButton episode={episode} placement="next" />
-            <QueueAddButton episode={episode} placement="end" />
+            <QueueAddButton episode={episode} placement="next" size={actionButtonSize} />
+            <QueueAddButton episode={episode} placement="end" size={actionButtonSize} />
           </div>
 
           <PlayPauseButton
             episode={episode}
-            size="md"
+            size={actionButtonSize}
             showTooltip
           />
 
@@ -196,7 +199,8 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
               }}
               disabled={episode.status === 'archived'}
               className={cn(
-                'rounded-full p-1.5 transition',
+                'flex items-center justify-center rounded-full transition',
+                actionButtonDimensions,
                 episode.status === 'archived'
                   ? 'text-gray-300 dark:text-gray-700 cursor-not-allowed'
                   : 'text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700 dark:hover:text-red-400'
@@ -204,7 +208,16 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
               aria-label={episode.status === 'archived' ? 'Already archived' : 'Archive episode'}
               title={episode.status === 'archived' ? 'Already archived' : 'Archive episode'}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                className={actionIconDimensions}
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <rect width="20" height="5" x="2" y="3" rx="1"/>
                 <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/>
                 <path d="m9.5 17 5-5"/>

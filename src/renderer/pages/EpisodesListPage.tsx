@@ -69,6 +69,19 @@ export const EpisodesListPage: React.FC = () => {
   const totalPages = Math.max(1, Math.ceil(episodes.length / PAGE_SIZE));
   const startIndex = (currentPage - 1) * PAGE_SIZE;
   const endIndex = Math.min(startIndex + PAGE_SIZE, episodes.length);
+  const toggleGroupClasses =
+    "inline-flex items-center overflow-hidden rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 divide-x divide-gray-200 dark:divide-gray-700";
+  const toggleButtonBaseClasses =
+    "flex h-10 items-center justify-center px-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800";
+  const toggleButtonInactiveClasses =
+    "text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200";
+  const toggleButtonActiveClasses =
+    "bg-blue-500 text-white hover:bg-blue-500 hover:text-white dark:bg-blue-600 dark:hover:bg-blue-600 dark:text-white";
+  const statusOptions = [
+    { value: "all" as const, icon: LayoutList, label: "All Episodes" },
+    { value: "in_progress" as const, icon: PlayCircle, label: "In Progress" },
+    { value: "archived" as const, icon: Archive, label: "Archived" },
+  ];
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,7 +146,7 @@ export const EpisodesListPage: React.FC = () => {
             <div className="relative">
               <input
                 type="text"
-                className="w-full px-4 py-2 pl-10 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100"
+                className="w-full h-10 px-4 pl-10 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100"
                 placeholder="Search episodes..."
                 value={localSearchQuery}
                 onChange={(e) => setLocalSearchQuery(e.target.value)}
@@ -144,45 +157,38 @@ export const EpisodesListPage: React.FC = () => {
 
           {/* Status Filter */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-            <div className="flex space-x-2">
-              <Button
-                variant={statusFilter === "all" ? "primary" : "secondary"}
-                size="sm"
-                onClick={() => handleStatusFilterChange("all")}
-                title="All Episodes"
-              >
-                <LayoutList className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={
-                  statusFilter === "in_progress" ? "primary" : "secondary"
-                }
-                size="sm"
-                onClick={() => handleStatusFilterChange("in_progress")}
-                title="In Progress"
-              >
-                <PlayCircle className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={statusFilter === "archived" ? "primary" : "secondary"}
-                size="sm"
-                onClick={() => handleStatusFilterChange("archived")}
-                title="Archived"
-              >
-                <Archive className="w-4 h-4" />
-              </Button>
+            <div className={toggleGroupClasses} role="group" aria-label="Status filter">
+              {statusOptions.map(({ value, icon: Icon, label }) => {
+                const isSelected = statusFilter === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => handleStatusFilterChange(value)}
+                    className={cn(
+                      toggleButtonBaseClasses,
+                      isSelected ? toggleButtonActiveClasses : toggleButtonInactiveClasses,
+                    )}
+                    aria-label={label}
+                    aria-pressed={isSelected}
+                    title={label}
+                  >
+                    <Icon className="w-4 h-4" />
+                  </button>
+                );
+              })}
             </div>
 
             <div className="flex items-center">
-              <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded overflow-hidden">
+              <div className={toggleGroupClasses} role="group" aria-label="View mode">
                 <button
                   type="button"
                   onClick={() => handleViewModeChange("standard")}
                   className={cn(
-                    "p-2 flex items-center justify-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-l",
+                    toggleButtonBaseClasses,
                     viewMode === "standard"
-                      ? "bg-blue-500 text-white dark:text-white"
-                      : "bg-transparent",
+                      ? toggleButtonActiveClasses
+                      : toggleButtonInactiveClasses,
                   )}
                   aria-label="Standard layout"
                   aria-pressed={viewMode === "standard"}
@@ -193,10 +199,10 @@ export const EpisodesListPage: React.FC = () => {
                   type="button"
                   onClick={() => handleViewModeChange("compact")}
                   className={cn(
-                    "p-2 flex items-center justify-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-r",
+                    toggleButtonBaseClasses,
                     viewMode === "compact"
-                      ? "bg-blue-500 text-white dark:text-white"
-                      : "bg-transparent",
+                      ? toggleButtonActiveClasses
+                      : toggleButtonInactiveClasses,
                   )}
                   aria-label="Compact layout"
                   aria-pressed={viewMode === "compact"}

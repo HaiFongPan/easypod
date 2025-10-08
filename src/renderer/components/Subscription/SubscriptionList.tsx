@@ -17,7 +17,7 @@ import { getElectronAPI } from "../../utils/electron";
 import { formatDate, formatDuration } from "../../utils/formatters";
 import PlayPauseButton from "../PlayPauseButton";
 import QueueAddButton from "../QueueAddButton";
-import { Grid, Grid3x3 } from "lucide-react";
+import { Archive, Grid, Grid3x3 } from "lucide-react";
 import { useEpisodeDetailNavigation } from "../../hooks/useEpisodeDetailNavigation";
 
 interface SubscriptionListProps {
@@ -239,6 +239,34 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
     const nextPage = episodesPage + 1;
     loadEpisodesForFeed(activeFeed.id, nextPage, true);
   };
+
+  const handleArchiveEpisode = useCallback(
+    async (episode: Episode) => {
+      const numericId = Number(episode.id);
+      if (!Number.isFinite(numericId)) {
+        return;
+      }
+
+      try {
+        const electron = getElectronAPI();
+        const result = await electron.episodes.markAsArchived(numericId);
+        if (!result?.success) {
+          throw new Error(result?.error || "Failed to archive episode");
+        }
+
+        setFeedEpisodes((prev) =>
+          prev.map((item) =>
+            item.id === episode.id ? { ...item, status: "archived" } : item,
+          ),
+        );
+      } catch (error) {
+        setEpisodesError(
+          error instanceof Error ? error.message : "Failed to archive episode",
+        );
+      }
+    },
+    [setFeedEpisodes, setEpisodesError],
+  );
 
   const formatStats = () => {
     if (!feeds || feeds.length === 0) return "0 podcasts, 0 episodes";
@@ -675,7 +703,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                             return (
                               <div
                                 key={episode.id}
-                                className="group flex gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition hover:border-primary-400 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-primary-500 cursor-pointer"
+                                className="group flex items-center gap-4 rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition hover:border-primary-400 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-primary-500 cursor-pointer"
                                 role="button"
                                 tabIndex={0}
                                 onClick={() => openEpisodeDetail(episode)}
@@ -690,8 +718,8 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                                 }}
                                 aria-label={`Open details for ${episode.title}`}
                               >
-                                <div className="flex w-16 flex-shrink-0 flex-col items-center gap-2">
-                                  <div className="relative h-16 w-16 overflow-hidden rounded-md bg-gray-200 dark:bg-gray-700">
+                                <div className="flex flex-1 items-start gap-3">
+                                  <div className="relative h-24 w-24 overflow-hidden rounded bg-gray-200 dark:bg-gray-700">
                                     <img
                                       src={
                                         episode.episodeImageUrl ||
@@ -706,75 +734,88 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                                       }}
                                     />
                                   </div>
-                                  <div className="flex items-center gap-1">
-                                    <PlayPauseButton
-                                      episode={episode}
-                                      size="xs"
-                                      variant="default"
-                                      className="rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-primary-600 dark:text-gray-300 dark:hover:bg-gray-700"
-                                    />
-                                    <QueueAddButton
-                                      episode={episode}
-                                      placement="next"
-                                      size="xs"
-                                      className="text-gray-400 hover:text-primary-600 dark:text-gray-300"
-                                    />
-                                    <QueueAddButton
-                                      episode={episode}
-                                      placement="end"
-                                      size="xs"
-                                      className="text-gray-400 hover:text-primary-600 dark:text-gray-300"
-                                    />
+                                  <div className="flex flex-1 flex-col">
+                                    <button
+                                      type="button"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        openEpisodeDetail(episode);
+                                      }}
+                                      className={cn(
+                                        "text-left text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white transition dark:focus-visible:ring-offset-gray-800",
+                                        isPlayed
+                                          ? "text-gray-500 dark:text-gray-500"
+                                          : "text-gray-900 hover:underline dark:text-gray-100",
+                                      )}
+                                    >
+                                      {episode.title}
+                                    </button>
+                                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                      <span>{formatDate(episode.pubDate)}</span>
+                                      {episode.durationSec ? (
+                                        <>
+                                          <span>•</span>
+                                          <span>
+                                            {formatDuration(
+                                              episode.durationSec,
+                                            )}
+                                          </span>
+                                        </>
+                                      ) : null}
+                                      {episode.status &&
+                                        episode.status !== "new" && (
+                                          <>
+                                            <span>•</span>
+                                            <span className="capitalize">
+                                              {episode.status.replace("_", " ")}
+                                            </span>
+                                          </>
+                                        )}
+                                    </div>
+                                    {summaryText && (
+                                      <p className="mt-2 text-xs text-gray-500 line-clamp-3 dark:text-gray-400">
+                                        {summaryText}
+                                        {episode.descriptionHtml &&
+                                        episode.descriptionHtml.replace(
+                                          /<[^>]*>/g,
+                                          "",
+                                        ).length > summaryText.length
+                                          ? "…"
+                                          : ""}
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
-                                <div className="flex flex-1 flex-col">
+                                <div className="flex flex-col items-center justify-center gap-2">
+                                  <PlayPauseButton
+                                    episode={episode}
+                                    size="xs"
+                                    className="text-primary-600 hover:text-primary-500 focus:outline-none"
+                                  />
+                                  <QueueAddButton
+                                    episode={episode}
+                                    placement="next"
+                                    size="xs"
+                                    className="text-primary-600 hover:text-primary-500 focus:ring-primary-300"
+                                  />
+                                  <QueueAddButton
+                                    episode={episode}
+                                    placement="end"
+                                    size="xs"
+                                    className="text-primary-600 hover:text-primary-500 focus:ring-primary-300"
+                                  />
                                   <button
                                     type="button"
                                     onClick={(event) => {
                                       event.stopPropagation();
-                                      openEpisodeDetail(episode);
+                                      handleArchiveEpisode(episode);
                                     }}
-                                    className={cn(
-                                      "text-left text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white transition dark:focus-visible:ring-offset-gray-800",
-                                      isPlayed
-                                        ? "text-gray-500 dark:text-gray-500"
-                                        : "text-gray-900 hover:underline dark:text-gray-100",
-                                    )}
+                                    className="flex h-6 w-6 items-center justify-center rounded-full text-secondary-500 transition hover:text-primary-600 dark:text-secondary-300 dark:hover:text-primary-400"
+                                    aria-label="Archive episode"
+                                    title="Archive episode"
                                   >
-                                    {episode.title}
+                                    <Archive className="h-4 w-4" />
                                   </button>
-                                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                    <span>{formatDate(episode.pubDate)}</span>
-                                    {episode.durationSec ? (
-                                      <>
-                                        <span>•</span>
-                                        <span>
-                                          {formatDuration(episode.durationSec)}
-                                        </span>
-                                      </>
-                                    ) : null}
-                                    {episode.status &&
-                                      episode.status !== "new" && (
-                                        <>
-                                          <span>•</span>
-                                          <span className="capitalize">
-                                            {episode.status.replace("_", " ")}
-                                          </span>
-                                        </>
-                                      )}
-                                  </div>
-                                  {summaryText && (
-                                    <p className="mt-2 text-xs text-gray-500 line-clamp-3 dark:text-gray-400">
-                                      {summaryText}
-                                      {episode.descriptionHtml &&
-                                      episode.descriptionHtml.replace(
-                                        /<[^>]*>/g,
-                                        "",
-                                      ).length > summaryText.length
-                                        ? "…"
-                                        : ""}
-                                    </p>
-                                  )}
                                 </div>
                               </div>
                             );

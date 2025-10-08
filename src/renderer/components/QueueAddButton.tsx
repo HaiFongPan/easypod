@@ -97,7 +97,7 @@ export const QueueAddButton: React.FC<QueueAddButtonProps> = ({
         'flex items-center justify-center rounded-full bg-transparent transition-colors',
         isInQueue
           ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
-          : 'text-blue-600 hover:text-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-300',
+          : 'text-primary-600 hover:text-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-300',
         'disabled:cursor-not-allowed disabled:opacity-50',
         className,
       )}

@@ -12,11 +12,13 @@ import {
   QueryTaskResponse,
   TaskStatus,
 } from '../../types/transcript';
+import { EpisodeVoiceTextTasksDao } from '../../database/dao/episodeVoiceTextTasksDao';
 
 export class TranscriptIPCHandlers {
   private configManager = getTranscriptConfigManager();
   private pollInterval: NodeJS.Timeout | null = null;
   private pollingInFlight = false;
+  private tasksDao = new EpisodeVoiceTextTasksDao();
 
   constructor() {
     this.registerHandlers();
@@ -48,6 +50,9 @@ export class TranscriptIPCHandlers {
     ipcMain.handle('transcript:submit', this.handleSubmitTask.bind(this));
     ipcMain.handle('transcript:query', this.handleQueryTask.bind(this));
     ipcMain.handle('transcript:getTaskStatus', this.handleGetTaskStatus.bind(this));
+    ipcMain.handle('transcript:getTasksList', this.handleGetTasksList.bind(this));
+    ipcMain.handle('transcript:deleteTask', this.handleDeleteTask.bind(this));
+    ipcMain.handle('transcript:retryTask', this.handleRetryTask.bind(this));
   }
 
   /**
@@ -344,10 +349,111 @@ export class TranscriptIPCHandlers {
     }
   }
 
+  /**
+   * Get tasks list with pagination
+   */
+  private async handleGetTasksList(
+    event: IpcMainInvokeEvent,
+    params: { page: number; pageSize: number; nameFilter?: string }
+  ): Promise<{
+    success: boolean;
+    tasks?: any[];
+    total?: number;
+    error?: string;
+  }> {
+    try {
+      const { tasks, total } = await this.tasksDao.findAllWithPagination(
+        params.page,
+        params.pageSize,
+        params.nameFilter
+      );
+
+      return {
+        success: true,
+        tasks,
+        total,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[TranscriptIPC] Get tasks list exception:', {
+        error: errorMessage,
+      });
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+  }
+
+  /**
+   * Delete transcript task and related data
+   */
+  private async handleDeleteTask(
+    event: IpcMainInvokeEvent,
+    params: { episodeId: number }
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      await this.tasksDao.deleteTasksByEpisodeId(params.episodeId);
+      console.log('[TranscriptIPC] Deleted task for episode:', params.episodeId);
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[TranscriptIPC] Delete task exception:', {
+        episodeId: params.episodeId,
+        error: errorMessage,
+      });
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+  }
+
+  /**
+   * Retry failed transcription task
+   */
+  private async handleRetryTask(
+    event: IpcMainInvokeEvent,
+    params: { episodeId: number }
+  ): Promise<{ success: boolean; taskId?: string; error?: string }> {
+    try {
+      // 1. Check existing task status
+      const existingTask = await this.tasksDao.findByEpisodeId(params.episodeId);
+
+      if (!existingTask) {
+        return { success: false, error: 'Task not found' };
+      }
+
+      if (existingTask.status !== 'failed') {
+        return { success: false, error: 'Only failed tasks can be retried' };
+      }
+
+      // 2. Delete existing failed task data
+      await this.tasksDao.deleteTasksByEpisodeId(params.episodeId);
+      console.log('[TranscriptIPC] Deleted failed task before retry:', params.episodeId);
+
+      // 3. Submit new task using existing submit handler
+      return await this.handleSubmitTask(event, params);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[TranscriptIPC] Retry task exception:', {
+        episodeId: params.episodeId,
+        error: errorMessage,
+      });
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+  }
+
   destroy(): void {
     ipcMain.removeHandler('transcript:submit');
     ipcMain.removeHandler('transcript:query');
     ipcMain.removeHandler('transcript:getTaskStatus');
+    ipcMain.removeHandler('transcript:getTasksList');
+    ipcMain.removeHandler('transcript:deleteTask');
+    ipcMain.removeHandler('transcript:retryTask');
     if (this.pollInterval) {
       clearInterval(this.pollInterval);
       this.pollInterval = null;

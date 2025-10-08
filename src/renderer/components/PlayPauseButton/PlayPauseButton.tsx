@@ -57,7 +57,7 @@ const PlayPauseButton: React.FC<PlayPauseButtonProps> = ({
 
   // Variant styles - 更简约的设计，只有图标，没有背景
   const variantClasses = {
-    default: 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300',
+    default: 'text-primary-600 hover:text-primary-500 dark:text-primary-300 dark:hover:text-primary-200',
     minimal: 'text-white hover:text-gray-100 dark:text-white dark:hover:text-gray-200',
   };
 

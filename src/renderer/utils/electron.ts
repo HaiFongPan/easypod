@@ -453,6 +453,9 @@ const createMockElectronAPI = (): ElectronAPI => {
       submit: async () => ({ success: false, error: 'Mock implementation' }),
       query: async () => ({ success: false, error: 'Mock implementation' }),
       getTaskStatus: async () => ({ success: true, hasTask: false }),
+      getTasksList: async () => ({ success: true, tasks: [], total: 0 }),
+      deleteTask: async () => ({ success: true }),
+      retryTask: async () => ({ success: false, error: 'Mock implementation' }),
       getByEpisode: async () => ({ success: false, error: 'Mock implementation' }),
     },
     llmProviders: {
