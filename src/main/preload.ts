@@ -145,6 +145,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     update: (id: number, data: any) => ipcRenderer.invoke('llmProviders:update', id, data),
     delete: (id: number) => ipcRenderer.invoke('llmProviders:delete', id),
     setDefault: (id: number) => ipcRenderer.invoke('llmProviders:setDefault', id),
+    validate: (id: number) => ipcRenderer.invoke('llmProviders:validate', id),
   },
 
   // LLM Models
@@ -191,8 +192,8 @@ export interface ElectronAPI {
     unsubscribe: (feedId: number) => Promise<{ success: boolean; error?: string }>;
     getAll: () => Promise<any[]>;
     getById: (feedId: number) => Promise<any | null>;
-    refresh: (feedId: number) => Promise<{ success: boolean; hasUpdates?: boolean; error?: string }>;
-    refreshAll: () => Promise<{ updated: number; errors: string[] }>;
+    refresh: (feedId: number) => Promise<{ success: boolean; hasUpdates?: boolean; lastPubDate?: string | null; newEpisodes?: number; error?: string }>;
+    refreshAll: () => Promise<{ updated: number; errors: string[]; newEpisodesCount?: number }>;
     validate: (url: string) => Promise<{ valid: boolean; title?: string; error?: string }>;
     preview: (url: string) => Promise<{
       success: boolean;
@@ -310,6 +311,9 @@ export interface ElectronAPI {
     update: (id: number, data: any) => Promise<{ success: boolean; error?: string }>;
     delete: (id: number) => Promise<{ success: boolean; error?: string }>;
     setDefault: (id: number) => Promise<{ success: boolean; error?: string }>;
+    validate: (
+      id: number
+    ) => Promise<{ success: boolean; message?: string; error?: string; modelsAdded?: number }>;
   };
   llmModels: {
     getAll: () => Promise<any[]>;

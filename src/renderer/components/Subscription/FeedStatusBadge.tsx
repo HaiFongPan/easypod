@@ -15,7 +15,7 @@ const FeedStatusBadge: React.FC<FeedStatusBadgeProps> = ({ status, className }) 
     },
     updating: {
       label: 'Updating',
-      className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+      className: 'bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-300',
       icon: '↻'
     },
     error: {

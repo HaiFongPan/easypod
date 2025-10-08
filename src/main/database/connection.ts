@@ -104,6 +104,7 @@ export class DatabaseManager {
         cover_url TEXT,
         description TEXT,
         last_checked_at TEXT,
+        last_pub_date TEXT,
         opml_group TEXT,
         meta_json TEXT,
         is_subscribed INTEGER NOT NULL DEFAULT 0,
@@ -311,6 +312,7 @@ export class DatabaseManager {
       const feedsInfo = this.db.pragma('table_info(feeds)') as Array<{ name: string }>;
       const hasIsSubscribed = feedsInfo.some((col) => col.name === 'is_subscribed');
       const hasSubscribedAt = feedsInfo.some((col) => col.name === 'subscribed_at');
+      const hasLastPubDate = feedsInfo.some((col) => col.name === 'last_pub_date');
 
       if (!hasIsSubscribed) {
         console.log('Running migration: Adding is_subscribed to feeds table');
@@ -322,6 +324,18 @@ export class DatabaseManager {
         this.db.exec('ALTER TABLE feeds ADD COLUMN subscribed_at TEXT DEFAULT NULL');
         // Backfill subscribedAt with createdAt for existing feeds
         this.db.exec('UPDATE feeds SET subscribed_at = created_at WHERE is_subscribed = 1');
+      }
+
+      if (!hasLastPubDate) {
+        console.log('Running migration: Adding last_pub_date to feeds table');
+        this.db.exec('ALTER TABLE feeds ADD COLUMN last_pub_date TEXT');
+        this.db.exec(`
+          UPDATE feeds
+          SET last_pub_date = (
+            SELECT MAX(pub_date) FROM episodes WHERE episodes.feed_id = feeds.id
+          )
+          WHERE last_pub_date IS NULL
+        `);
       }
 
       const voiceTextTaskTable = this.db

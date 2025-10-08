@@ -8,6 +8,7 @@ interface FeedMetadata {
   description: string;
   coverUrl?: string;
   episodeCount: number;
+  lastPubDate?: string | null;
 }
 
 const STORAGE_KEY = 'easypod:mock-feeds';
@@ -57,6 +58,8 @@ const loadStoredFeeds = (): StoredFeed[] => {
       ...feed,
       status: feed.status ?? 'active',
       lastCheckedAt: feed.lastCheckedAt ?? feed.updatedAt,
+      lastPubDate: feed.lastPubDate ?? null,
+      opmlGroup: feed.opmlGroup ?? null,
     }));
   } catch (error) {
     console.warn('Mock ElectronAPI: failed to read stored feeds', error);
@@ -88,13 +91,32 @@ const parseFeedMetadata = (xml: string, url: string): FeedMetadata => {
       (channel.querySelector('itunes\\:image') as Element | null)?.getAttribute('href'),
       channel.querySelector('image > url')?.textContent
     );
-    const episodeCount = channel.querySelectorAll('item').length;
+    const items = Array.from(channel.querySelectorAll('item'));
+    const episodeCount = items.length;
+    const lastPubDate = items.reduce<string | null>((latest, item) => {
+      const rawDate =
+        normalizeText(item.querySelector('pubDate')?.textContent) ??
+        normalizeText((item.querySelector('dc\\:date') as Element | null)?.textContent);
+      if (!rawDate) {
+        return latest;
+      }
+      const parsed = new Date(rawDate);
+      if (Number.isNaN(parsed.getTime())) {
+        return latest;
+      }
+      const iso = parsed.toISOString();
+      if (!latest) {
+        return iso;
+      }
+      return parsed.getTime() > new Date(latest).getTime() ? iso : latest;
+    }, null);
 
     return {
       title,
       description,
       coverUrl,
       episodeCount,
+      lastPubDate,
     };
   }
 
@@ -106,13 +128,32 @@ const parseFeedMetadata = (xml: string, url: string): FeedMetadata => {
       atomFeed.querySelector('logo')?.textContent,
       atomFeed.querySelector('icon')?.textContent
     );
-    const episodeCount = atomFeed.querySelectorAll('entry').length;
+    const entries = Array.from(atomFeed.querySelectorAll('entry'));
+    const episodeCount = entries.length;
+    const lastPubDate = entries.reduce<string | null>((latest, entry) => {
+      const rawDate =
+        normalizeText(entry.querySelector('updated')?.textContent) ??
+        normalizeText(entry.querySelector('published')?.textContent);
+      if (!rawDate) {
+        return latest;
+      }
+      const parsed = new Date(rawDate);
+      if (Number.isNaN(parsed.getTime())) {
+        return latest;
+      }
+      const iso = parsed.toISOString();
+      if (!latest) {
+        return iso;
+      }
+      return parsed.getTime() > new Date(latest).getTime() ? iso : latest;
+    }, null);
 
     return {
       title,
       description,
       coverUrl,
       episodeCount,
+      lastPubDate,
     };
   }
 
@@ -163,10 +204,12 @@ const buildMockFeed = (
     category: overrides?.category ?? 'Default',
     episodeCount: metadata.episodeCount,
     lastCheckedAt: timestamp,
+    lastPubDate: metadata.lastPubDate ?? overrides?.lastPubDate ?? null,
     status: overrides?.status ?? 'active',
     error: overrides?.error,
     createdAt: overrides?.createdAt ?? timestamp,
     updatedAt: timestamp,
+    opmlGroup: overrides?.opmlGroup ?? null,
   };
 };
 
@@ -182,10 +225,12 @@ const createMockElectronAPI = (): ElectronAPI => {
       const feed = buildMockFeed(url, metadata, existing ? {
         ...existing,
         category: opmlGroup ?? existing.category,
+        opmlGroup: opmlGroup ?? existing.opmlGroup ?? null,
         createdAt: existing.createdAt,
         id: existing.id,
       } : {
         category: opmlGroup ?? 'Default',
+        opmlGroup: opmlGroup ?? null,
       });
 
       const nextFeeds = existing
@@ -211,6 +256,7 @@ const createMockElectronAPI = (): ElectronAPI => {
     try {
       const metadata = await fetchFeedMetadata(feeds[index].url);
       const hasUpdates = metadata.episodeCount !== feeds[index].episodeCount;
+      const newEpisodes = Math.max(metadata.episodeCount - feeds[index].episodeCount, 0);
       const updatedFeed = buildMockFeed(feeds[index].url, metadata, {
         ...feeds[index],
         category: feeds[index].category,
@@ -220,7 +266,7 @@ const createMockElectronAPI = (): ElectronAPI => {
 
       feeds[index] = { ...updatedFeed, status: 'active', error: undefined };
       saveStoredFeeds(feeds);
-      return { success: true, hasUpdates };
+      return { success: true, hasUpdates, newEpisodes, lastPubDate: updatedFeed.lastPubDate ?? feeds[index].lastPubDate ?? null };
     } catch (error) {
       const message = normalizeError(error);
       feeds[index] = {
@@ -238,19 +284,24 @@ const createMockElectronAPI = (): ElectronAPI => {
   const refreshAll = async () => {
     const feeds = loadStoredFeeds();
     let updated = 0;
+    let newEpisodesCount = 0;
     const errors: string[] = [];
 
     for (const feed of feeds) {
       const result = await refresh(Number(feed.id));
-      if (result.success && result.hasUpdates) {
-        updated += 1;
-      }
-      if (!result.success && result.error) {
+      if (result.success) {
+        if (result.hasUpdates) {
+          updated += 1;
+        }
+        if (result.newEpisodes) {
+          newEpisodesCount += result.newEpisodes;
+        }
+      } else if (result.error) {
         errors.push(`${feed.title}: ${result.error}`);
       }
     }
 
-    return { updated, errors };
+    return { updated, errors, newEpisodesCount };
   };
 
   return {
@@ -410,6 +461,7 @@ const createMockElectronAPI = (): ElectronAPI => {
       update: async () => ({ success: true }),
       delete: async () => ({ success: true }),
       setDefault: async () => ({ success: true }),
+      validate: async () => ({ success: false, error: 'Validation not available in browser preview', modelsAdded: 0 }),
     },
     llmModels: {
       getAll: async () => [],

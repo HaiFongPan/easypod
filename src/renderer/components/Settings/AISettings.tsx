@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Plus, Trash2, Star, Check } from "lucide-react";
+import { Plus, Trash2, Star } from "lucide-react";
 import Button from "../Button/Button";
 import Input from "../Input/Input";
 import { getElectronAPI } from "../../utils/electron";
@@ -52,6 +52,13 @@ export const AISettings: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [editingProviderName, setEditingProviderName] = useState(false);
   const [providerNameDraft, setProviderNameDraft] = useState("");
+  const [validatingProvider, setValidatingProvider] = useState(false);
+  const [validationMessage, setValidationMessage] = useState<string | null>(
+    null,
+  );
+  const [validationSuccess, setValidationSuccess] = useState<
+    boolean | null
+  >(null);
 
   const electronAPI = getElectronAPI();
 
@@ -65,6 +72,8 @@ export const AISettings: React.FC = () => {
     if (selectedProviderId) {
       loadModels(selectedProviderId);
     }
+    setValidationMessage(null);
+    setValidationSuccess(null);
   }, [selectedProviderId]);
 
   const loadProviders = async () => {
@@ -162,6 +171,41 @@ export const AISettings: React.FC = () => {
       setError(
         err instanceof Error ? err.message : "Failed to set default provider",
       );
+    }
+  };
+
+  const resetValidationState = () => {
+    setValidationMessage(null);
+    setValidationSuccess(null);
+  };
+
+  const validateProvider = async (providerId: number) => {
+    try {
+      setValidatingProvider(true);
+      resetValidationState();
+      const result = await electronAPI.llmProviders.validate(providerId);
+      if (result.success) {
+        if (selectedProviderId === providerId) {
+          await loadModels(providerId);
+        }
+        setValidationSuccess(true);
+        const successMessage =
+          result.message ||
+          (typeof result.modelsAdded === "number"
+            ? `验证成功，新增 ${result.modelsAdded} 个模型`
+            : "验证成功");
+        setValidationMessage(successMessage);
+      } else {
+        setValidationSuccess(false);
+        setValidationMessage(result.error || "验证失败");
+      }
+    } catch (err) {
+      setValidationSuccess(false);
+      setValidationMessage(
+        err instanceof Error ? err.message : "验证失败，请稍后再试",
+      );
+    } finally {
+      setValidatingProvider(false);
     }
   };
 
@@ -430,11 +474,12 @@ export const AISettings: React.FC = () => {
                       <Input
                         type="text"
                         value={selectedProvider.baseUrl}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          resetValidationState();
                           updateProvider(selectedProvider.id, {
                             baseUrl: e.target.value,
-                          })
-                        }
+                          });
+                        }}
                         placeholder="https://api.openai.com/v1"
                       />
                     </div>
@@ -445,13 +490,34 @@ export const AISettings: React.FC = () => {
                       <Input
                         type="password"
                         value={selectedProvider.apiKey || ""}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          resetValidationState();
                           updateProvider(selectedProvider.id, {
                             apiKey: e.target.value,
-                          })
-                        }
+                          });
+                        }}
                         placeholder="sk-..."
                       />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="secondary"
+                        onClick={() => validateProvider(selectedProvider.id)}
+                        loading={validatingProvider}
+                      >
+                        {validatingProvider ? "验证中..." : "验证连接"}
+                      </Button>
+                      {validationMessage && (
+                        <span
+                          className={`text-sm ${
+                            validationSuccess
+                              ? "text-green-600 dark:text-green-400"
+                              : "text-red-600 dark:text-red-400"
+                          }`}
+                        >
+                          {validationMessage}
+                        </span>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

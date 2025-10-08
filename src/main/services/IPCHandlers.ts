@@ -10,6 +10,7 @@ import { LlmModelsDao } from '../database/dao/llmModelsDao';
 import { PromptsDao } from '../database/dao/promptsDao';
 import { AIServiceManager } from './ai/AIServiceManager';
 import type { NewFeed, NewEpisode } from '../database/schema';
+import OpenAI from 'openai';
 
 /**
  * IPC Handlers for RSS Feed functionality
@@ -88,6 +89,7 @@ export class FeedIPCHandlers {
     ipcMain.handle('llmProviders:update', this.handleUpdateProvider.bind(this));
     ipcMain.handle('llmProviders:delete', this.handleDeleteProvider.bind(this));
     ipcMain.handle('llmProviders:setDefault', this.handleSetDefaultProvider.bind(this));
+    ipcMain.handle('llmProviders:validate', this.handleValidateProvider.bind(this));
 
     // LLM Models
     ipcMain.handle('llmModels:getAll', this.handleGetAllModels.bind(this));
@@ -129,14 +131,19 @@ export class FeedIPCHandlers {
 
           // Refresh episodes for the feed
           const parsedFeed = await this.parser.parseFeed(url);
-          await this.saveFeedEpisodes(existingFeed.id, parsedFeed, existingFeed.coverUrl);
+          const { latestPubDate } = await this.saveFeedEpisodes(existingFeed.id, parsedFeed, existingFeed.coverUrl);
 
+          if (latestPubDate) {
+            await this.feedsDao.update(existingFeed.id, { lastPubDate: latestPubDate });
+          }
+
+          const refreshedFeed = await this.feedsDao.findById(existingFeed.id);
           const episodeCount = await this.episodesDao.countByFeed([existingFeed.id]);
 
           return {
             success: true,
             feed: {
-              ...existingFeed,
+              ...(refreshedFeed ?? existingFeed),
               isSubscribed: true,
               episodeCount: episodeCount[existingFeed.id] || 0,
             }
@@ -175,12 +182,25 @@ export class FeedIPCHandlers {
       await this.feedsDao.subscribe(feed.id);
 
       // Save episodes to database
-      const episodeCount = await this.saveFeedEpisodes(feed.id, parsedFeed, resolvedFeedCoverUrl);
+      const { count: episodeCount, latestPubDate } = await this.saveFeedEpisodes(
+        feed.id,
+        parsedFeed,
+        resolvedFeedCoverUrl,
+      );
+      let updatedFeed = feed;
+      if (latestPubDate) {
+        const refreshed = await this.feedsDao.update(feed.id, {
+          lastPubDate: latestPubDate,
+        });
+        if (refreshed) {
+          updatedFeed = refreshed;
+        }
+      }
 
       return {
         success: true,
         feed: {
-          ...feed,
+          ...updatedFeed,
           isSubscribed: true,
           episodeCount,
         }
@@ -201,7 +221,7 @@ export class FeedIPCHandlers {
     feedId: number,
     parsedFeed: any,
     coverUrl: string | null
-  ): Promise<number> {
+  ): Promise<{ count: number; latestPubDate: string | null }> {
     const episodes: NewEpisode[] = parsedFeed.episodes.map((ep: any) => ({
       feedId,
       guid: ep.guid || ep.audioUrl || `${feedId}-${ep.title}`,
@@ -221,6 +241,27 @@ export class FeedIPCHandlers {
       }),
     }));
 
+    const latestPubDateIso: string | null = parsedFeed.episodes.reduce(
+      (latest: string | null, episode: any) => {
+        const sourceDate =
+          episode.pubDate instanceof Date
+            ? episode.pubDate
+            : episode.pubDate
+              ? new Date(episode.pubDate)
+              : null;
+        if (!sourceDate || Number.isNaN(sourceDate.getTime())) {
+          return latest;
+        }
+        if (!latest) {
+          return sourceDate.toISOString();
+        }
+        return sourceDate.getTime() > new Date(latest).getTime()
+          ? sourceDate.toISOString()
+          : latest;
+      },
+      null,
+    );
+
     // Batch insert episodes (using INSERT OR IGNORE to handle duplicates)
     if (episodes.length > 0) {
       try {
@@ -230,7 +271,10 @@ export class FeedIPCHandlers {
       }
     }
 
-    return episodes.length;
+    return {
+      count: episodes.length,
+      latestPubDate: latestPubDateIso,
+    };
   }
 
   /**
@@ -331,7 +375,7 @@ export class FeedIPCHandlers {
   private async handleRefreshFeed(
     event: IpcMainInvokeEvent,
     feedId: number
-  ): Promise<{ success: boolean; hasUpdates?: boolean; newEpisodes?: number; error?: string }> {
+  ): Promise<{ success: boolean; hasUpdates?: boolean; newEpisodes?: number; lastPubDate?: string | null; error?: string }> {
     try {
       const feed = await this.feedsDao.findById(feedId);
       if (!feed) {
@@ -341,6 +385,26 @@ export class FeedIPCHandlers {
       // Parse the feed
       const parsedFeed = await this.parser.parseFeed(feed.url);
       const resolvedFeedCoverUrl = parsedFeed.image || feed.coverUrl || parsedFeed.episodes.find(ep => ep.episodeImage)?.episodeImage || null;
+      const latestParsedPubDate: string | null = parsedFeed.episodes.reduce(
+        (latest: string | null, episode: any) => {
+          const sourceDate =
+            episode.pubDate instanceof Date
+              ? episode.pubDate
+              : episode.pubDate
+                ? new Date(episode.pubDate)
+                : null;
+          if (!sourceDate || Number.isNaN(sourceDate.getTime())) {
+            return latest;
+          }
+          if (!latest) {
+            return sourceDate.toISOString();
+          }
+          return sourceDate.getTime() > new Date(latest).getTime()
+            ? sourceDate.toISOString()
+            : latest;
+        },
+        null,
+      );
 
       // Get existing episode GUIDs
       const existingEpisodes = await this.episodesDao.findByFeed(feedId);
@@ -408,6 +472,9 @@ export class FeedIPCHandlers {
       await this.feedsDao.update(feedId, {
         coverUrl: resolvedFeedCoverUrl ?? feed.coverUrl,
         description: parsedFeed.description || feed.description,
+        ...(latestParsedPubDate
+          ? { lastPubDate: latestParsedPubDate }
+          : {}),
       });
       await this.feedsDao.updateLastChecked(feedId);
 
@@ -415,6 +482,7 @@ export class FeedIPCHandlers {
         success: true,
         hasUpdates: newEpisodes.length > 0 || episodesNeedingArtwork.length > 0,
         newEpisodes: newEpisodes.length,
+        lastPubDate: latestParsedPubDate ?? feed.lastPubDate ?? null,
       };
     } catch (error) {
       console.error('Error refreshing feed:', error);
@@ -976,6 +1044,95 @@ export class FeedIPCHandlers {
     }
   }
 
+  private async handleValidateProvider(
+    _: IpcMainInvokeEvent,
+    id: number
+  ): Promise<{ success: boolean; message?: string; error?: string; modelsAdded?: number }> {
+    try {
+      const provider = await this.llmProvidersDao.findById(id);
+      if (!provider) {
+        return { success: false, error: '未找到对应的 Provider' };
+      }
+
+      if (!provider.apiKey || provider.apiKey.trim() === '') {
+        return { success: false, error: '请先配置 API Key' };
+      }
+
+      let headers: Record<string, string> | undefined;
+      if (provider.headersJson) {
+        try {
+          headers = JSON.parse(provider.headersJson);
+        } catch (error) {
+          return { success: false, error: '自定义请求头格式错误，请确认为合法 JSON' };
+        }
+      }
+
+      const client = new OpenAI({
+        baseURL: provider.baseUrl || undefined,
+        apiKey: provider.apiKey,
+        timeout: provider.timeout ?? 30000,
+        defaultHeaders: headers,
+      });
+
+      const response = await client.models.list();
+      const remoteModels = Array.isArray(response.data) ? response.data : [];
+
+      const existingModels = await this.llmModelsDao.findByProvider(provider.id);
+      const existingCodes = new Set(existingModels.map(model => model.code));
+      const hasDefaultModel = existingModels.some(model => model.isDefault);
+
+      let addedCount = 0;
+      let defaultModelId: number | null = null;
+
+      for (const remoteModel of remoteModels) {
+        const code = typeof remoteModel?.id === 'string' ? remoteModel.id : null;
+        if (!code || existingCodes.has(code)) {
+          continue;
+        }
+
+        const createdModel = await this.llmModelsDao.create({
+          providerId: provider.id,
+          name: code,
+          code,
+        });
+
+        existingCodes.add(code);
+        addedCount += 1;
+
+        if (!hasDefaultModel && defaultModelId === null) {
+          defaultModelId = createdModel.id;
+        }
+      }
+
+      if (defaultModelId !== null) {
+        await this.llmModelsDao.setDefault(provider.id, defaultModelId);
+      }
+
+      const modelCount = remoteModels.length;
+      const firstModel = remoteModels[0]?.id;
+
+      const details =
+        modelCount === 0
+          ? '未能获取模型列表，请确认该服务已启用'
+          : `可用模型数量：${modelCount}${firstModel ? `，示例：${firstModel}` : ''}`;
+
+      const syncSummary =
+        addedCount > 0 ? `已新增 ${addedCount} 个模型` : '没有新增模型';
+
+      return {
+        success: true,
+        message: `连接成功。${details}。${syncSummary}`,
+        modelsAdded: addedCount,
+      };
+    } catch (error) {
+      console.error('Error validating provider:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : '验证失败，请检查日志',
+      };
+    }
+  }
+
   // ==================
   // LLM Model Handlers
   // ==================
@@ -1131,6 +1288,7 @@ export class FeedIPCHandlers {
       'llmProviders:update',
       'llmProviders:delete',
       'llmProviders:setDefault',
+      'llmProviders:validate',
       'llmModels:getAll',
       'llmModels:getByProvider',
       'llmModels:create',

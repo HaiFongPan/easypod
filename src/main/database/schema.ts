@@ -9,6 +9,7 @@ export const feeds = sqliteTable('feeds', {
   coverUrl: text('cover_url'),
   description: text('description'),
   lastCheckedAt: text('last_checked_at'), // ISO string
+  lastPubDate: text('last_pub_date'),
   opmlGroup: text('opml_group'),
   metaJson: text('meta_json'), // JSON string for additional metadata
   isSubscribed: integer('is_subscribed', { mode: 'boolean' }).default(false).notNull(),

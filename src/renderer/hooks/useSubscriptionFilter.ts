@@ -4,13 +4,20 @@ import { Feed, SortBy } from '../types/subscription';
 export const useSubscriptionFilter = (feeds: Feed[] = []) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<SortBy>('title');
+  const [sortBy, setSortBy] = useState<SortBy>('lastPubDate');
 
   // Get unique categories from feeds
   const availableCategories = useMemo(() => {
     if (!feeds || feeds.length === 0) return [];
-    const categories = feeds.map(feed => feed.category);
-    return Array.from(new Set(categories)).sort();
+    const categories = feeds
+      .map(feed => (feed.category?.trim() ? feed.category.trim() : 'Uncategorized'))
+      .filter(Boolean);
+    const unique = Array.from(new Set(categories));
+    return unique.sort((a, b) => {
+      if (a === 'Uncategorized') return 1;
+      if (b === 'Uncategorized') return -1;
+      return a.localeCompare(b);
+    });
   }, [feeds]);
 
   // Filter and sort feeds
@@ -33,10 +40,16 @@ export const useSubscriptionFilter = (feeds: Feed[] = []) => {
     // Sort results
     result.sort((a, b) => {
       switch (sortBy) {
+        case 'lastPubDate': {
+          const aTime = a.lastPubDate ? new Date(a.lastPubDate).getTime() : 0;
+          const bTime = b.lastPubDate ? new Date(b.lastPubDate).getTime() : 0;
+          if (bTime !== aTime) {
+            return bTime - aTime;
+          }
+          return new Date(b.lastCheckedAt).getTime() - new Date(a.lastCheckedAt).getTime();
+        }
         case 'title':
           return a.title.localeCompare(b.title);
-        case 'updated':
-          return new Date(b.lastCheckedAt).getTime() - new Date(a.lastCheckedAt).getTime();
         case 'episodes':
           return b.episodeCount - a.episodeCount;
         default:
@@ -58,7 +71,7 @@ export const useSubscriptionFilter = (feeds: Feed[] = []) => {
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedCategories([]);
-    setSortBy('title');
+    setSortBy('lastPubDate');
   };
 
   return {
@@ -72,6 +85,6 @@ export const useSubscriptionFilter = (feeds: Feed[] = []) => {
     filteredFeeds,
     availableCategories,
     clearFilters,
-    hasActiveFilters: searchQuery || selectedCategories.length > 0 || sortBy !== 'title',
+    hasActiveFilters: searchQuery || selectedCategories.length > 0 || sortBy !== 'lastPubDate',
   };
 };

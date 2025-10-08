@@ -26,7 +26,7 @@ export class FeedsDao {
     return await this.db
       .select()
       .from(feeds)
-      .orderBy(desc(feeds.createdAt));
+      .orderBy(desc(sql`COALESCE(${feeds.lastPubDate}, ${feeds.createdAt})`), desc(feeds.createdAt));
   }
 
   async findSubscribed(): Promise<Feed[]> {
@@ -34,7 +34,7 @@ export class FeedsDao {
       .select()
       .from(feeds)
       .where(eq(feeds.isSubscribed, true))
-      .orderBy(desc(feeds.createdAt));
+      .orderBy(desc(sql`COALESCE(${feeds.lastPubDate}, ${feeds.createdAt})`), desc(feeds.createdAt));
   }
 
   async findUnsubscribed(): Promise<Feed[]> {
@@ -42,7 +42,7 @@ export class FeedsDao {
       .select()
       .from(feeds)
       .where(eq(feeds.isSubscribed, false))
-      .orderBy(desc(feeds.createdAt));
+      .orderBy(desc(sql`COALESCE(${feeds.lastPubDate}, ${feeds.createdAt})`), desc(feeds.createdAt));
   }
 
   async findById(id: number): Promise<Feed | null> {

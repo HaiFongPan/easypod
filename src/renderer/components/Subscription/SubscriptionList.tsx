@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { useSubscriptionStore } from "../../store/subscriptionStore";
 import { useSubscriptionFilter } from "../../hooks/useSubscriptionFilter";
-import { ViewMode, Feed } from "../../types/subscription";
+import { ViewMode, Feed, SortBy } from "../../types/subscription";
 import { cn } from "../../utils/cn";
 import Button from "../Button";
 import FeedCard from "./FeedCard";
@@ -17,6 +17,7 @@ import { getElectronAPI } from "../../utils/electron";
 import { formatDate, formatDuration } from "../../utils/formatters";
 import PlayPauseButton from "../PlayPauseButton";
 import QueueAddButton from "../QueueAddButton";
+import { Grid, Grid3x3 } from "lucide-react";
 import { useEpisodeDetailNavigation } from "../../hooks/useEpisodeDetailNavigation";
 
 interface SubscriptionListProps {
@@ -41,8 +42,6 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
   } = subscriptionStore;
 
   const {
-    searchQuery,
-    setSearchQuery,
     selectedCategories,
     toggleCategory,
     sortBy,
@@ -79,6 +78,16 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
 
   const feedRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  const feedLayoutClasses = useMemo(() => {
+    if (episodesDrawerOpen) {
+      return "flex flex-col gap-3";
+    }
+    if (viewMode === "grid") {
+      return "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6";
+    }
+    return "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-4";
+  }, [viewMode, episodesDrawerOpen]);
+
   // Load feeds on component mount
   useEffect(() => {
     loadFeeds();
@@ -99,7 +108,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
     resetEpisodesState();
     selectFeed(null);
     if (autoSwitchedToGrid) {
-      setViewMode("list");
+      setViewMode("compact");
       setAutoSwitchedToGrid(false);
     }
   }, [
@@ -202,7 +211,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
   }, []);
 
   const handleFeedClick = (feed: Feed) => {
-    if (viewMode === "list") {
+    if (viewMode === "compact") {
       setViewMode("grid");
       setAutoSwitchedToGrid(true);
     }
@@ -313,32 +322,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
           </div>
         </div>
 
-        {/* Search and Filters */}
         <div className="space-y-4">
-          {/* Search */}
-          <div className="relative">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search podcasts..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
-            />
-            <svg
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-          </div>
-
           {/* Filters Row */}
           <div className="flex items-center justify-between flex-wrap gap-4">
             {/* Categories */}
@@ -354,7 +338,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                     className={cn(
                       "px-3 py-1 text-xs rounded-full border transition-colors",
                       selectedCategories.includes(category)
-                        ? "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900 dark:text-blue-300 dark:border-blue-700"
+                        ? "bg-primary-100 text-primary-800 border-primary-300 dark:bg-primary-900 dark:text-primary-300 dark:border-primary-700"
                         : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600",
                     )}
                   >
@@ -373,11 +357,11 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                 </span>
                 <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                  onChange={(e) => setSortBy(e.target.value as SortBy)}
+                  className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-gray-100"
                 >
+                  <option value="lastPubDate">Latest Release</option>
                   <option value="title">Title</option>
-                  <option value="updated">Last Updated</option>
                   <option value="episodes">Episode Count</option>
                 </select>
               </div>
@@ -387,40 +371,26 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                 <button
                   onClick={() => handleViewModeChange("grid")}
                   className={cn(
-                    "p-1 rounded-l",
+                    "p-1.5 rounded-l transition-colors",
                     viewMode === "grid"
-                      ? "bg-blue-500 text-white"
-                      : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200",
+                      ? "bg-primary-500 text-white"
+                      : "text-secondary-500 hover:text-secondary-700 dark:text-secondary-400 dark:hover:text-secondary-200",
                   )}
+                  aria-label="Standard grid view"
                 >
-                  <svg
-                    className="w-4 h-4"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                  </svg>
+                  <Grid className="h-4 w-4" strokeWidth={1.6} />
                 </button>
                 <button
-                  onClick={() => handleViewModeChange("list")}
+                  onClick={() => handleViewModeChange("compact")}
                   className={cn(
-                    "p-1 rounded-r",
-                    viewMode === "list"
-                      ? "bg-blue-500 text-white"
-                      : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200",
+                    "p-1.5 rounded-r transition-colors",
+                    viewMode === "compact"
+                      ? "bg-primary-500 text-white"
+                      : "text-secondary-500 hover:text-secondary-700 dark:text-secondary-400 dark:hover:text-secondary-200",
                   )}
+                  aria-label="Compact grid view"
                 >
-                  <svg
-                    className="w-4 h-4"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
+                  <Grid3x3 className="h-4 w-4" strokeWidth={1.6} />
                 </button>
               </div>
 
@@ -484,7 +454,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <svg
-                className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500"
+                className="w-8 h-8 animate-spin mx-auto mb-4 text-primary-500"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -525,7 +495,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
               <p className="text-gray-600 dark:text-gray-400 mb-4">
                 {feeds.length === 0
                   ? "Add your first podcast to get started"
-                  : "Try adjusting your search or filters"}
+                  : "Try adjusting your filters"}
               </p>
               {feeds.length === 0 && (
                 <Button
@@ -563,24 +533,11 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                       : undefined
                   }
                 >
-                  <div
-                    className={cn(
-                      viewMode === "grid"
-                        ? episodesDrawerOpen
-                          ? "flex flex-col gap-3"
-                          : "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 lg:gap-6 xl:gap-8"
-                        : "space-y-4",
-                    )}
-                  >
+                  <div className={cn(feedLayoutClasses)}>
                     {filteredFeeds.map((feed) => (
                       <div
                         key={feed.id}
-                        className={cn(
-                          episodesDrawerOpen ? "w-full" : "",
-                          viewMode === "grid" &&
-                            !episodesDrawerOpen &&
-                            "w-full",
-                        )}
+                        className="w-full"
                         ref={(el) => {
                           feedRefs.current[feed.id] = el;
                         }}
@@ -718,7 +675,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                             return (
                               <div
                                 key={episode.id}
-                                className="group flex gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition hover:border-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-500 cursor-pointer"
+                                className="group flex gap-3 rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition hover:border-primary-400 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-primary-500 cursor-pointer"
                                 role="button"
                                 tabIndex={0}
                                 onClick={() => openEpisodeDetail(episode)}
@@ -754,19 +711,19 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                                       episode={episode}
                                       size="xs"
                                       variant="default"
-                                      className="rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-blue-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                                      className="rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-primary-600 dark:text-gray-300 dark:hover:bg-gray-700"
                                     />
                                     <QueueAddButton
                                       episode={episode}
                                       placement="next"
                                       size="xs"
-                                      className="text-gray-400 hover:text-blue-600 dark:text-gray-300"
+                                      className="text-gray-400 hover:text-primary-600 dark:text-gray-300"
                                     />
                                     <QueueAddButton
                                       episode={episode}
                                       placement="end"
                                       size="xs"
-                                      className="text-gray-400 hover:text-blue-600 dark:text-gray-300"
+                                      className="text-gray-400 hover:text-primary-600 dark:text-gray-300"
                                     />
                                   </div>
                                 </div>
@@ -778,7 +735,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                                       openEpisodeDetail(episode);
                                     }}
                                     className={cn(
-                                      "text-left text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white transition dark:focus-visible:ring-offset-gray-800",
+                                      "text-left text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white transition dark:focus-visible:ring-offset-gray-800",
                                       isPlayed
                                         ? "text-gray-500 dark:text-gray-500"
                                         : "text-gray-900 hover:underline dark:text-gray-100",

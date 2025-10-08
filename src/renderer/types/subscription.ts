@@ -7,6 +7,7 @@ export interface Feed {
   category: string;
   episodeCount: number;
   lastCheckedAt: string;
+  lastPubDate: string | null;
   status: 'active' | 'updating' | 'error' | 'paused';
   error?: string;
   createdAt: string;
@@ -15,6 +16,7 @@ export interface Feed {
   categories?: string[] | null;
   isSubscribed?: boolean; // Whether user has subscribed to this feed
   subscribedAt?: string | null; // When user subscribed (ISO string)
+  opmlGroup?: string | null;
 }
 
 export interface Episode {
@@ -44,8 +46,8 @@ export interface ImportResult {
   errors: string[];
 }
 
-export type ViewMode = 'grid' | 'list';
-export type SortBy = 'title' | 'updated' | 'episodes';
+export type ViewMode = 'grid' | 'compact';
+export type SortBy = 'lastPubDate' | 'title' | 'episodes';
 
 export interface SubscriptionFilters {
   searchQuery: string;

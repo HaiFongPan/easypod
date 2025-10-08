@@ -178,7 +178,8 @@ export class FunasrService extends BaseVoiceToTextService {
           "[FunasrService] Failed to mark task as failed after query error",
           {
             taskId,
-            error: updateError instanceof Error ? updateError.message : updateError,
+            error:
+              updateError instanceof Error ? updateError.message : updateError,
           },
         );
       }
@@ -231,6 +232,7 @@ export class FunasrService extends BaseVoiceToTextService {
       options: {
         vad_model: config.vadModel,
         punc_model: config.puncModel,
+        spk_model: config.spkModel,
         max_single_segment_time: config.maxSingleSegmentTime || 60000,
       },
     });

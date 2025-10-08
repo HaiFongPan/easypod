@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Feed } from '../../types/subscription';
+import { Feed, ViewMode } from '../../types/subscription';
 import { cn } from '../../utils/cn';
 import FeedStatusBadge from './FeedStatusBadge';
 
@@ -8,7 +8,7 @@ interface FeedCardProps {
   onRefresh: () => void;
   onDelete: () => void;
   onClick: () => void;
-  viewMode?: 'grid' | 'list';
+  viewMode?: ViewMode;
   isRefreshing?: boolean;
   isActive?: boolean;
   condensed?: boolean;
@@ -27,35 +27,39 @@ const FeedCard: React.FC<FeedCardProps> = ({
   const [imageError, setImageError] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
+  const formatDate = (value?: string | null) => {
+    if (!value) return 'Unknown';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Unknown';
     return date.toLocaleDateString();
   };
 
-  const handleRefresh = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const latestRelease = formatDate(feed.lastPubDate ?? feed.lastCheckedAt);
+
+  const handleRefresh = (event: React.MouseEvent) => {
+    event.stopPropagation();
     if (!isRefreshing) {
       onRefresh();
     }
   };
 
-  const handleDeleteClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDeleteClick = (event: React.MouseEvent) => {
+    event.stopPropagation();
     setShowDeleteConfirm(true);
   };
 
-  const confirmDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const confirmDelete = (event: React.MouseEvent) => {
+    event.stopPropagation();
     onDelete();
     setShowDeleteConfirm(false);
   };
 
-  const cancelDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const cancelDelete = (event: React.MouseEvent) => {
+    event.stopPropagation();
     setShowDeleteConfirm(false);
   };
 
-  const renderCoverImage = () => (
+  const renderCoverImage = () =>
     !imageError && feed.coverUrl ? (
       <img
         src={feed.coverUrl}
@@ -66,11 +70,14 @@ const FeedCard: React.FC<FeedCardProps> = ({
     ) : (
       <div className="absolute inset-0 flex items-center justify-center bg-gray-200 dark:bg-gray-700">
         <svg className="h-12 w-12 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm3 2h6v4H7V5zm8 8v2h1v-2h-1zm-2-2H7v4h6v-4z" clipRule="evenodd" />
+          <path
+            fillRule="evenodd"
+            d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm3 2h6v4H7V5zm8 8v2h1v-2h-1zm-2-2H7v4h6v-4z"
+            clipRule="evenodd"
+          />
         </svg>
       </div>
-    )
-  );
+    );
 
   const renderActionOverlay = (positionClass = 'bottom-2 right-2') => (
     <div
@@ -148,12 +155,12 @@ const FeedCard: React.FC<FeedCardProps> = ({
     </div>
   );
 
-  if (viewMode === 'grid' && condensed) {
+  if (condensed) {
     return (
       <div
         className={cn(
           'group flex w-full cursor-pointer items-center gap-3 rounded-lg border border-gray-200 bg-white p-2 text-left transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800',
-          isActive && 'border-blue-500 shadow-lg'
+          isActive && 'border-primary-500 shadow-lg dark:border-primary-400'
         )}
         onClick={onClick}
       >
@@ -173,9 +180,13 @@ const FeedCard: React.FC<FeedCardProps> = ({
           <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
             {feed.episodeCount} episodes
           </p>
+          <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+            Latest: {latestRelease}
+          </p>
           {feed.categories && feed.categories.length > 0 && (
             <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500 line-clamp-1">
-              {feed.categories.slice(0, 3).join(', ')}{feed.categories.length > 3 ? '…' : ''}
+              {feed.categories.slice(0, 3).join(', ')}
+              {feed.categories.length > 3 ? '…' : ''}
             </p>
           )}
         </div>
@@ -183,42 +194,40 @@ const FeedCard: React.FC<FeedCardProps> = ({
     );
   }
 
-  if (viewMode === 'list') {
+  if (viewMode === 'compact') {
     return (
       <div
         className={cn(
-          'group flex items-start gap-4 rounded-lg border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800',
-          isActive && 'border-blue-500 shadow-lg'
+          'group flex h-full flex-col items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 text-center transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800',
+          isActive && 'border-primary-500 shadow-lg dark:border-primary-400'
         )}
         onClick={onClick}
       >
-        <div className="relative mr-2 h-32 w-32 flex-shrink-0 overflow-hidden rounded-md bg-gray-200 dark:bg-gray-700">
+        <div className="relative aspect-square w-full overflow-hidden rounded-md bg-gray-200 dark:bg-gray-700">
           {renderCoverImage()}
-          {renderActionOverlay()}
+          {renderActionOverlay('top-2 right-2')}
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col">
-          <h3 className="flex-1 truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
+        <div className="flex w-full flex-1 flex-col gap-2">
+          <h3 className="line-clamp-2 text-xs font-semibold text-gray-900 dark:text-gray-100">
             {feed.title}
           </h3>
-          <div className="mt-1 flex flex-col gap-1 text-[11px] text-gray-500 dark:text-gray-400">
-            <FeedStatusBadge status={isRefreshing ? 'updating' : feed.status} className="self-start" />
-            {feed.author && <span className="line-clamp-1">{feed.author}</span>}
-          </div>
-          <p className="mt-2 text-xs text-gray-600 dark:text-gray-400 line-clamp-3">
-            {feed.description}
-          </p>
-          <div className="mt-3 flex flex-wrap items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-            <span>{feed.episodeCount} episodes</span>
-            <span>Updated: {formatDate(feed.lastCheckedAt)}</span>
-          </div>
-          {feed.categories && feed.categories.length > 0 && (
-            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-500 dark:text-gray-400">
-              <span>{feed.categories.slice(0, 3).join(', ')}{feed.categories.length > 3 ? '…' : ''}</span>
+          <div className="flex flex-col gap-1 text-[11px] text-gray-500 dark:text-gray-400">
+            <FeedStatusBadge status={isRefreshing ? 'updating' : feed.status} className="self-center" />
+            <div className="flex flex-wrap items-center justify-center gap-1">
+              <span>{feed.episodeCount} eps</span>
+              <span>•</span>
+              <span>{latestRelease}</span>
             </div>
-          )}
+            {feed.categories && feed.categories.length > 0 && (
+              <span className="mx-auto line-clamp-1">
+                {feed.categories.slice(0, 2).join(', ')}
+                {feed.categories.length > 2 ? '…' : ''}
+              </span>
+            )}
+          </div>
           {feed.error && (
-            <div className="mt-2 text-xs text-red-600 dark:text-red-400">
+            <div className="text-xs text-red-600 dark:text-red-400">
               Error: {feed.error}
             </div>
           )}
@@ -231,7 +240,7 @@ const FeedCard: React.FC<FeedCardProps> = ({
     <div
       className={cn(
         'group relative flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white transition-shadow hover:shadow-lg cursor-pointer dark:border-gray-700 dark:bg-gray-800',
-        isActive && 'border-blue-500 dark:border-blue-400 shadow-lg'
+        isActive && 'border-primary-500 shadow-lg dark:border-primary-400'
       )}
       onClick={onClick}
     >
@@ -247,13 +256,11 @@ const FeedCard: React.FC<FeedCardProps> = ({
           </h3>
           <FeedStatusBadge status={isRefreshing ? 'updating' : feed.status} className="inline-flex" />
         </div>
-        <p className="mb-2 line-clamp-3 text-xs text-gray-600 dark:text-gray-400">
-          {feed.description}
-        </p>
+        <p className="mb-2 line-clamp-3 text-xs text-gray-600 dark:text-gray-400">{feed.description}</p>
 
         <div className="mb-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
           <span>{feed.episodeCount} episodes</span>
-          <span>{formatDate(feed.lastCheckedAt)}</span>
+          <span>Latest: {latestRelease}</span>
         </div>
 
         {(feed.author || (feed.categories && feed.categories.length > 0)) && (
@@ -261,7 +268,10 @@ const FeedCard: React.FC<FeedCardProps> = ({
             {feed.author && <span>{feed.author}</span>}
             {feed.author && feed.categories && feed.categories.length > 0 && <span>•</span>}
             {feed.categories && feed.categories.length > 0 && (
-              <span>{feed.categories.slice(0, 3).join(', ')}{feed.categories.length > 3 ? '…' : ''}</span>
+              <span>
+                {feed.categories.slice(0, 3).join(', ')}
+                {feed.categories.length > 3 ? '…' : ''}
+              </span>
             )}
           </div>
         )}

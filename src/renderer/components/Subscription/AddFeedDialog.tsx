@@ -416,7 +416,7 @@ const renderCategorySelection = () => (
             id="existing-category"
             checked={!useCustomCategory}
             onChange={() => setUseCustomCategory(false)}
-            className="text-blue-600"
+            className="text-primary-600"
           />
           <label htmlFor="existing-category" className="text-sm text-gray-700 dark:text-gray-300">
             Use existing category
@@ -427,7 +427,7 @@ const renderCategorySelection = () => (
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-gray-100"
           >
             <option value="Default">Default</option>
             {availableCategories
@@ -446,7 +446,7 @@ const renderCategorySelection = () => (
             id="custom-category"
             checked={useCustomCategory}
             onChange={() => setUseCustomCategory(true)}
-            className="text-blue-600"
+            className="text-primary-600"
           />
           <label htmlFor="custom-category" className="text-sm text-gray-700 dark:text-gray-300">
             Create new category
@@ -459,7 +459,7 @@ const renderCategorySelection = () => (
             value={customCategory}
             onChange={(e) => setCustomCategory(e.target.value)}
             placeholder="Enter category name"
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-gray-100"
           />
         )}
       </div>
@@ -499,7 +499,7 @@ const renderCategorySelection = () => (
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="https://example.com/feed.xml or podcast name"
-                  className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                  className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
                 />
                 <Button variant="secondary" onClick={handleSearch} disabled={!inputValue.trim() || isLoading}>
                   {isLoading ? "Loading..." : "Search"}

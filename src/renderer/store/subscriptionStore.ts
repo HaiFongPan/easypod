@@ -46,17 +46,48 @@ const normalizeFeed = (raw: Partial<Feed>): Feed => {
     ?? (Array.isArray(rawEpisodes) ? rawEpisodes.length : undefined)
     ?? 0;
 
+  let resolvedLastPubDate =
+    raw.lastPubDate
+      ?? (raw as { last_pub_date?: string | null }).last_pub_date
+      ?? null;
+
+  if (!resolvedLastPubDate && Array.isArray(rawEpisodes) && rawEpisodes.length > 0) {
+    const latestEpisodeWithDate = rawEpisodes.reduce((latest: string | null, episode: any) => {
+      const pubDate = episode?.pubDate ?? episode?.pub_date;
+      if (!pubDate) {
+        return latest;
+      }
+      const isoCandidate = typeof pubDate === 'string' ? pubDate : (pubDate instanceof Date ? pubDate.toISOString() : null);
+      if (!isoCandidate) {
+        return latest;
+      }
+      if (!latest) {
+        return isoCandidate;
+      }
+      return new Date(isoCandidate).getTime() > new Date(latest).getTime() ? isoCandidate : latest;
+    }, null);
+    if (latestEpisodeWithDate) {
+      resolvedLastPubDate = latestEpisodeWithDate;
+    }
+  }
+
+  const rawOpmlGroup = (raw as { opmlGroup?: string | null; opml_group?: string | null }).opmlGroup
+    ?? (raw as { opml_group?: string | null }).opml_group
+    ?? null;
+
   return {
     id,
     title: raw.title ?? 'Untitled Podcast',
     url: raw.url ?? '',
     description: raw.description ?? '',
     coverUrl: raw.coverUrl,
-    category: raw.category ?? 'Uncategorized',
+    category: raw.category ?? rawOpmlGroup ?? 'Uncategorized',
     episodeCount: resolvedEpisodeCount,
     lastCheckedAt: raw.lastCheckedAt ?? now,
+    lastPubDate: resolvedLastPubDate,
+    opmlGroup: rawOpmlGroup,
     status,
-    error: raw.error,
+    error: raw.error ?? undefined,
     createdAt: raw.createdAt ?? now,
     updatedAt: raw.updatedAt ?? now,
     author: rawMeta.author
@@ -109,12 +140,14 @@ export const useSubscriptionStore = create<SubscriptionState & SubscriptionActio
         url: url,
         description: result.feed.description || '',
         coverUrl: result.feed.coverUrl,
-        category,
+        category: result.feed.opmlGroup ?? result.feed.category ?? category ?? 'Uncategorized',
         episodeCount: result.feed.episodeCount || 0,
         lastCheckedAt: new Date().toISOString(),
+        lastPubDate: result.feed.lastPubDate ?? null,
         status: 'active',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        opmlGroup: result.feed.opmlGroup ?? null,
       };
 
       set(state => ({
@@ -165,7 +198,17 @@ export const useSubscriptionStore = create<SubscriptionState & SubscriptionActio
         return {
           feeds: state.feeds.map(feed =>
             feed.id === feedId
-              ? { ...feed, lastCheckedAt: new Date().toISOString(), status: 'active' as const }
+              ? {
+                  ...feed,
+                  lastCheckedAt: new Date().toISOString(),
+                  lastPubDate: result.lastPubDate ?? feed.lastPubDate ?? null,
+                  episodeCount:
+                    typeof result.newEpisodes === 'number' && result.newEpisodes > 0
+                      ? feed.episodeCount + result.newEpisodes
+                      : feed.episodeCount,
+                  status: 'active' as const,
+                  error: undefined,
+                }
               : feed
           ),
           refreshingFeeds: updatedRefreshing,
