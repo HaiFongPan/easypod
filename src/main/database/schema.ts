@@ -247,12 +247,9 @@ export const episodeTranscripts = sqliteTable('episode_transcripts', {
 export const episodeAiSummarys = sqliteTable('episode_ai_summarys', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   episodeId: integer('episode_id').notNull().references(() => episodes.id, { onDelete: 'cascade' }),
-  providerId: integer('provider_id').references(() => llmProviders.id),
-  modelId: integer('model_id').references(() => llmModels.id),
   summary: text('summary').notNull().default(''),
   tags: text('tags').notNull().default(''), // Comma-separated tags
   chapters: text('chapters').notNull().default('[]'), // JSON array of chapters
-  tokenUsage: integer('token_usage').default(0),
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
 });

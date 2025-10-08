@@ -269,14 +269,9 @@ export class DatabaseManager {
         summary TEXT NOT NULL DEFAULT '',
         tags TEXT NOT NULL DEFAULT '',
         chapters TEXT NOT NULL DEFAULT '[]',
-        provider_id INTEGER,
-        model_id INTEGER,
-        token_usage INTEGER DEFAULT 0,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE,
-        FOREIGN KEY (provider_id) REFERENCES llm_providers(id),
-        FOREIGN KEY (model_id) REFERENCES llm_models(id)
+        FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE
       )
     `);
 

@@ -1,10 +1,15 @@
-import { OpenAIService } from './OpenAIService';
-import { LlmProvidersDao } from '../../database/dao/llmProvidersDao';
-import { LlmModelsDao } from '../../database/dao/llmModelsDao';
-import { PromptsDao } from '../../database/dao/promptsDao';
-import { EpisodeAiSummarysDao } from '../../database/dao/episodeAiSummarysDao';
-import { EpisodeTranscriptsDao } from '../../database/dao/episodeTranscriptsDao';
-import type { AIService, SummaryResponse, ChapterResponse, MindmapResponse } from './types';
+import { OpenAIService } from "./OpenAIService";
+import { LlmProvidersDao } from "../../database/dao/llmProvidersDao";
+import { LlmModelsDao } from "../../database/dao/llmModelsDao";
+import { PromptsDao } from "../../database/dao/promptsDao";
+import { EpisodeAiSummarysDao } from "../../database/dao/episodeAiSummarysDao";
+import { EpisodeTranscriptsDao } from "../../database/dao/episodeTranscriptsDao";
+import type {
+  AIService,
+  SummaryResponse,
+  ChapterResponse,
+  MindmapResponse,
+} from "./types";
 
 export class AIServiceManager {
   private providersDao: LlmProvidersDao;
@@ -21,11 +26,15 @@ export class AIServiceManager {
     this.transcriptsDao = new EpisodeTranscriptsDao();
   }
 
-  private async getDefaultService(): Promise<{ service: AIService; providerId: number; modelId: number }> {
+  private async getDefaultService(): Promise<{
+    service: AIService;
+    providerId: number;
+    modelId: number;
+  }> {
     // Get default Provider
     const provider = await this.providersDao.findDefault();
     if (!provider) {
-      throw new Error('未配置默认 LLM Provider');
+      throw new Error("未配置默认 LLM Provider");
     }
 
     // Get default Model
@@ -37,10 +46,12 @@ export class AIServiceManager {
     // Create AI Service
     const service = new OpenAIService({
       baseUrl: provider.baseUrl,
-      apiKey: provider.apiKey || '',
+      apiKey: provider.apiKey || "",
       model: model.code,
       timeout: provider.timeout ?? undefined,
-      headers: provider.headersJson ? JSON.parse(provider.headersJson) : undefined,
+      headers: provider.headersJson
+        ? JSON.parse(provider.headersJson)
+        : undefined,
     });
 
     return { service, providerId: provider.id, modelId: model.id };
@@ -52,29 +63,32 @@ export class AIServiceManager {
       throw new Error(`未找到类型为 ${type} 的 Prompt`);
     }
     // Prefer custom non-builtin prompts
-    const customPrompt = prompts.find(p => !p.isBuiltin);
+    const customPrompt = prompts.find((p) => !p.isBuiltin);
     return customPrompt ? customPrompt.prompt : prompts[0].prompt;
   }
 
-  async generateSummary(episodeId: number): Promise<{ success: boolean; data?: any; error?: string }> {
+  async generateSummary(
+    episodeId: number,
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
       // Get transcript
       const transcript = await this.transcriptsDao.findByEpisodeId(episodeId);
       if (!transcript) {
-        return { success: false, error: '该集未找到转写内容' };
+        return { success: false, error: "该集未找到转写内容" };
       }
 
       // Get AI Service and config
       const { service, providerId, modelId } = await this.getDefaultService();
 
       // Get Prompt
-      const summaryPrompt = await this.getPromptByType('summary');
+      const summaryPrompt = await this.getPromptByType("summary");
 
       // Call AI API
       const result = await service.getSummary(transcript.text, summaryPrompt);
 
       // Record token usage
-      const tokenUsage = (service as OpenAIService).lastTokenUsage?.totalTokens ?? 0;
+      const tokenUsage =
+        (service as OpenAIService).lastTokenUsage?.totalTokens ?? 0;
 
       // Update Provider and Model token stats
       await this.providersDao.incrementTokenUsage(providerId, tokenUsage);
@@ -84,21 +98,15 @@ export class AIServiceManager {
       const existing = await this.summariesDao.findByEpisode(episodeId);
       if (existing) {
         await this.summariesDao.update(episodeId, {
-          providerId,
-          modelId,
           summary: result.summary,
-          tags: result.tags.join(','),
-          tokenUsage,
+          tags: result.tags.join(","),
         });
       } else {
         await this.summariesDao.create({
           episodeId,
-          providerId,
-          modelId,
           summary: result.summary,
-          tags: result.tags.join(','),
-          chapters: '[]',
-          tokenUsage,
+          tags: result.tags.join(","),
+          chapters: "[]",
         });
       }
 
@@ -106,23 +114,26 @@ export class AIServiceManager {
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : '生成失败',
+        error: error instanceof Error ? error.message : "生成失败",
       };
     }
   }
 
-  async generateChapters(episodeId: number): Promise<{ success: boolean; data?: any; error?: string }> {
+  async generateChapters(
+    episodeId: number,
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
       const transcript = await this.transcriptsDao.findByEpisodeId(episodeId);
       if (!transcript) {
-        return { success: false, error: '该集未找到转写内容' };
+        return { success: false, error: "该集未找到转写内容" };
       }
 
       const { service, providerId, modelId } = await this.getDefaultService();
-      const chaptersPrompt = await this.getPromptByType('chapters');
+      const chaptersPrompt = await this.getPromptByType("chapters");
       const result = await service.getChapters(transcript.text, chaptersPrompt);
 
-      const tokenUsage = (service as OpenAIService).lastTokenUsage?.totalTokens ?? 0;
+      const tokenUsage =
+        (service as OpenAIService).lastTokenUsage?.totalTokens ?? 0;
       await this.providersDao.incrementTokenUsage(providerId, tokenUsage);
       await this.modelsDao.incrementTokenUsage(modelId, tokenUsage);
 
@@ -131,17 +142,13 @@ export class AIServiceManager {
       if (existing) {
         await this.summariesDao.update(episodeId, {
           chapters: JSON.stringify(result.chapters),
-          tokenUsage: (existing.tokenUsage ?? 0) + tokenUsage,
         });
       } else {
         await this.summariesDao.create({
           episodeId,
-          providerId,
-          modelId,
-          summary: '',
-          tags: '',
+          summary: "",
+          tags: "",
           chapters: JSON.stringify(result.chapters),
-          tokenUsage,
         });
       }
 
@@ -149,23 +156,26 @@ export class AIServiceManager {
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : '生成失败',
+        error: error instanceof Error ? error.message : "生成失败",
       };
     }
   }
 
-  async getMindmap(episodeId: number): Promise<{ success: boolean; data?: any; error?: string }> {
+  async getMindmap(
+    episodeId: number,
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
       const transcript = await this.transcriptsDao.findByEpisodeId(episodeId);
       if (!transcript) {
-        return { success: false, error: '该集未找到转写内容' };
+        return { success: false, error: "该集未找到转写内容" };
       }
 
       const { service, providerId, modelId } = await this.getDefaultService();
-      const mindmapPrompt = await this.getPromptByType('mindmap');
+      const mindmapPrompt = await this.getPromptByType("mindmap");
       const result = await service.getMindmap(transcript.text, mindmapPrompt);
 
-      const tokenUsage = (service as OpenAIService).lastTokenUsage?.totalTokens ?? 0;
+      const tokenUsage =
+        (service as OpenAIService).lastTokenUsage?.totalTokens ?? 0;
       await this.providersDao.incrementTokenUsage(providerId, tokenUsage);
       await this.modelsDao.incrementTokenUsage(modelId, tokenUsage);
 
@@ -173,30 +183,32 @@ export class AIServiceManager {
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : '生成失败',
+        error: error instanceof Error ? error.message : "生成失败",
       };
     }
   }
 
-  async getSummary(episodeId: number): Promise<{ success: boolean; data?: any; error?: string }> {
+  async getSummary(
+    episodeId: number,
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
       const summary = await this.summariesDao.findByEpisode(episodeId);
       if (!summary) {
-        return { success: false, error: '该集尚未生成总结' };
+        return { success: false, error: "该集尚未生成总结" };
       }
 
       return {
         success: true,
         data: {
           summary: summary.summary,
-          tags: summary.tags.split(',').filter(t => t.trim()),
+          tags: summary.tags.split(",").filter((t) => t.trim()),
           chapters: JSON.parse(summary.chapters),
         },
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : '查询失败',
+        error: error instanceof Error ? error.message : "查询失败",
       };
     }
   }
