@@ -9,6 +9,7 @@ EasyPod is a privacy-first desktop podcast player built with Electron, React, an
 ## Development Commands
 
 ### Development
+
 ```bash
 npm run dev                    # Start concurrent dev servers (main + renderer)
 npm run dev:main              # Build and run Electron main process in dev mode
@@ -16,6 +17,7 @@ npm run dev:renderer          # Start Vite dev server (runs on localhost:5173)
 ```
 
 ### Building
+
 ```bash
 npm run build                 # Build both main and renderer processes
 npm run build:main           # Build main process TypeScript
@@ -23,6 +25,7 @@ npm run build:renderer       # Build renderer process with Vite
 ```
 
 ### Testing
+
 ```bash
 npm test                      # Run all Jest tests
 npm test -- --testPathPattern=<pattern>  # Run specific test file
@@ -30,6 +33,7 @@ npm run type-check           # TypeScript type checking without emitting files
 ```
 
 ### Packaging
+
 ```bash
 npm run dist                  # Build and create distributable package
 npm run dist:mac             # Build macOS distributable
@@ -37,12 +41,14 @@ npm run pack                 # Build and package without distribution
 ```
 
 ### Code Quality
+
 ```bash
 npm run lint                  # Run ESLint
 npm run lint:fix             # Fix auto-fixable ESLint issues
 ```
 
 ### Python Runtime (FunASR Transcription)
+
 ```bash
 npm run build:python-runtime  # Build bundled Python runtime with FunASR
 npm run verify:python-runtime # Verify runtime build integrity
@@ -51,12 +57,14 @@ npm run build:all            # Build runtime + app + package (complete build)
 ```
 
 **About the Python Runtime:**
+
 - EasyPod uses FunASR for local audio transcription, which requires Python 3.10+ and heavy dependencies (~600MB)
 - The bundled runtime allows the app to work without requiring users to install Python
 - Runtime must be built once before creating distributable packages
 - See [docs/python-runtime-build.md](docs/python-runtime-build.md) for detailed instructions
 
 **Quick Start:**
+
 ```bash
 # First time setup or after updating requirements.txt
 npm run build:python-runtime
@@ -69,6 +77,7 @@ npm run dist:mac
 ```
 
 **Development Shortcuts:**
+
 - Set `EASYPOD_FUNASR_PYTHON=/path/to/python3` to use your system Python (faster iteration)
 - Set `EASYPOD_FUNASR_SKIP_INSTALL=1` to skip dependency installation
 - Runtime is optional for development but required for distribution
@@ -78,18 +87,21 @@ npm run dist:mac
 ### Process Structure
 
 **Electron Main Process** (`src/main/`)
+
 - System integration, window management, IPC coordination
 - Entry point: `src/main/main.ts`
 - Database initialization and management (SQLite + Drizzle ORM)
 - RSS feed parsing and subscription management (`FeedParser`, `FeedIPCHandlers`)
 
 **Renderer Process** (`src/renderer/`)
+
 - React UI components, user interactions, audio playback
 - Entry point: `src/renderer/main.tsx`
 - State management via Zustand (stores in `src/renderer/store/`)
 - Audio player implemented using HTMLAudioElement
 
 **IPC Bridge** (`src/main/preload.ts`)
+
 - Exposes secure API to renderer via `window.electronAPI`
 - All main-renderer communication must go through preload script
 - API defined with TypeScript types (`ElectronAPI` interface)
@@ -99,6 +111,7 @@ npm run dist:mac
 SQLite database managed via Drizzle ORM (`src/main/database/schema.ts`):
 
 **Core Tables:**
+
 - `feeds` - Podcast subscriptions (RSS sources)
 - `episodes` - Individual podcast episodes with playback state
 - `chapters` - Episode chapters from various sources (JSON, ID3, shownotes)
@@ -112,6 +125,7 @@ SQLite database managed via Drizzle ORM (`src/main/database/schema.ts`):
 - `searchIndex` - FTS5 full-text search index
 
 **Key Relationships:**
+
 - feeds → episodes (1:many, cascade delete)
 - episodes → chapters/transcripts/aiTasks/exportTasks (1:many, cascade delete)
 - transcripts → transcriptSegments (1:many, cascade delete)
@@ -119,6 +133,7 @@ SQLite database managed via Drizzle ORM (`src/main/database/schema.ts`):
 ### State Management
 
 Zustand stores in `src/renderer/store/`:
+
 - `playerStore` - Audio playback state, controls, current episode
 - `episodesStore` - Episode data, loading states
 - `playQueueStore` - Play queue management with intelligent position tracking
@@ -130,6 +145,7 @@ Zustand stores in `src/renderer/store/`:
 ### RSS Feed Parsing
 
 `FeedParser` service (`src/main/services/FeedParser.ts`):
+
 - Supports RSS 2.0, iTunes extensions, Podcast 2.0 standards
 - Built-in caching with ETags and conditional requests (`FeedCache`)
 - Retry mechanism with exponential backoff
@@ -141,6 +157,7 @@ Zustand stores in `src/renderer/store/`:
 All IPC handlers registered in `FeedIPCHandlers` (`src/main/services/IPCHandlers.ts`):
 
 **Feed Operations:**
+
 - `feeds:subscribe` - Add new RSS subscription
 - `feeds:unsubscribe` - Remove subscription
 - `feeds:getAll` - List all subscribed feeds
@@ -149,6 +166,7 @@ All IPC handlers registered in `FeedIPCHandlers` (`src/main/services/IPCHandlers
 - `feeds:validate` - Validate feed URL without subscribing
 
 **Episode Operations:**
+
 - `episodes:getAll` - Fetch episodes (with filters)
 - `episodes:getByFeed` - Get episodes for specific feed
 - `episodes:updateProgress` - Save playback position
@@ -156,6 +174,7 @@ All IPC handlers registered in `FeedIPCHandlers` (`src/main/services/IPCHandlers
 - `episodes:search` - Full-text episode search
 
 **Play Queue Operations:**
+
 - `playQueue:getAll` - Get all queued episodes
 - `playQueue:add` - Add episode with strategy ('play-next' | 'end' | position number)
 - `playQueue:remove` - Remove episode from queue
@@ -244,6 +263,7 @@ src/
 ### Play Queue Management
 
 **Smart Position Insertion:**
+
 - `addPlayNext(episode)` - Inserts after currently playing episode using `currentIndex`
   - Empty queue → insert at first position
   - No playing (currentIndex = -1) → insert before first item
@@ -253,6 +273,7 @@ src/
 - Position-based insertion uses 1000-gap intervals, auto-rebalances when gap < 10
 
 **Episode Status Model:**
+
 - `new` - Unplayed episode (lastPositionSec = 0)
 - `in_progress` - Partially played (0 < lastPositionSec < duration - 30s)
 - `played` - Completed (lastPositionSec >= duration - 30s)
@@ -268,6 +289,7 @@ src/
 ## Common Patterns
 
 ### Zustand Store Pattern
+
 ```typescript
 export const useMyStore = create<MyStore>()(
   devtools(
@@ -277,12 +299,13 @@ export const useMyStore = create<MyStore>()(
       // Actions
       setValue: (val) => set({ value: val }),
     }),
-    { name: 'My Store' }
-  )
+    { name: "My Store" },
+  ),
 );
 ```
 
 ### IPC Handler Pattern
+
 ```typescript
 private async handleOperation(
   event: IpcMainInvokeEvent,
@@ -301,6 +324,7 @@ private async handleOperation(
 ```
 
 ### DAO Pattern
+
 ```typescript
 export class MyDao {
   private get db() {
@@ -325,6 +349,7 @@ export class MyDao {
 ## Current Development Status
 
 Based on `docs/plan.md`, the project is in Stage 2-3 of 5:
+
 - ✅ Stage 1: Core infrastructure (Electron, React, SQLite, audio player)
 - ✅ Stage 2: RSS subscription and playback (in progress)
 - ⏳ Stage 3: FunASR transcription integration (upcoming)
@@ -334,12 +359,14 @@ Based on `docs/plan.md`, the project is in Stage 2-3 of 5:
 ## Recent Improvements
 
 ### Play Queue Refactoring (2025-01)
+
 - **Play Next Logic**: Replaced "Add to Queue Start" with intelligent "Play Next" that inserts after currently playing episode
 - **Position Tracking**: Uses `currentIndex` parameter throughout IPC chain (Store → IPC → DAO) for accurate insertion
 - **Edge Cases Handled**: Empty queue, no playing, queue start/middle/end positions, auto-rebalance
 - **UI Updates**: Renamed to "Play Next" with List Plus icon, tooltip shows "Play [title] next"
 
 ### Episode Status Model Evolution
+
 - **Archive Model**: Replaced binary played/new with 4-state model (new/in_progress/played/archived)
 - **Progress Persistence**: Unified save mechanism with automatic status calculation based on position
 - **Visual Indicators**: Different UI treatment for archived episodes (removed from main list)

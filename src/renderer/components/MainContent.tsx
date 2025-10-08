@@ -5,7 +5,7 @@ import { FeedTester } from './FeedTester';
 import { EpisodesListPage } from '../pages/EpisodesListPage';
 import PlayQueuePage from '../pages/PlayQueuePage';
 import EpisodeDetailPage from '../pages/EpisodeDetailPage';
-import TranscriptSettings from './Settings/TranscriptSettings';
+import { TranscriptSettings, AISettings } from './Settings';
 
 // Placeholder components for other views
 const LibraryView: React.FC = () => (
@@ -37,7 +37,7 @@ const AISummariesView: React.FC = () => (
 );
 
 const SettingsView: React.FC = () => {
-  const [activeSection, setActiveSection] = React.useState<'general' | 'transcript'>('general');
+  const [activeSection, setActiveSection] = React.useState<'general' | 'transcript' | 'ai'>('general');
 
   return (
     <div className="flex h-full">
@@ -67,12 +67,22 @@ const SettingsView: React.FC = () => {
           >
             转写服务
           </button>
+          <button
+            onClick={() => setActiveSection('ai')}
+            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              activeSection === 'ai'
+                ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+            }`}
+          >
+            AI 配置
+          </button>
         </nav>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="p-6">
+        <div className={`${activeSection === 'ai' ? 'h-full flex flex-col' : ''} p-6`}>
           {activeSection === 'general' && (
             <div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">通用设置</h3>
@@ -80,6 +90,7 @@ const SettingsView: React.FC = () => {
             </div>
           )}
           {activeSection === 'transcript' && <TranscriptSettings />}
+          {activeSection === 'ai' && <AISettings />}
         </div>
       </div>
     </div>

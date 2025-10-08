@@ -325,6 +325,15 @@ const EpisodeDetailPage: React.FC = () => {
     useState<TranscriptTaskStatus>('none');
   const [transcriptError, setTranscriptError] = useState<string | null>(null);
 
+  // AI summary state
+  const [aiSummary, setAiSummary] = useState<{
+    summary: string;
+    tags: string[];
+    chapters: Array<{ start: number; end: number; summary: string }>;
+  } | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
   const {
     currentEpisode,
     isPlaying,
@@ -534,7 +543,34 @@ const EpisodeDetailPage: React.FC = () => {
     if (leftPanelScrollRef.current) {
       leftPanelScrollRef.current.scrollTop = 0;
     }
+    // Load AI summary when episode changes
+    loadAISummary();
   }, [episode?.id]);
+
+  const loadAISummary = async () => {
+    if (!episode) {
+      setAiSummary(null);
+      setAiError(null);
+      return;
+    }
+
+    try {
+      setAiLoading(true);
+      setAiError(null);
+      const result = await window.electronAPI.ai.getSummary(episode.id);
+
+      if (result.success && result.data) {
+        setAiSummary(result.data);
+      } else {
+        setAiSummary(null);
+      }
+    } catch (error) {
+      console.error('[EpisodeDetail] Failed to load AI summary:', error);
+      setAiError(error instanceof Error ? error.message : 'Failed to load AI summary');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!isCompactLayout) {
@@ -652,6 +688,48 @@ const EpisodeDetailPage: React.FC = () => {
     }
   };
 
+  const handleGenerateSummary = async () => {
+    if (!episode) return;
+
+    try {
+      setAiLoading(true);
+      setAiError(null);
+      const result = await window.electronAPI.ai.generateSummary(episode.id);
+
+      if (result.success) {
+        await loadAISummary();
+      } else {
+        setAiError(result.error || 'Failed to generate summary');
+      }
+    } catch (error) {
+      console.error('[EpisodeDetail] Failed to generate summary:', error);
+      setAiError(error instanceof Error ? error.message : 'Failed to generate summary');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleGenerateChapters = async () => {
+    if (!episode) return;
+
+    try {
+      setAiLoading(true);
+      setAiError(null);
+      const result = await window.electronAPI.ai.generateChapters(episode.id);
+
+      if (result.success) {
+        await loadAISummary();
+      } else {
+        setAiError(result.error || 'Failed to generate chapters');
+      }
+    } catch (error) {
+      console.error('[EpisodeDetail] Failed to generate chapters:', error);
+      setAiError(error instanceof Error ? error.message : 'Failed to generate chapters');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
 
   const handleJump = (start: number) => {
     if (!episode) return;
@@ -741,57 +819,117 @@ const transcriptPanel = episode ? (
 
 const summaryPanel = (
   <div className="space-y-4 px-4 py-6">
-    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Episode Summary</h3>
-      <p className="mt-3 text-sm text-gray-400 dark:text-gray-500">（内容留空）</p>
-    </section>
-
-    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Tags</h3>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {Array.from({ length: 5 }).map((_, index) => (
-          <span
-            key={`tag-placeholder-${index}`}
-            className="rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-400 dark:border-gray-700 dark:text-gray-500"
-          >
-            （留空）
-          </span>
-        ))}
+    {aiError && (
+      <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3">
+        <p className="text-sm text-red-600 dark:text-red-400">{aiError}</p>
       </div>
-    </section>
+    )}
 
-    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Chapters</h3>
-        <span className="text-xs text-gray-400 dark:text-gray-500">（待填写）</span>
+    {!aiSummary && !aiLoading && (
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900 text-center">
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          No AI summary available yet
+        </p>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={handleGenerateSummary}
+          disabled={transcriptTaskStatus !== 'succeeded'}
+        >
+          Generate Summary
+        </Button>
+        {transcriptTaskStatus !== 'succeeded' && (
+          <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+            Transcript required first
+          </p>
+        )}
       </div>
-      <ol className="mt-4 space-y-3 text-sm">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <li key={`chapter-placeholder-${index}`} className="flex items-start gap-3">
-            <div className="mt-1 text-xs font-semibold text-gray-400 dark:text-gray-500">{index + 1}.</div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="rounded border border-gray-200 px-2 py-0.5 text-xs text-gray-400 dark:border-gray-700 dark:text-gray-500">
-                  --:--
+    )}
+
+    {aiLoading && (
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900 text-center">
+        <p className="text-sm text-gray-500 dark:text-gray-400">Generating AI summary...</p>
+      </div>
+    )}
+
+    {aiSummary && (
+      <>
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Episode Summary</h3>
+            <Button variant="ghost" size="sm" onClick={handleGenerateSummary} disabled={aiLoading}>
+              Regenerate
+            </Button>
+          </div>
+          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+            {aiSummary.summary}
+          </p>
+        </section>
+
+        {aiSummary.tags && aiSummary.tags.length > 0 && (
+          <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Tags</h3>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {aiSummary.tags.map((tag, index) => (
+                <span
+                  key={`ai-tag-${index}`}
+                  className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300"
+                >
+                  {tag}
                 </span>
-                <p className="font-medium text-gray-400 dark:text-gray-500">章节标题（留空）</p>
-              </div>
-              <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">章节摘要内容留空，占位展示样式。</p>
+              ))}
             </div>
-          </li>
-        ))}
-      </ol>
-    </section>
+          </section>
+        )}
 
-    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Episode Card</h3>
-      <p className="mt-3 text-sm text-gray-400 dark:text-gray-500">（内容留空）</p>
-    </section>
+        {aiSummary.chapters && aiSummary.chapters.length > 0 ? (
+          <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">AI Chapters</h3>
+              <Button variant="ghost" size="sm" onClick={handleGenerateChapters} disabled={aiLoading}>
+                Regenerate
+              </Button>
+            </div>
+            <ol className="space-y-3 text-sm">
+              {aiSummary.chapters.map((chapter, index) => {
+                const startMin = Math.floor(chapter.start / 60000);
+                const startSec = Math.floor((chapter.start % 60000) / 1000);
+                const timeStr = `${startMin}:${startSec.toString().padStart(2, '0')}`;
 
-    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Play Queue</h3>
-      <p className="mt-3 text-sm text-gray-400 dark:text-gray-500">（内容留空）</p>
-    </section>
+                return (
+                  <li key={`ai-chapter-${index}`} className="flex items-start gap-3">
+                    <div className="mt-1 text-xs font-semibold text-gray-600 dark:text-gray-400">{index + 1}.</div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleJump(chapter.start / 1000)}
+                          className="rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/40"
+                        >
+                          {timeStr}
+                        </button>
+                      </div>
+                      <p className="mt-2 text-sm text-gray-700 dark:text-gray-300">{chapter.summary}</p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        ) : (
+          <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">AI Chapters</h3>
+            </div>
+            <div className="mt-3 text-center">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">No chapters generated yet</p>
+              <Button variant="primary" size="sm" onClick={handleGenerateChapters} disabled={aiLoading}>
+                Generate Chapters
+              </Button>
+            </div>
+          </section>
+        )}
+      </>
+    )}
   </div>
 );
 
