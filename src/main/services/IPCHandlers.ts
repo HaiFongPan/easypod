@@ -5,6 +5,10 @@ import { EpisodesDao } from '../database/dao/episodesDao';
 import { PlayQueueDao, type PlayQueueEntry } from '../database/dao/playQueueDao';
 import { PlaybackStateDao, type PlaybackStateWithEpisode } from '../database/dao/playbackStateDao';
 import { EpisodeTranscriptsDao, type TranscriptData } from '../database/dao/episodeTranscriptsDao';
+import { LlmProvidersDao } from '../database/dao/llmProvidersDao';
+import { LlmModelsDao } from '../database/dao/llmModelsDao';
+import { PromptsDao } from '../database/dao/promptsDao';
+import { AIServiceManager } from './ai/AIServiceManager';
 import type { NewFeed, NewEpisode } from '../database/schema';
 
 /**
@@ -18,6 +22,10 @@ export class FeedIPCHandlers {
   private playQueueDao: PlayQueueDao;
   private playbackStateDao: PlaybackStateDao;
   private episodeTranscriptsDao: EpisodeTranscriptsDao;
+  private llmProvidersDao: LlmProvidersDao;
+  private llmModelsDao: LlmModelsDao;
+  private promptsDao: PromptsDao;
+  private aiServiceManager: AIServiceManager;
 
   constructor() {
     this.parser = new PodcastFeedParser();
@@ -26,6 +34,10 @@ export class FeedIPCHandlers {
     this.playQueueDao = new PlayQueueDao();
     this.playbackStateDao = new PlaybackStateDao();
     this.episodeTranscriptsDao = new EpisodeTranscriptsDao();
+    this.llmProvidersDao = new LlmProvidersDao();
+    this.llmModelsDao = new LlmModelsDao();
+    this.promptsDao = new PromptsDao();
+    this.aiServiceManager = new AIServiceManager();
     this.registerHandlers();
   }
 
@@ -69,6 +81,33 @@ export class FeedIPCHandlers {
     // Cache management
     ipcMain.handle('feeds:getCacheStats', this.handleGetCacheStats.bind(this));
     ipcMain.handle('feeds:clearCache', this.handleClearCache.bind(this));
+
+    // LLM Providers
+    ipcMain.handle('llmProviders:getAll', this.handleGetAllProviders.bind(this));
+    ipcMain.handle('llmProviders:create', this.handleCreateProvider.bind(this));
+    ipcMain.handle('llmProviders:update', this.handleUpdateProvider.bind(this));
+    ipcMain.handle('llmProviders:delete', this.handleDeleteProvider.bind(this));
+    ipcMain.handle('llmProviders:setDefault', this.handleSetDefaultProvider.bind(this));
+
+    // LLM Models
+    ipcMain.handle('llmModels:getAll', this.handleGetAllModels.bind(this));
+    ipcMain.handle('llmModels:getByProvider', this.handleGetModelsByProvider.bind(this));
+    ipcMain.handle('llmModels:create', this.handleCreateModel.bind(this));
+    ipcMain.handle('llmModels:update', this.handleUpdateModel.bind(this));
+    ipcMain.handle('llmModels:delete', this.handleDeleteModel.bind(this));
+    ipcMain.handle('llmModels:setDefault', this.handleSetDefaultModel.bind(this));
+
+    // Prompts
+    ipcMain.handle('prompts:getAll', this.handleGetAllPrompts.bind(this));
+    ipcMain.handle('prompts:create', this.handleCreatePrompt.bind(this));
+    ipcMain.handle('prompts:update', this.handleUpdatePrompt.bind(this));
+    ipcMain.handle('prompts:delete', this.handleDeletePrompt.bind(this));
+
+    // AI Operations
+    ipcMain.handle('ai:generateSummary', this.handleGenerateSummary.bind(this));
+    ipcMain.handle('ai:generateChapters', this.handleGenerateChapters.bind(this));
+    ipcMain.handle('ai:getMindmap', this.handleGetMindmap.bind(this));
+    ipcMain.handle('ai:getSummary', this.handleGetSummary.bind(this));
   }
 
   /**
@@ -888,6 +927,173 @@ export class FeedIPCHandlers {
     }
   }
 
+  // =====================
+  // LLM Provider Handlers
+  // =====================
+
+  private async handleGetAllProviders(): Promise<any> {
+    try {
+      return await this.llmProvidersDao.findAll();
+    } catch (error) {
+      console.error('Error getting all providers:', error);
+      return [];
+    }
+  }
+
+  private async handleCreateProvider(_: IpcMainInvokeEvent, data: any): Promise<any> {
+    try {
+      const provider = await this.llmProvidersDao.create(data);
+      return { success: true, provider };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  }
+
+  private async handleUpdateProvider(_: IpcMainInvokeEvent, id: number, data: any): Promise<any> {
+    try {
+      const provider = await this.llmProvidersDao.update(id, data);
+      return { success: true, provider };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  }
+
+  private async handleDeleteProvider(_: IpcMainInvokeEvent, id: number): Promise<any> {
+    try {
+      await this.llmProvidersDao.delete(id);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  }
+
+  private async handleSetDefaultProvider(_: IpcMainInvokeEvent, id: number): Promise<any> {
+    try {
+      await this.llmProvidersDao.setDefault(id);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  }
+
+  // ==================
+  // LLM Model Handlers
+  // ==================
+
+  private async handleGetAllModels(): Promise<any> {
+    try {
+      return await this.llmModelsDao.findAll();
+    } catch (error) {
+      console.error('Error getting all models:', error);
+      return [];
+    }
+  }
+
+  private async handleGetModelsByProvider(_: IpcMainInvokeEvent, providerId: number): Promise<any> {
+    try {
+      return await this.llmModelsDao.findByProvider(providerId);
+    } catch (error) {
+      console.error('Error getting models by provider:', error);
+      return [];
+    }
+  }
+
+  private async handleCreateModel(_: IpcMainInvokeEvent, data: any): Promise<any> {
+    try {
+      const model = await this.llmModelsDao.create(data);
+      return { success: true, model };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  }
+
+  private async handleUpdateModel(_: IpcMainInvokeEvent, id: number, data: any): Promise<any> {
+    try {
+      const model = await this.llmModelsDao.update(id, data);
+      return { success: true, model };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  }
+
+  private async handleDeleteModel(_: IpcMainInvokeEvent, id: number): Promise<any> {
+    try {
+      await this.llmModelsDao.delete(id);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  }
+
+  private async handleSetDefaultModel(_: IpcMainInvokeEvent, providerId: number, modelId: number): Promise<any> {
+    try {
+      await this.llmModelsDao.setDefault(providerId, modelId);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  }
+
+  // ===============
+  // Prompt Handlers
+  // ===============
+
+  private async handleGetAllPrompts(): Promise<any> {
+    try {
+      return await this.promptsDao.findAll();
+    } catch (error) {
+      console.error('Error getting all prompts:', error);
+      return [];
+    }
+  }
+
+  private async handleCreatePrompt(_: IpcMainInvokeEvent, data: any): Promise<any> {
+    try {
+      const prompt = await this.promptsDao.create(data);
+      return { success: true, prompt };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  }
+
+  private async handleUpdatePrompt(_: IpcMainInvokeEvent, id: number, data: any): Promise<any> {
+    try {
+      const prompt = await this.promptsDao.update(id, data);
+      return { success: true, prompt };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  }
+
+  private async handleDeletePrompt(_: IpcMainInvokeEvent, id: number): Promise<any> {
+    try {
+      await this.promptsDao.delete(id);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: String(error) };
+    }
+  }
+
+  // ======================
+  // AI Operation Handlers
+  // ======================
+
+  private async handleGenerateSummary(_: IpcMainInvokeEvent, episodeId: number): Promise<any> {
+    return await this.aiServiceManager.generateSummary(episodeId);
+  }
+
+  private async handleGenerateChapters(_: IpcMainInvokeEvent, episodeId: number): Promise<any> {
+    return await this.aiServiceManager.generateChapters(episodeId);
+  }
+
+  private async handleGetMindmap(_: IpcMainInvokeEvent, episodeId: number): Promise<any> {
+    return await this.aiServiceManager.getMindmap(episodeId);
+  }
+
+  private async handleGetSummary(_: IpcMainInvokeEvent, episodeId: number): Promise<any> {
+    return await this.aiServiceManager.getSummary(episodeId);
+  }
+
   /**
    * Cleanup IPC handlers
    */
@@ -920,6 +1126,25 @@ export class FeedIPCHandlers {
       'transcript:getByEpisode',
       'feeds:getCacheStats',
       'feeds:clearCache',
+      'llmProviders:getAll',
+      'llmProviders:create',
+      'llmProviders:update',
+      'llmProviders:delete',
+      'llmProviders:setDefault',
+      'llmModels:getAll',
+      'llmModels:getByProvider',
+      'llmModels:create',
+      'llmModels:update',
+      'llmModels:delete',
+      'llmModels:setDefault',
+      'prompts:getAll',
+      'prompts:create',
+      'prompts:update',
+      'prompts:delete',
+      'ai:generateSummary',
+      'ai:generateChapters',
+      'ai:getMindmap',
+      'ai:getSummary',
     ];
 
     handlers.forEach(handler => {

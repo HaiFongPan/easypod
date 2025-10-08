@@ -9,6 +9,10 @@ export * from './episodesDao';
 export * from './searchDao';
 export * from './playQueueDao';
 export * from './playbackStateDao';
+export * from './llmProvidersDao';
+export * from './llmModelsDao';
+export * from './promptsDao';
+export * from './episodeAiSummarysDao';
 
 // Database service that provides access to all DAOs
 export class DatabaseService {

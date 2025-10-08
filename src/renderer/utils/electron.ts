@@ -404,6 +404,33 @@ const createMockElectronAPI = (): ElectronAPI => {
       getTaskStatus: async () => ({ success: true, hasTask: false }),
       getByEpisode: async () => ({ success: false, error: 'Mock implementation' }),
     },
+    llmProviders: {
+      getAll: async () => [],
+      create: async () => ({ success: true }),
+      update: async () => ({ success: true }),
+      delete: async () => ({ success: true }),
+      setDefault: async () => ({ success: true }),
+    },
+    llmModels: {
+      getAll: async () => [],
+      getByProvider: async () => [],
+      create: async () => ({ success: true }),
+      update: async () => ({ success: true }),
+      delete: async () => ({ success: true }),
+      setDefault: async () => ({ success: true }),
+    },
+    prompts: {
+      getAll: async () => [],
+      create: async () => ({ success: true }),
+      update: async () => ({ success: true }),
+      delete: async () => ({ success: true }),
+    },
+    ai: {
+      generateSummary: async () => ({ success: false, error: 'Mock implementation' }),
+      generateChapters: async () => ({ success: false, error: 'Mock implementation' }),
+      getMindmap: async () => ({ success: false, error: 'Mock implementation' }),
+      getSummary: async () => ({ success: false, error: 'No summary available' }),
+    },
   };
 };
 

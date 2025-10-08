@@ -148,7 +148,44 @@ export const settings = sqliteTable('settings', {
   updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
 });
 
-// AI providers table - configured AI providers
+// LLM Providers table - configured AI providers
+export const llmProviders = sqliteTable('llm_providers', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  baseUrl: text('base_url').notNull(),
+  apiKey: text('api_key'),
+  headersJson: text('headers_json'), // JSON object
+  timeout: integer('timeout').default(30000),
+  tokenUsage: integer('token_usage').default(0),
+  isDefault: integer('is_default', { mode: 'boolean' }).default(false),
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+// LLM Models table - models for each provider
+export const llmModels = sqliteTable('llm_models', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  providerId: integer('provider_id').notNull().references(() => llmProviders.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(), // Display name like "GPT-4o"
+  code: text('code').notNull(), // API code like "gpt-4o"
+  tokenUsage: integer('token_usage').default(0),
+  isDefault: integer('is_default', { mode: 'boolean' }).default(false),
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Prompts table - prompt templates
+export const prompts = sqliteTable('prompts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name'),
+  type: text('type').notNull(), // 'system' | 'summary' | 'tag' | 'chapters' | 'mindmap'
+  prompt: text('prompt').notNull(),
+  isBuiltin: integer('is_builtin', { mode: 'boolean' }).default(false),
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+// AI providers table - configured AI providers (deprecated, use llmProviders)
 export const aiProviders = sqliteTable('ai_providers', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull(),
@@ -210,9 +247,12 @@ export const episodeTranscripts = sqliteTable('episode_transcripts', {
 export const episodeAiSummarys = sqliteTable('episode_ai_summarys', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   episodeId: integer('episode_id').notNull().references(() => episodes.id, { onDelete: 'cascade' }),
+  providerId: integer('provider_id').references(() => llmProviders.id),
+  modelId: integer('model_id').references(() => llmModels.id),
   summary: text('summary').notNull().default(''),
   tags: text('tags').notNull().default(''), // Comma-separated tags
   chapters: text('chapters').notNull().default('[]'), // JSON array of chapters
+  tokenUsage: integer('token_usage').default(0),
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
 });
@@ -262,6 +302,15 @@ export type NewEpisodeVoiceText = typeof episodeVoiceTexts.$inferInsert;
 
 export type EpisodeTranscript = typeof episodeTranscripts.$inferSelect;
 export type NewEpisodeTranscript = typeof episodeTranscripts.$inferInsert;
+
+export type LlmProvider = typeof llmProviders.$inferSelect;
+export type NewLlmProvider = typeof llmProviders.$inferInsert;
+
+export type LlmModel = typeof llmModels.$inferSelect;
+export type NewLlmModel = typeof llmModels.$inferInsert;
+
+export type Prompt = typeof prompts.$inferSelect;
+export type NewPrompt = typeof prompts.$inferInsert;
 
 export type EpisodeAiSummary = typeof episodeAiSummarys.$inferSelect;
 export type NewEpisodeAiSummary = typeof episodeAiSummarys.$inferInsert;

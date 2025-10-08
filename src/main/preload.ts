@@ -137,6 +137,42 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getByEpisode: (episodeId: number) =>
       ipcRenderer.invoke('transcript:getByEpisode', episodeId),
   },
+
+  // LLM Providers
+  llmProviders: {
+    getAll: () => ipcRenderer.invoke('llmProviders:getAll'),
+    create: (data: any) => ipcRenderer.invoke('llmProviders:create', data),
+    update: (id: number, data: any) => ipcRenderer.invoke('llmProviders:update', id, data),
+    delete: (id: number) => ipcRenderer.invoke('llmProviders:delete', id),
+    setDefault: (id: number) => ipcRenderer.invoke('llmProviders:setDefault', id),
+  },
+
+  // LLM Models
+  llmModels: {
+    getAll: () => ipcRenderer.invoke('llmModels:getAll'),
+    getByProvider: (providerId: number) => ipcRenderer.invoke('llmModels:getByProvider', providerId),
+    create: (data: any) => ipcRenderer.invoke('llmModels:create', data),
+    update: (id: number, data: any) => ipcRenderer.invoke('llmModels:update', id, data),
+    delete: (id: number) => ipcRenderer.invoke('llmModels:delete', id),
+    setDefault: (providerId: number, modelId: number) =>
+      ipcRenderer.invoke('llmModels:setDefault', providerId, modelId),
+  },
+
+  // Prompts
+  prompts: {
+    getAll: () => ipcRenderer.invoke('prompts:getAll'),
+    create: (data: any) => ipcRenderer.invoke('prompts:create', data),
+    update: (id: number, data: any) => ipcRenderer.invoke('prompts:update', id, data),
+    delete: (id: number) => ipcRenderer.invoke('prompts:delete', id),
+  },
+
+  // AI Operations
+  ai: {
+    generateSummary: (episodeId: number) => ipcRenderer.invoke('ai:generateSummary', episodeId),
+    generateChapters: (episodeId: number) => ipcRenderer.invoke('ai:generateChapters', episodeId),
+    getMindmap: (episodeId: number) => ipcRenderer.invoke('ai:getMindmap', episodeId),
+    getSummary: (episodeId: number) => ipcRenderer.invoke('ai:getSummary', episodeId),
+  },
 });
 
 // Type definitions for the exposed API
@@ -267,6 +303,33 @@ export interface ElectronAPI {
       };
       error?: string;
     }>;
+  };
+  llmProviders: {
+    getAll: () => Promise<any[]>;
+    create: (data: any) => Promise<{ success: boolean; error?: string }>;
+    update: (id: number, data: any) => Promise<{ success: boolean; error?: string }>;
+    delete: (id: number) => Promise<{ success: boolean; error?: string }>;
+    setDefault: (id: number) => Promise<{ success: boolean; error?: string }>;
+  };
+  llmModels: {
+    getAll: () => Promise<any[]>;
+    getByProvider: (providerId: number) => Promise<any[]>;
+    create: (data: any) => Promise<{ success: boolean; error?: string }>;
+    update: (id: number, data: any) => Promise<{ success: boolean; error?: string }>;
+    delete: (id: number) => Promise<{ success: boolean; error?: string }>;
+    setDefault: (providerId: number, modelId: number) => Promise<{ success: boolean; error?: string }>;
+  };
+  prompts: {
+    getAll: () => Promise<any[]>;
+    create: (data: any) => Promise<{ success: boolean; error?: string }>;
+    update: (id: number, data: any) => Promise<{ success: boolean; error?: string }>;
+    delete: (id: number) => Promise<{ success: boolean; error?: string }>;
+  };
+  ai: {
+    generateSummary: (episodeId: number) => Promise<{ success: boolean; data?: any; error?: string }>;
+    generateChapters: (episodeId: number) => Promise<{ success: boolean; data?: any; error?: string }>;
+    getMindmap: (episodeId: number) => Promise<{ success: boolean; data?: any; error?: string }>;
+    getSummary: (episodeId: number) => Promise<{ success: boolean; data?: any; error?: string }>;
   };
 }
 

@@ -217,7 +217,51 @@ export class DatabaseManager {
       )
     `);
 
-    // Create episode AI summaries table
+    // Create LLM providers table (before models and summaries due to FK)
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS llm_providers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        base_url TEXT NOT NULL,
+        api_key TEXT,
+        headers_json TEXT,
+        timeout INTEGER DEFAULT 30000,
+        token_usage INTEGER DEFAULT 0,
+        is_default INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create LLM models table (before summaries due to FK)
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS llm_models (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        provider_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        code TEXT NOT NULL,
+        token_usage INTEGER DEFAULT 0,
+        is_default INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (provider_id) REFERENCES llm_providers(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Create prompts table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS prompts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        type TEXT NOT NULL,
+        prompt TEXT NOT NULL,
+        is_builtin INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create episode AI summaries table (after providers and models)
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS episode_ai_summarys (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -225,9 +269,14 @@ export class DatabaseManager {
         summary TEXT NOT NULL DEFAULT '',
         tags TEXT NOT NULL DEFAULT '',
         chapters TEXT NOT NULL DEFAULT '[]',
+        provider_id INTEGER,
+        model_id INTEGER,
+        token_usage INTEGER DEFAULT 0,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE
+        FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE,
+        FOREIGN KEY (provider_id) REFERENCES llm_providers(id),
+        FOREIGN KEY (model_id) REFERENCES llm_models(id)
       )
     `);
 
@@ -361,39 +410,37 @@ export class DatabaseManager {
   }
 
   private async insertDefaults(): Promise<void> {
-    // Insert default AI prompts
-    const defaultPrompts = [
-      {
-        name: 'Podcast Summary',
-        category: 'summary',
-        templateText: `Summarize this podcast episode in 8-12 bullet points and 3-5 action items:
+    if (!this.db) return;
 
-Title: \${title}
-Date: \${pub_date}
-Chapters: \${chapters}
+    // Insert default AI prompts if not exists
+    const existingPrompts = this.db.prepare('SELECT COUNT(*) as count FROM prompts WHERE is_builtin = 1').get() as { count: number };
 
-Transcript excerpt:
-\${transcript_excerpt}
+    if (existingPrompts.count === 0) {
+      const insertPrompt = this.db.prepare(`
+        INSERT INTO prompts (name, type, prompt, is_builtin)
+        VALUES (?, ?, ?, 1)
+      `);
 
-Output in Markdown with sections: **Key Points**, **Quotes**, **Action Items**`,
-        variablesJson: JSON.stringify(['title', 'pub_date', 'chapters', 'transcript_excerpt']),
-        isBuiltin: true,
-      },
-      {
-        name: 'Smart Chapters',
-        category: 'chapters',
-        templateText: `Generate time-stamped chapters for this podcast episode:
+      insertPrompt.run(
+        'Default Summary',
+        'summary',
+        '请总结以下播客内容的核心观点、金句和行动建议，并生成 5-10 个相关标签。返回 JSON 格式：{"summary": "总结内容", "tags": ["标签1", "标签2"]}'
+      );
 
-Transcript: \${full_transcript}
+      insertPrompt.run(
+        'Default Chapters',
+        'chapters',
+        '请分析以下播客内容，将其分为若干章节，每个章节包含开始时间（毫秒）、结束时间（毫秒）和总结。返回 JSON 格式：{"chapters": [{"start": 0, "end": 60000, "summary": "章节总结"}]}'
+      );
 
-Create chapter titles that are concise and descriptive, with timestamps in MM:SS format. Include 20-40 word summaries for each chapter.`,
-        variablesJson: JSON.stringify(['full_transcript']),
-        isBuiltin: true,
-      }
-    ];
+      insertPrompt.run(
+        'Default Mindmap',
+        'mindmap',
+        '请将以下播客内容整理为 Markdown 格式的思维导图。返回 JSON 格式：{"mindmap": "# 主题\\n## 子主题"}'
+      );
 
-    // TODO: Insert default prompts when database is available
-    console.log('Default prompts prepared:', defaultPrompts.length);
+      console.log('Default prompts inserted');
+    }
   }
 
   // Public methods for database access
