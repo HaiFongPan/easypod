@@ -126,8 +126,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   transcript: {
-    submit: (episodeId: number) =>
-      ipcRenderer.invoke('transcript:submit', { episodeId }),
+    submit: (episodeId: number, options?: { spkEnable?: boolean; spkNumberPredict?: number }) =>
+      ipcRenderer.invoke('transcript:submit', { episodeId, options }),
     query: (taskId: string, service: 'funasr' | 'aliyun') =>
       ipcRenderer.invoke('transcript:query', { taskId, service }),
     getTaskStatus: (episodeId: number) =>
@@ -277,7 +277,7 @@ export interface ElectronAPI {
     setDefaultService: (service: 'funasr' | 'aliyun') => Promise<{ success: boolean; error?: string }>;
   };
   transcript: {
-    submit: (episodeId: number) => Promise<{ success: boolean; taskId?: string; error?: string }>;
+    submit: (episodeId: number, options?: { spkEnable?: boolean; spkNumberPredict?: number }) => Promise<{ success: boolean; taskId?: string; error?: string }>;
     query: (taskId: string, service: 'funasr' | 'aliyun') => Promise<any>;
     getTaskStatus: (episodeId: number) => Promise<{
       success: boolean;

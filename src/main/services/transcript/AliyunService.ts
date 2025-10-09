@@ -189,17 +189,17 @@ export class AliyunService extends BaseVoiceToTextService {
     const languageHints =
       options?.languageHints ?? this.config.languageHints ?? ["zh", "en"];
 
-    const speakerCount =
-      options?.speakerCount ?? this.config.speakerCount ?? 2;
+    // Speaker recognition configuration based on spkEnable
+    const diarizationEnabled = options?.spkEnable ?? false;
+    const speakerCount = options?.spkEnable
+      ? (options?.spkNumberPredict ?? this.config.speakerCount ?? 2)
+      : 0;
 
     const disfluencyRemoval =
       options?.disfluencyRemoval ?? this.config.disfluencyRemoval ?? true;
 
     const timestampAlignment =
       options?.timestampAlignment ?? true;
-
-    const diarizationEnabled =
-      options?.diarizationEnabled ?? true;
 
     return {
       model,

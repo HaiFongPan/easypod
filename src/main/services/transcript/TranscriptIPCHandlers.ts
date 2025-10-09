@@ -60,7 +60,7 @@ export class TranscriptIPCHandlers {
    */
   private async handleSubmitTask(
     event: IpcMainInvokeEvent,
-    params: { episodeId: number }
+    params: { episodeId: number; options?: { spkEnable?: boolean; spkNumberPredict?: number } }
   ): Promise<{ success: boolean; taskId?: string; error?: string }> {
     const startTime = Date.now();
     console.log('[TranscriptIPC] Submit task started:', {
@@ -149,9 +149,10 @@ export class TranscriptIPCHandlers {
         episodeId: episode.id,
         audioUrl: episode.audioUrl,
         service: defaultService,
+        options: params.options,
       });
 
-      const result = await service.submit(episode.audioUrl, episode.id);
+      const result = await service.submit(episode.audioUrl, episode.id, params.options);
 
       const duration = Date.now() - startTime;
       if (result.success) {

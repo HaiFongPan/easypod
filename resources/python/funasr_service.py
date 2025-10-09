@@ -34,6 +34,7 @@ app = FastAPI(title="EasyPod FunASR Service", version="0.1.0")
 class RuntimeState:
     model_id: Optional[str] = None
     model: Any = None
+    model_without_spk: Any = None
     model_lock: threading.Lock = field(default_factory=threading.Lock)
     tasks: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
@@ -87,7 +88,7 @@ def _load_model(payload: InitializePayload) -> Any:
     if AutoModel is None:
         raise RuntimeError("funasr is not installed in the current Python environment")
 
-    kwargs: Dict[str, Any] = {"model": payload.asr_model}
+    kwargs: Dict[str, Any] = {"model": payload.asr_model, "disable_update": True}
     options = payload.options or {}
 
     vad_model = options.get("vad_model")
@@ -112,9 +113,6 @@ def _load_model(payload: InitializePayload) -> Any:
     if payload.device:
         kwargs["device"] = payload.device
 
-    if options.get("disable_update"):
-        kwargs["disable_update"] = True
-
     if options.get("sentence_timestamp", True):
         kwargs["sentence_timestamp"] = True
 
@@ -124,17 +122,18 @@ def _load_model(payload: InitializePayload) -> Any:
     return model
 
 
-def _ensure_model_loaded() -> Any:
-    if STATE.model is None:
+def _ensure_model_loaded(without_spk: bool) -> Any:
+    if STATE.model is None and not without_spk:
         raise RuntimeError("FunASR model is not initialized")
-    return STATE.model
+    if STATE.model_without_spk is None and without_spk:
+        raise RuntimeError("FunASR model(without spk) is not initialized")
+
+    return STATE.model_without_spk if without_spk else STATE.model
 
 
 def _prepare_generate_kwargs(audio: str, options: Dict[str, Any]) -> Dict[str, Any]:
     opts = options or {}
-    kwargs: Dict[str, Any] = {
-        "input": audio,
-    }
+    kwargs: Dict[str, Any] = {"input": audio}
 
     if "batch_size_s" in opts:
         kwargs["batch_size_s"] = opts["batch_size_s"]
@@ -163,7 +162,8 @@ def _run_transcription(task_id: str, payload: TranscribePayload) -> None:
 
     try:
         with STATE.model_lock:
-            model = _ensure_model_loaded()
+            without_spk = payload.options.get("spk_enable", False) == False
+            model = _ensure_model_loaded(without_spk)
         kwargs = _prepare_generate_kwargs(payload.audio_path, payload.options)
 
         try:
@@ -214,6 +214,8 @@ def initialize(payload: InitializePayload) -> InitializeResponse:
 
     with STATE.model_lock:
         STATE.model = _load_model(payload)
+        payload.options.pop("spk_model", None)
+        STATE.model_without_spk = _load_model(payload)
         STATE.model_id = payload.asr_model
 
     return InitializeResponse(status="ready", loaded_models=[payload.asr_model])
@@ -221,14 +223,9 @@ def initialize(payload: InitializePayload) -> InitializeResponse:
 
 @app.post("/transcribe", response_model=Dict[str, Any])
 def transcribe(payload: TranscribePayload) -> Dict[str, Any]:
-    # if not payload.audio_path.is_file():
-    #     raise HTTPException(status_code=400, detail="Audio file does not exist")
-    #
-    # if not payload.audio_path.is_absolute():
-    #     raise HTTPException(status_code=400, detail="Audio path must be absolute")
-
     with STATE.model_lock:
-        _ensure_model_loaded()
+        without_spk = payload.options.get("spk_enable", False) == False
+        _ensure_model_loaded(without_spk)
 
     task_id = str(uuid.uuid4())
     STATE.tasks[task_id] = {"status": "queued", "progress": 0.0}

@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Button from "../components/Button";
 import TranscriptList from "../components/Transcript/TranscriptList";
+import { AITranscribeButton } from "../components/AITranscribeButton/AITranscribeButton";
+import { SpeakerRecognizeToggle } from "../components/SpeakerRecognizeToggle/SpeakerRecognizeToggle";
+import PlayPauseButton from "../components/PlayPauseButton/PlayPauseButton";
 import { useEpisodeDetailStore } from "../store/episodeDetailStore";
 import { useNavigationStore } from "../store/navigationStore";
 import { usePlayerStore } from "../store/playerStore";
@@ -325,13 +328,18 @@ const EpisodeDetailPage: React.FC = () => {
     useState<TranscriptTaskStatus>('none');
   const [transcriptError, setTranscriptError] = useState<string | null>(null);
 
+  // Speaker recognition state
+  const [speakerRecognizeEnabled, setSpeakerRecognizeEnabled] = useState(false);
+  const [speakerCount, setSpeakerCount] = useState(2);
+
   // AI summary state
   const [aiSummary, setAiSummary] = useState<{
     summary: string;
     tags: string[];
     chapters: Array<{ start: number; end: number; summary: string }>;
   } | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
+  const [aiChaptersLoading, setAiChaptersLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
   const {
@@ -555,7 +563,6 @@ const EpisodeDetailPage: React.FC = () => {
     }
 
     try {
-      setAiLoading(true);
       setAiError(null);
       const result = await window.electronAPI.ai.getSummary(episode.id);
 
@@ -567,8 +574,6 @@ const EpisodeDetailPage: React.FC = () => {
     } catch (error) {
       console.error('[EpisodeDetail] Failed to load AI summary:', error);
       setAiError(error instanceof Error ? error.message : 'Failed to load AI summary');
-    } finally {
-      setAiLoading(false);
     }
   };
 
@@ -662,13 +667,21 @@ const EpisodeDetailPage: React.FC = () => {
       title: episode.title,
       audioUrl: episode.audioUrl,
     });
+    console.log('[EpisodeDetail] Speaker recognition:', {
+      enabled: speakerRecognizeEnabled,
+      count: speakerCount,
+    });
 
     setTranscriptTaskStatus('submitting');
     setTranscriptError(null);
 
     try {
       console.log('[EpisodeDetail] Submitting transcription task...');
-      const result = await window.electronAPI.transcript.submit(episode.id);
+      const options = {
+        spkEnable: speakerRecognizeEnabled,
+        spkNumberPredict: speakerRecognizeEnabled ? speakerCount : undefined,
+      };
+      const result = await window.electronAPI.transcript.submit(episode.id, options);
 
       console.log('[EpisodeDetail] Submit result:', result);
 
@@ -692,7 +705,7 @@ const EpisodeDetailPage: React.FC = () => {
     if (!episode) return;
 
     try {
-      setAiLoading(true);
+      setAiSummaryLoading(true);
       setAiError(null);
       const result = await window.electronAPI.ai.generateSummary(episode.id);
 
@@ -705,7 +718,7 @@ const EpisodeDetailPage: React.FC = () => {
       console.error('[EpisodeDetail] Failed to generate summary:', error);
       setAiError(error instanceof Error ? error.message : 'Failed to generate summary');
     } finally {
-      setAiLoading(false);
+      setAiSummaryLoading(false);
     }
   };
 
@@ -713,7 +726,7 @@ const EpisodeDetailPage: React.FC = () => {
     if (!episode) return;
 
     try {
-      setAiLoading(true);
+      setAiChaptersLoading(true);
       setAiError(null);
       const result = await window.electronAPI.ai.generateChapters(episode.id);
 
@@ -726,7 +739,7 @@ const EpisodeDetailPage: React.FC = () => {
       console.error('[EpisodeDetail] Failed to generate chapters:', error);
       setAiError(error instanceof Error ? error.message : 'Failed to generate chapters');
     } finally {
-      setAiLoading(false);
+      setAiChaptersLoading(false);
     }
   };
 
@@ -825,7 +838,7 @@ const summaryPanel = (
       </div>
     )}
 
-    {!aiSummary && !aiLoading && (
+    {!aiSummary && !aiSummaryLoading && !aiChaptersLoading && (
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900 text-center">
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
           No AI summary available yet
@@ -846,7 +859,7 @@ const summaryPanel = (
       </div>
     )}
 
-    {aiLoading && (
+    {aiSummaryLoading && (
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900 text-center">
         <p className="text-sm text-gray-500 dark:text-gray-400">Generating AI summary...</p>
       </div>
@@ -857,7 +870,7 @@ const summaryPanel = (
         <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Episode Summary</h3>
-            <Button variant="ghost" size="sm" onClick={handleGenerateSummary} disabled={aiLoading}>
+            <Button variant="ghost" size="sm" onClick={handleGenerateSummary} disabled={aiSummaryLoading}>
               Regenerate
             </Button>
           </div>
@@ -886,7 +899,7 @@ const summaryPanel = (
           <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">AI Chapters</h3>
-              <Button variant="ghost" size="sm" onClick={handleGenerateChapters} disabled={aiLoading}>
+              <Button variant="ghost" size="sm" onClick={handleGenerateChapters} disabled={aiChaptersLoading}>
                 Regenerate
               </Button>
             </div>
@@ -921,10 +934,16 @@ const summaryPanel = (
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">AI Chapters</h3>
             </div>
             <div className="mt-3 text-center">
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">No chapters generated yet</p>
-              <Button variant="primary" size="sm" onClick={handleGenerateChapters} disabled={aiLoading}>
-                Generate Chapters
-              </Button>
+              {aiChaptersLoading ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">Generating AI chapters...</p>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">No chapters generated yet</p>
+                  <Button variant="primary" size="sm" onClick={handleGenerateChapters} disabled={aiChaptersLoading}>
+                    Generate Chapters
+                  </Button>
+                </>
+              )}
             </div>
           </section>
         )}
@@ -993,93 +1012,55 @@ const headerSection = (
         </div>
       )}
       <div className="flex-1">
-        <div
-          className={cn(
-            "flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between",
-            isHeaderCompact && !isCompactLayout ? "lg:justify-between lg:items-center" : undefined,
-          )}
-        >
-          <div className={cn("flex flex-col", isCompactLayout ? "gap-1" : "gap-2")}>
-            <p className="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              Episode Detail
-            </p>
-            <h1
-              className={cn(
-                "mt-1 font-bold leading-tight text-gray-900 transition-all duration-200 dark:text-gray-100",
-                titleSizeClass,
-              )}
-            >
-              {episode.title}
-            </h1>
-            {publishInfo && (
-              <p className={cn("text-gray-600 dark:text-gray-400", publishInfoClass)}>{publishInfo}</p>
-            )}
-          </div>
-          <div
+        {/* Title and Metadata */}
+        <div className={cn("flex flex-col", isCompactLayout ? "gap-1" : "gap-2")}>
+          <p className="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            Episode Detail
+          </p>
+          <h1
             className={cn(
-              "flex shrink-0 flex-wrap items-center gap-2",
-              isHeaderCompact && !isCompactLayout ? "lg:justify-end" : undefined,
+              "mt-1 font-bold leading-tight text-gray-900 transition-all duration-200 dark:text-gray-100",
+              titleSizeClass,
             )}
           >
-            <button
-              type="button"
-              onClick={handlePlayToggle}
-              className={cn(
-                "inline-flex items-center gap-2 rounded-full border border-gray-300 font-medium transition",
-                "hover:border-blue-500 hover:text-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
-                actionButtonSizeClass,
-                isCurrentEpisode && isPlaying
-                  ? "bg-blue-600 text-white hover:text-white"
-                  : "bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100",
-              )}
-              aria-label={
-                isCurrentEpisode && isPlaying ? "Pause episode" : "Play episode"
-              }
-            >
-              {isCurrentEpisode && isPlaying
-                ? "Pause"
-                : isLoading
-                  ? "Loading…"
-                  : "Play"}
-            </button>
-            <button
-              type="button"
-              onClick={handleAITranscribe}
-              disabled={transcriptTaskStatus === 'processing' || transcriptTaskStatus === 'succeeded' || transcriptTaskStatus === 'submitting'}
-              title={
-                transcriptTaskStatus === 'processing'
-                  ? 'Transcription in progress...'
-                  : transcriptTaskStatus === 'succeeded'
-                    ? 'Transcription completed'
-                    : transcriptTaskStatus === 'submitting'
-                      ? 'Submitting task...'
-                      : transcriptTaskStatus === 'failed'
-                        ? transcriptError || 'Transcription failed. Click to retry.'
-                        : 'Start AI transcription'
-              }
-              className={cn(
-                "inline-flex items-center gap-2 rounded-full border border-gray-300 font-medium transition",
-                "focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
-                actionButtonSizeClass,
-                transcriptTaskStatus === 'processing' || transcriptTaskStatus === 'succeeded' || transcriptTaskStatus === 'submitting'
-                  ? "cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-600"
-                  : transcriptTaskStatus === 'failed'
-                    ? "bg-white text-red-600 hover:border-red-500 hover:text-red-700 dark:bg-gray-800 dark:text-red-400"
-                    : "bg-white text-gray-900 hover:border-blue-500 hover:text-blue-600 dark:bg-gray-800 dark:text-gray-100",
-              )}
-              aria-label="Start AI transcription"
-            >
-              {transcriptTaskStatus === 'submitting'
-                ? 'Submitting…'
-                : transcriptTaskStatus === 'processing'
-                  ? 'Processing…'
-                  : transcriptTaskStatus === 'succeeded'
-                    ? '✓ Done'
-                    : transcriptTaskStatus === 'failed'
-                      ? 'Retry AI'
-                      : 'AI'}
-            </button>
-          </div>
+            {episode.title}
+          </h1>
+          {publishInfo && (
+            <p className={cn("text-gray-600 dark:text-gray-400", publishInfoClass)}>{publishInfo}</p>
+          )}
+        </div>
+
+        {/* Action Buttons - Below publishInfo */}
+        <div
+          className={cn(
+            "mt-4 flex shrink-0 flex-wrap items-center gap-2",
+            isHeaderCompact && !isCompactLayout ? "lg:justify-start" : undefined,
+          )}
+        >
+          <PlayPauseButton
+            episode={episode}
+            size={isHeaderCompact || isCompactLayout ? 'sm' : 'md'}
+            variant="default"
+            skipAutoQueue={true}
+          />
+
+          <AITranscribeButton
+            status={
+              transcriptTaskStatus === 'none' ? 'idle' :
+              transcriptTaskStatus === 'pending' ? 'processing' :
+              transcriptTaskStatus
+            }
+            onTranscribe={handleAITranscribe}
+            size={isHeaderCompact || isCompactLayout ? 'sm' : 'md'}
+          />
+
+          <SpeakerRecognizeToggle
+            enabled={speakerRecognizeEnabled}
+            speakerCount={speakerCount}
+            onToggle={setSpeakerRecognizeEnabled}
+            onCountChange={setSpeakerCount}
+            size={isHeaderCompact || isCompactLayout ? 'sm' : 'md'}
+          />
         </div>
       </div>
     </div>

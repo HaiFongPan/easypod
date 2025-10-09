@@ -64,6 +64,7 @@ export class FunasrService extends BaseVoiceToTextService {
           sentence_timestamp: true,
           word_timestamp: options?.wordTimestamp || false,
           merge_vad: true,
+          spk_enable: options?.spkEnable || false, // Pass speaker model only if enabled
         },
       });
 
@@ -418,7 +419,7 @@ export class FunasrService extends BaseVoiceToTextService {
    * 重新初始化模型 (用于配置热重载)
    */
   async reinitializeModel(): Promise<void> {
-    console.log('[FunasrService] Reinitializing model');
+    console.log("[FunasrService] Reinitializing model");
     this.initialized = false;
     await this.ensureInitialized();
   }

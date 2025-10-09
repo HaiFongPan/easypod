@@ -1,7 +1,7 @@
-import { EventEmitter } from 'events';
-import { app } from 'electron';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
+import { EventEmitter } from "events";
+import { app } from "electron";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import {
   existsSync,
   mkdirSync,
@@ -10,10 +10,10 @@ import {
   rmSync,
   readdirSync,
   statSync,
-} from 'fs';
-import { join, dirname, delimiter, resolve } from 'path';
-import { createHash } from 'crypto';
-import tar from 'tar';
+} from "fs";
+import { join, dirname, delimiter, resolve } from "path";
+import { createHash } from "crypto";
+import tar from "tar";
 
 const execFileAsync = promisify(execFile);
 
@@ -70,7 +70,9 @@ export class PythonRuntimeManager extends EventEmitter {
     super();
   }
 
-  ensureReady(options: EnsureRuntimeOptions = {}): Promise<PythonRuntimeDetails> {
+  ensureReady(
+    options: EnsureRuntimeOptions = {},
+  ): Promise<PythonRuntimeDetails> {
     if (this.details && !options.forceReinstall) {
       return Promise.resolve(this.details);
     }
@@ -89,14 +91,19 @@ export class PythonRuntimeManager extends EventEmitter {
     return this.details;
   }
 
-  private async initializeRuntime(options: EnsureRuntimeOptions): Promise<PythonRuntimeDetails> {
+  private async initializeRuntime(
+    options: EnsureRuntimeOptions,
+  ): Promise<PythonRuntimeDetails> {
     const override = process.env.EASYPOD_FUNASR_PYTHON;
     if (override) {
-      this.emit('log', 'Using manual Python override from EASYPOD_FUNASR_PYTHON');
+      this.emit(
+        "log",
+        "Using manual Python override from EASYPOD_FUNASR_PYTHON",
+      );
       const logsDir = this.ensureLogsDirectory(this.getUserRuntimeRoot());
       const env = this.buildBaseEnv(dirname(override), null, options.extraEnv);
       if (options.checkFunasr) {
-        await this.checkImport(override, 'funasr');
+        await this.checkImport(override, "funasr");
       }
       const details: PythonRuntimeDetails = {
         pythonPath: override,
@@ -108,7 +115,7 @@ export class PythonRuntimeManager extends EventEmitter {
         usingEmbeddedRuntime: false,
       };
       this.details = details;
-      this.emit('ready', details);
+      this.emit("ready", details);
       return details;
     }
 
@@ -116,63 +123,79 @@ export class PythonRuntimeManager extends EventEmitter {
       const embedded = await this.prepareEmbeddedRuntime(options);
       if (embedded) {
         this.details = embedded;
-        this.emit('ready', embedded);
         return embedded;
       }
-      this.emit('log', '⚠️  Embedded Python runtime not available; falling back to system Python.');
+      this.emit(
+        "log",
+        "⚠️  Embedded Python runtime not available; falling back to system Python.",
+      );
     } catch (error) {
-      this.emit('log', `❌ Failed to prepare embedded runtime: ${String(error)}`);
+      this.emit(
+        "log",
+        `❌ Failed to prepare embedded runtime: ${String(error)}`,
+      );
       if (error instanceof Error && error.stack) {
-        this.emit('log', `   Stack: ${error.stack}`);
+        this.emit("log", `   Stack: ${error.stack}`);
       }
     }
 
     const systemRuntime = await this.prepareSystemRuntime(options);
     this.details = systemRuntime;
-    this.emit('ready', systemRuntime);
+    this.emit("ready", systemRuntime);
     return systemRuntime;
   }
 
-  private async prepareEmbeddedRuntime(options: EnsureRuntimeOptions): Promise<PythonRuntimeDetails | null> {
-    this.emit('log', '🔍 Checking for embedded Python runtime...');
+  private async prepareEmbeddedRuntime(
+    options: EnsureRuntimeOptions,
+  ): Promise<PythonRuntimeDetails | null> {
+    this.emit("log", "🔍 Checking for embedded Python runtime...");
 
     const runtimeRoot = this.getEmbeddedRuntimeRoot();
     if (!runtimeRoot) {
-      this.emit('log', '❌ Embedded runtime directory not found');
+      this.emit("log", "❌ Embedded runtime directory not found");
       return null;
     }
-    this.emit('log', `✓ Runtime root: ${runtimeRoot}`);
+    this.emit("log", `✓ Runtime root: ${runtimeRoot}`);
 
-    const bundleManifestPath = join(runtimeRoot, 'runtime.manifest');
+    const bundleManifestPath = join(runtimeRoot, "runtime.manifest");
     if (!existsSync(bundleManifestPath)) {
-      this.emit('log', '❌ Runtime manifest not found - runtime may not be built');
-      this.emit('log', `   Expected: ${bundleManifestPath}`);
+      this.emit(
+        "log",
+        "❌ Runtime manifest not found - runtime may not be built",
+      );
+      this.emit("log", `   Expected: ${bundleManifestPath}`);
       return null;
     }
-    this.emit('log', `✓ Manifest found: ${bundleManifestPath}`);
+    this.emit("log", `✓ Manifest found: ${bundleManifestPath}`);
 
     const bundleManifest = this.readManifest(bundleManifestPath);
     if (!bundleManifest) {
-      this.emit('log', 'Failed to read runtime manifest');
+      this.emit("log", "Failed to read runtime manifest");
       return null;
     }
 
     const archivePath = this.getRuntimeArchivePath(runtimeRoot);
     if (!archivePath || !existsSync(archivePath)) {
-      this.emit('log', `❌ Runtime archive not found: ${archivePath ?? 'undefined'}`);
-      this.emit('log', '');
-      this.emit('log', '⚠️  Python runtime is not bundled with this build.');
-      this.emit('log', '   Developers: Run "npm run build:python-runtime" to create it.');
-      this.emit('log', '   See docs/python-runtime-build.md for details.');
-      this.emit('log', '');
+      this.emit(
+        "log",
+        `❌ Runtime archive not found: ${archivePath ?? "undefined"}`,
+      );
+      this.emit("log", "");
+      this.emit("log", "⚠️  Python runtime is not bundled with this build.");
+      this.emit(
+        "log",
+        '   Developers: Run "npm run build:python-runtime" to create it.',
+      );
+      this.emit("log", "   See docs/python-runtime-build.md for details.");
+      this.emit("log", "");
       return null;
     }
-    this.emit('log', `✓ Archive found: ${archivePath}`);
+    this.emit("log", `✓ Archive found: ${archivePath}`);
 
     const userRoot = this.getUserRuntimeRoot();
     const logsDir = this.ensureLogsDirectory(userRoot);
-    const installDir = join(userRoot, 'runtime');
-    const installedManifestPath = join(userRoot, 'runtime.json');
+    const installDir = join(userRoot, "runtime");
+    const installedManifestPath = join(userRoot, "runtime.json");
     const installedManifest = this.readManifest(installedManifestPath);
 
     const needsExtraction =
@@ -181,50 +204,59 @@ export class PythonRuntimeManager extends EventEmitter {
       installedManifest.version !== bundleManifest.version;
 
     if (needsExtraction) {
-      this.emit('log', `📦 Extracting bundled Python runtime version ${bundleManifest.version}...`);
-      this.emit('log', `   Target: ${installDir}`);
+      this.emit(
+        "log",
+        `📦 Extracting bundled Python runtime version ${bundleManifest.version}...`,
+      );
+      this.emit("log", `   Target: ${installDir}`);
       this.resetDirectory(installDir);
       try {
         await this.extractArchive(archivePath, installDir);
-        this.emit('log', '✓ Extraction completed successfully');
+        this.emit("log", "✓ Extraction completed successfully");
       } catch (error) {
-        this.emit('log', `❌ Extraction failed: ${String(error)}`);
+        this.emit("log", `❌ Extraction failed: ${String(error)}`);
         throw error;
       }
       this.writeManifest(installedManifestPath, {
         version: bundleManifest.version,
         python_version: bundleManifest.python_version,
         created_at: new Date().toISOString(),
-        notes: 'embedded',
+        notes: "embedded",
       });
-      this.emit('log', '✓ Manifest written');
+      this.emit("log", "✓ Manifest written");
     } else {
-      this.emit('log', `✓ Runtime already extracted (version ${installedManifest?.version})`);
+      this.emit(
+        "log",
+        `✓ Runtime already extracted (version ${installedManifest?.version})`,
+      );
     }
 
-    this.emit('log', `🔍 Searching for Python binary in ${installDir}...`);
+    this.emit("log", `🔍 Searching for Python binary in ${installDir}...`);
     const pythonPath = this.findPythonBinary(installDir);
     if (!pythonPath) {
-      this.emit('log', `❌ Python binary not found in ${installDir}`);
-      throw new Error('Embedded runtime does not contain a Python interpreter.');
+      this.emit("log", `❌ Python binary not found in ${installDir}`);
+      throw new Error(
+        "Embedded runtime does not contain a Python interpreter.",
+      );
     }
-    this.emit('log', `✓ Python found: ${pythonPath}`);
+    this.emit("log", `✓ Python found: ${pythonPath}`);
 
-    const { venvPath, scriptsDir, pipPath } = this.resolvePythonPaths(pythonPath);
+    const { venvPath, scriptsDir, pipPath } =
+      this.resolvePythonPaths(pythonPath);
     const env = this.buildBaseEnv(scriptsDir, venvPath, options.extraEnv);
 
     if (options.checkFunasr) {
-      this.emit('log', '🔍 Checking funasr import...');
+      this.emit("log", "🔍 Checking funasr import...");
       try {
-        await this.checkImport(pythonPath, 'funasr');
-        this.emit('log', '✓ funasr import successful');
+        await this.checkImport(pythonPath, "funasr");
+        this.emit("log", "✓ funasr import successful");
       } catch (error) {
-        this.emit('log', `❌ funasr import failed: ${String(error)}`);
+        this.emit("log", `❌ funasr import failed: ${String(error)}`);
         throw error;
       }
     }
 
-    this.emit('log', '✅ Embedded runtime ready');
+    this.emit("log", "✅ Embedded runtime ready");
     return {
       pythonPath,
       pipPath,
@@ -236,41 +268,45 @@ export class PythonRuntimeManager extends EventEmitter {
     };
   }
 
-  private async prepareSystemRuntime(options: EnsureRuntimeOptions): Promise<PythonRuntimeDetails> {
+  private async prepareSystemRuntime(
+    options: EnsureRuntimeOptions,
+  ): Promise<PythonRuntimeDetails> {
     const pythonExecutable = await this.resolveSystemPython();
     const userRoot = this.getUserRuntimeRoot();
     const logsDir = this.ensureLogsDirectory(userRoot);
-    const venvPath = join(userRoot, 'venv');
+    const venvPath = join(userRoot, "venv");
 
     let pythonPath = this.findPythonBinary(venvPath);
     let venvCreationError: unknown | null = null;
     if (!pythonPath || options.forceReinstall) {
-      this.emit('log', `Creating Python virtual environment at ${venvPath}`);
+      this.emit("log", `Creating Python virtual environment at ${venvPath}`);
       this.resetDirectory(venvPath);
       try {
-        await execFileAsync(pythonExecutable, ['-m', 'venv', venvPath]);
+        await execFileAsync(pythonExecutable, ["-m", "venv", venvPath]);
       } catch (error) {
         venvCreationError = error;
         const troubleshooting = [
-          '❌ Failed to create Python virtual environment.',
+          "❌ Failed to create Python virtual environment.",
           `Interpreter: ${pythonExecutable}`,
           `Target: ${venvPath}`,
           this.formatExecError(error),
-          '',
-          'Hints:',
-          '  • Confirm python3 (3.10+) is installed and includes the venv module',
-          '  • Ensure the app has write permission to the userData directory',
-          '  • Or bundle a runtime archive under resources/python-runtime/',
-        ].join('\n');
-        this.emit('log', troubleshooting);
+          "",
+          "Hints:",
+          "  • Confirm python3 (3.10+) is installed and includes the venv module",
+          "  • Ensure the app has write permission to the userData directory",
+          "  • Or bundle a runtime archive under resources/python-runtime/",
+        ].join("\n");
+        this.emit("log", troubleshooting);
       }
       pythonPath = this.findPythonBinary(venvPath);
     }
 
     if (!pythonPath) {
-      const details = venvCreationError ? `\n${this.formatExecError(venvCreationError)}` : '';
+      const details = venvCreationError
+        ? `\n${this.formatExecError(venvCreationError)}`
+        : "";
       throw new Error(
-        `无法在 ${venvPath} 创建 Python 虚拟环境。请确认系统已安装可执行的 python3，并启用了 venv 模块。可选方案：设置 EASYPOD_FUNASR_PYTHON 指向已准备好的解释器，或打包内置 runtime。${details}`
+        `无法在 ${venvPath} 创建 Python 虚拟环境。请确认系统已安装可执行的 python3，并启用了 venv 模块。可选方案：设置 EASYPOD_FUNASR_PYTHON 指向已准备好的解释器，或打包内置 runtime。${details}`,
       );
     }
 
@@ -278,11 +314,16 @@ export class PythonRuntimeManager extends EventEmitter {
     const env = this.buildBaseEnv(scriptsDir, venvPath, options.extraEnv);
 
     if (!process.env.EASYPOD_FUNASR_SKIP_INSTALL) {
-      await this.installDependenciesIfNeeded(pythonPath, venvPath, env, options.forceReinstall);
+      await this.installDependenciesIfNeeded(
+        pythonPath,
+        venvPath,
+        env,
+        options.forceReinstall,
+      );
     }
 
     if (options.checkFunasr) {
-      await this.checkImport(pythonPath, 'funasr');
+      await this.checkImport(pythonPath, "funasr");
     }
 
     return {
@@ -308,14 +349,20 @@ export class PythonRuntimeManager extends EventEmitter {
 
   private getEmbeddedRuntimeRoot(): string | null {
     const base = this.getResourcesRoot();
-    const devPath = join(base, 'resources', 'python-runtime');
-    const prodPath = join(base, 'python-runtime');
+    const devPath = join(base, "resources", "python-runtime");
+    const prodPath = join(base, "python-runtime");
 
-    this.emit('log', `🔍 Searching for runtime in:`);
-    this.emit('log', `   Base path: ${base}`);
-    this.emit('log', `   Dev path: ${devPath} (exists: ${existsSync(devPath)})`);
-    this.emit('log', `   Prod path: ${prodPath} (exists: ${existsSync(prodPath)})`);
-    this.emit('log', `   app.isPackaged: ${app.isPackaged}`);
+    this.emit("log", `🔍 Searching for runtime in:`);
+    this.emit("log", `   Base path: ${base}`);
+    this.emit(
+      "log",
+      `   Dev path: ${devPath} (exists: ${existsSync(devPath)})`,
+    );
+    this.emit(
+      "log",
+      `   Prod path: ${prodPath} (exists: ${existsSync(prodPath)})`,
+    );
+    this.emit("log", `   app.isPackaged: ${app.isPackaged}`);
 
     if (!app.isPackaged && existsSync(devPath)) {
       return devPath;
@@ -328,8 +375,8 @@ export class PythonRuntimeManager extends EventEmitter {
 
   private getPythonResourcesRoot(): string | null {
     const base = this.getResourcesRoot();
-    const devPath = join(base, 'resources', 'python');
-    const prodPath = join(base, 'python');
+    const devPath = join(base, "resources", "python");
+    const prodPath = join(base, "python");
     if (!app.isPackaged && existsSync(devPath)) {
       return devPath;
     }
@@ -347,18 +394,18 @@ export class PythonRuntimeManager extends EventEmitter {
 
   private getPlatformKey(): string {
     switch (process.platform) {
-      case 'darwin':
-        return 'macos';
-      case 'win32':
-        return 'windows';
+      case "darwin":
+        return "macos";
+      case "win32":
+        return "windows";
       default:
-        return 'linux';
+        return "linux";
     }
   }
 
   private getUserRuntimeRoot(): string {
-    const userData = app.getPath('userData');
-    const runtimeDir = join(userData, 'python');
+    const userData = app.getPath("userData");
+    const runtimeDir = join(userData, "python");
     if (!existsSync(runtimeDir)) {
       mkdirSync(runtimeDir, { recursive: true });
     }
@@ -366,7 +413,7 @@ export class PythonRuntimeManager extends EventEmitter {
   }
 
   private ensureLogsDirectory(runtimeDir: string): string {
-    const logsDir = join(runtimeDir, 'logs');
+    const logsDir = join(runtimeDir, "logs");
     if (!existsSync(logsDir)) {
       mkdirSync(logsDir, { recursive: true });
     }
@@ -375,16 +422,16 @@ export class PythonRuntimeManager extends EventEmitter {
 
   private readManifest(path: string): RuntimeManifest | null {
     try {
-      const content = readFileSync(path, 'utf-8');
+      const content = readFileSync(path, "utf-8");
       return JSON.parse(content) as RuntimeManifest;
     } catch (error) {
-      this.emit('log', `Failed to read manifest ${path}: ${String(error)}`);
+      this.emit("log", `Failed to read manifest ${path}: ${String(error)}`);
       return null;
     }
   }
 
   private writeManifest(path: string, manifest: RuntimeManifest): void {
-    writeFileSync(path, JSON.stringify(manifest, null, 2), 'utf-8');
+    writeFileSync(path, JSON.stringify(manifest, null, 2), "utf-8");
   }
 
   private resetDirectory(path: string): void {
@@ -394,11 +441,17 @@ export class PythonRuntimeManager extends EventEmitter {
     mkdirSync(path, { recursive: true });
   }
 
-  private async extractArchive(archivePath: string, destination: string): Promise<void> {
+  private async extractArchive(
+    archivePath: string,
+    destination: string,
+  ): Promise<void> {
     try {
       await tar.x({ file: archivePath, cwd: destination, strip: 1 });
     } catch (error) {
-      this.emit('log', `Failed strip extraction: ${String(error)}. Retrying without strip.`);
+      this.emit(
+        "log",
+        `Failed strip extraction: ${String(error)}. Retrying without strip.`,
+      );
       this.resetDirectory(destination);
       await tar.x({ file: archivePath, cwd: destination });
     }
@@ -406,24 +459,39 @@ export class PythonRuntimeManager extends EventEmitter {
 
   private findPythonBinary(root: string, depth = 0): string | null {
     if (!existsSync(root)) {
-      this.emit('log', `   [findPython depth=${depth}] Directory doesn't exist: ${root}`);
+      this.emit(
+        "log",
+        `   [findPython depth=${depth}] Directory doesn't exist: ${root}`,
+      );
       return null;
     }
     if (depth > MAX_SEARCH_DEPTH) {
-      this.emit('log', `   [findPython depth=${depth}] Max depth reached at: ${root}`);
+      this.emit(
+        "log",
+        `   [findPython depth=${depth}] Max depth reached at: ${root}`,
+      );
       return null;
     }
 
-    this.emit('log', `   [findPython depth=${depth}] Searching in: ${root}`);
+    this.emit("log", `   [findPython depth=${depth}] Searching in: ${root}`);
     const entries = readdirSync(root, { withFileTypes: true });
-    const candidateNames = process.platform === 'win32' ? ['python.exe', 'python3.exe'] : ['python3', 'python'];
+    const candidateNames =
+      process.platform === "win32"
+        ? ["python.exe", "python3.exe"]
+        : ["python3", "python"];
 
     // First pass: look for Python in current directory
     // Check for both regular files and symlinks (Python binaries in venv are typically symlinks)
     for (const entry of entries) {
-      if ((entry.isFile() || entry.isSymbolicLink()) && candidateNames.includes(entry.name)) {
+      if (
+        (entry.isFile() || entry.isSymbolicLink()) &&
+        candidateNames.includes(entry.name)
+      ) {
         const foundPath = join(root, entry.name);
-        this.emit('log', `   [findPython depth=${depth}] ✓ Found: ${foundPath} (${entry.isSymbolicLink() ? 'symlink' : 'file'})`);
+        this.emit(
+          "log",
+          `   [findPython depth=${depth}] ✓ Found: ${foundPath} (${entry.isSymbolicLink() ? "symlink" : "file"})`,
+        );
         return foundPath;
       }
     }
@@ -438,7 +506,7 @@ export class PythonRuntimeManager extends EventEmitter {
       }
     }
 
-    this.emit('log', `   [findPython depth=${depth}] Not found in: ${root}`);
+    this.emit("log", `   [findPython depth=${depth}] Not found in: ${root}`);
     return null;
   }
 
@@ -448,12 +516,15 @@ export class PythonRuntimeManager extends EventEmitter {
     pipPath: string | null;
   } {
     const pythonDir = dirname(pythonPath);
-    const parent = resolve(pythonDir, '..');
-    const isScriptsDir = pythonDir.toLowerCase().endsWith('scripts') || pythonDir.toLowerCase().endsWith('bin');
+    const parent = resolve(pythonDir, "..");
+    const isScriptsDir =
+      pythonDir.toLowerCase().endsWith("scripts") ||
+      pythonDir.toLowerCase().endsWith("bin");
     const venvPath = isScriptsDir ? parent : null;
-    const pipCandidate = process.platform === 'win32'
-      ? join(pythonDir, 'pip.exe')
-      : join(pythonDir, 'pip');
+    const pipCandidate =
+      process.platform === "win32"
+        ? join(pythonDir, "pip.exe")
+        : join(pythonDir, "pip");
     const pipPath = existsSync(pipCandidate) ? pipCandidate : null;
 
     return {
@@ -466,111 +537,134 @@ export class PythonRuntimeManager extends EventEmitter {
   private buildBaseEnv(
     scriptsDir: string,
     venvPath: string | null,
-    extraEnv?: Record<string, string>
+    extraEnv?: Record<string, string>,
   ): NodeJS.ProcessEnv {
     const env: NodeJS.ProcessEnv = {
       ...process.env,
-      PYTHONUNBUFFERED: '1',
+      PYTHONUNBUFFERED: "1",
       ...extraEnv,
     };
 
-    const originalPath = process.env.PATH ?? process.env.Path ?? '';
+    const originalPath = process.env.PATH ?? process.env.Path ?? "";
     env.PATH = scriptsDir + delimiter + originalPath;
     if (venvPath) {
       env.VIRTUAL_ENV = venvPath;
-      env.PYTHONHOME = '';
+      env.PYTHONHOME = "";
     }
 
     return env;
   }
 
   private async resolveSystemPython(): Promise<string> {
-    const candidates = process.platform === 'win32'
-      ? ['python.exe', 'python3.exe', 'py']
-      : ['python3', 'python'];
+    const candidates =
+      process.platform === "win32"
+        ? ["python.exe", "python3.exe", "py"]
+        : ["python3", "python"];
 
     for (const candidate of candidates) {
       try {
-        await execFileAsync(candidate, ['--version']);
-        if (candidate === 'py') {
+        await execFileAsync(candidate, ["--version"]);
+        if (candidate === "py") {
           return await this.resolveWindowsLauncher();
         }
         return candidate;
       } catch (error) {
-        this.emit('log', `System python candidate ${candidate} rejected: ${String(error)}`);
+        this.emit(
+          "log",
+          `System python candidate ${candidate} rejected: ${String(error)}`,
+        );
       }
     }
 
     const errorMessage = [
-      '❌ Unable to find a system Python interpreter.',
-      '',
-      'Solutions:',
-      '1. Install Python 3.10+ from https://www.python.org/downloads/',
-      '2. Set EASYPOD_FUNASR_PYTHON environment variable to your Python path',
+      "❌ Unable to find a system Python interpreter.",
+      "",
+      "Solutions:",
+      "1. Install Python 3.10+ from https://www.python.org/downloads/",
+      "2. Set EASYPOD_FUNASR_PYTHON environment variable to your Python path",
       '3. For developers: Build the bundled runtime with "npm run build:python-runtime"',
-      '',
-      'See docs/python-runtime-build.md for detailed instructions.',
-    ].join('\n');
+      "",
+      "See docs/python-runtime-build.md for detailed instructions.",
+    ].join("\n");
 
-    this.emit('log', errorMessage);
-    throw new Error('Python interpreter not found. See console output for solutions.');
+    this.emit("log", errorMessage);
+    throw new Error(
+      "Python interpreter not found. See console output for solutions.",
+    );
   }
 
   private async resolveWindowsLauncher(): Promise<string> {
     try {
-      const { stdout } = await execFileAsync('py', ['-3', '-c', 'import sys; print(sys.executable)']);
+      const { stdout } = await execFileAsync("py", [
+        "-3",
+        "-c",
+        "import sys; print(sys.executable)",
+      ]);
       const path = stdout.trim();
       if (path) {
         return path;
       }
     } catch (error) {
-      this.emit('log', `Python launcher resolution failed: ${String(error)}`);
+      this.emit("log", `Python launcher resolution failed: ${String(error)}`);
     }
-    return 'py';
+    return "py";
   }
 
   private async installDependenciesIfNeeded(
     pythonPath: string,
     venvPath: string,
     env: NodeJS.ProcessEnv,
-    force: boolean | undefined
+    force: boolean | undefined,
   ): Promise<void> {
     const resources = this.getPythonResourcesRoot();
     if (!resources) {
-      this.emit('log', 'Python resources directory not found; skipping dependency installation.');
+      this.emit(
+        "log",
+        "Python resources directory not found; skipping dependency installation.",
+      );
       return;
     }
 
-    const requirementsPath = join(resources, 'requirements.txt');
+    const requirementsPath = join(resources, "requirements.txt");
     if (!existsSync(requirementsPath)) {
-      this.emit('log', 'requirements.txt not found; skipping dependency installation.');
+      this.emit(
+        "log",
+        "requirements.txt not found; skipping dependency installation.",
+      );
       return;
     }
 
-    const requirementsContent = readFileSync(requirementsPath, 'utf-8');
-    const requirementsHash = createHash('sha256').update(requirementsContent).digest('hex');
-    const markerPath = join(venvPath, '.funasr-deps.json');
+    const requirementsContent = readFileSync(requirementsPath, "utf-8");
+    const requirementsHash = createHash("sha256")
+      .update(requirementsContent)
+      .digest("hex");
+    const markerPath = join(venvPath, ".funasr-deps.json");
     const marker = this.readDependencyMarker(markerPath);
 
     if (!force && marker?.requirementsHash === requirementsHash) {
-      this.emit('log', 'FunASR dependencies already installed; skipping.');
+      this.emit("log", "FunASR dependencies already installed; skipping.");
       return;
     }
 
-    const wheelsDir = join(resources, 'wheels');
-    const hasOfflineWheels = existsSync(wheelsDir) && this.directoryHasFiles(wheelsDir);
+    const wheelsDir = join(resources, "wheels");
+    const hasOfflineWheels =
+      existsSync(wheelsDir) && this.directoryHasFiles(wheelsDir);
 
-    this.emit('log', 'Installing FunASR dependencies via pip');
-    await execFileAsync(pythonPath, ['-m', 'pip', 'install', '--upgrade', 'pip', 'setuptools', 'wheel'], {
-      env,
-      cwd: venvPath,
-    });
+    this.emit("log", "Installing FunASR dependencies via pip");
+    await execFileAsync(
+      pythonPath,
+      ["-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"],
+      {
+        env,
+        cwd: venvPath,
+      },
+    );
 
-    const installArgs = ['-m', 'pip', 'install'];
+    const installArgs = ["-m", "pip", "install"];
     if (hasOfflineWheels) {
-      installArgs.push('--no-index', '--find-links', wheelsDir);
+      installArgs.push("--no-index", "--find-links", wheelsDir);
     }
-    installArgs.push('-r', requirementsPath);
+    installArgs.push("-r", requirementsPath);
 
     try {
       await execFileAsync(pythonPath, installArgs, {
@@ -579,36 +673,38 @@ export class PythonRuntimeManager extends EventEmitter {
       });
     } catch (error) {
       const troubleshootingMessage = [
-        '❌ Failed to install FunASR dependencies.',
-        '',
+        "❌ Failed to install FunASR dependencies.",
+        "",
         hasOfflineWheels
-          ? 'Offline wheels were found but installation failed. Possible causes:'
-          : 'No offline wheels found. Installation requires internet connection.',
+          ? "Offline wheels were found but installation failed. Possible causes:"
+          : "No offline wheels found. Installation requires internet connection.",
         hasOfflineWheels
-          ? '  - Wheels may be incomplete or corrupted'
-          : '  - Network connectivity issues',
+          ? "  - Wheels may be incomplete or corrupted"
+          : "  - Network connectivity issues",
         hasOfflineWheels
-          ? '  - Platform mismatch (e.g., ARM wheels on x86)'
-          : '  - Firewall or proxy blocking PyPI',
-        '',
-        'Solutions:',
-        '1. Check network connectivity (if downloading from PyPI)',
-        '2. Use offline wheels: Download packages to resources/python/wheels/',
-        '3. Set EASYPOD_FUNASR_SKIP_INSTALL=1 to skip automatic installation',
+          ? "  - Platform mismatch (e.g., ARM wheels on x86)"
+          : "  - Firewall or proxy blocking PyPI",
+        "",
+        "Solutions:",
+        "1. Check network connectivity (if downloading from PyPI)",
+        "2. Use offline wheels: Download packages to resources/python/wheels/",
+        "3. Set EASYPOD_FUNASR_SKIP_INSTALL=1 to skip automatic installation",
         '4. For developers: Rebuild bundled runtime with "npm run build:python-runtime"',
-        '',
+        "",
         this.formatExecError(error),
-      ].join('\n');
+      ].join("\n");
 
-      this.emit('log', troubleshootingMessage);
-      throw new Error('FunASR dependency installation failed. See console output for details.');
+      this.emit("log", troubleshootingMessage);
+      throw new Error(
+        "FunASR dependency installation failed. See console output for details.",
+      );
     }
 
     const newMarker: DependencyMarker = {
       requirementsHash,
       installedAt: new Date().toISOString(),
     };
-    writeFileSync(markerPath, JSON.stringify(newMarker, null, 2), 'utf-8');
+    writeFileSync(markerPath, JSON.stringify(newMarker, null, 2), "utf-8");
   }
 
   private readDependencyMarker(path: string): DependencyMarker | null {
@@ -616,10 +712,10 @@ export class PythonRuntimeManager extends EventEmitter {
       return null;
     }
     try {
-      const content = readFileSync(path, 'utf-8');
+      const content = readFileSync(path, "utf-8");
       return JSON.parse(content) as DependencyMarker;
     } catch (error) {
-      this.emit('log', `Failed to read dependency marker: ${String(error)}`);
+      this.emit("log", `Failed to read dependency marker: ${String(error)}`);
       return null;
     }
   }
@@ -640,20 +736,28 @@ export class PythonRuntimeManager extends EventEmitter {
     }
   }
 
-  private async checkImport(pythonPath: string, moduleName: string): Promise<void> {
+  private async checkImport(
+    pythonPath: string,
+    moduleName: string,
+  ): Promise<void> {
     try {
-      await execFileAsync(pythonPath, ['-c', `import ${moduleName}`]);
+      await execFileAsync(pythonPath, ["-c", `import ${moduleName}`]);
     } catch (error) {
-      throw new Error(`Python module "${moduleName}" is unavailable in the configured interpreter.`);
+      throw new Error(
+        `Python module "${moduleName}" is unavailable in the configured interpreter.`,
+      );
     }
   }
 
   private formatExecError(error: unknown): string {
-    if (!error || typeof error !== 'object') {
+    if (!error || typeof error !== "object") {
       return String(error);
     }
 
-    const err = error as NodeJS.ErrnoException & { stdout?: string | Buffer; stderr?: string | Buffer };
+    const err = error as NodeJS.ErrnoException & {
+      stdout?: string | Buffer;
+      stderr?: string | Buffer;
+    };
     const segments: string[] = [];
     if (err.message) {
       segments.push(err.message);
@@ -673,7 +777,7 @@ export class PythonRuntimeManager extends EventEmitter {
         segments.push(trimmed);
       }
     }
-    return segments.join('\n');
+    return segments.join("\n");
   }
 }
 

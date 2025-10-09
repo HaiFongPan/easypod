@@ -130,7 +130,11 @@ export class AIServiceManager {
 
       const { service, providerId, modelId } = await this.getDefaultService();
       const chaptersPrompt = await this.getPromptByType("chapters");
-      const result = await service.getChapters(transcript.text, chaptersPrompt);
+      const simplifiedSusbtitle = transcript.subtitles.map(
+        ({ text, start, end }) => ({ text, start, end }),
+      );
+      const transcriptText = JSON.stringify(simplifiedSusbtitle);
+      const result = await service.getChapters(transcriptText, chaptersPrompt);
 
       const tokenUsage =
         (service as OpenAIService).lastTokenUsage?.totalTokens ?? 0;
