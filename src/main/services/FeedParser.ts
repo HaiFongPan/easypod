@@ -1,6 +1,6 @@
-import Parser from 'rss-parser';
-import axios, { AxiosResponse } from 'axios';
-import { parseString } from 'xml2js';
+import Parser from "rss-parser";
+import axios, { AxiosResponse } from "axios";
+import { parseString } from "xml2js";
 import {
   FeedParserOptions,
   ParsedFeed,
@@ -10,14 +10,13 @@ import {
   NetworkError,
   XMLParseError,
   FeedResponse,
-  ValidationResult
-} from '../types/feed';
-import { FeedCache } from './FeedCache';
+  ValidationResult,
+} from "../types/feed";
+import { FeedCache } from "./FeedCache";
 import {
   parseDuration,
   parseDate,
   sanitizeDescription,
-  extractTextContent,
   extractChaptersFromShownotes,
   normalizeCategory,
   parseKeywords,
@@ -25,26 +24,30 @@ import {
   generateEpisodeGuid,
   normalizeFunding,
   normalizePersons,
-  getImageUrl
-} from '../utils/feedNormalizer';
+  getImageUrl,
+  extractTextContent,
+} from "../utils/feedNormalizer";
 
 const coerceToString = (value: unknown): string | undefined => {
   if (value == null) {
     return undefined;
   }
 
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     return value;
   }
 
   if (Array.isArray(value)) {
     return value
       .map(coerceToString)
-      .filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
-      .join('\n');
+      .filter(
+        (entry): entry is string =>
+          typeof entry === "string" && entry.length > 0,
+      )
+      .join("\n");
   }
 
-  if (typeof value === 'object' && '_' in (value as Record<string, unknown>)) {
+  if (typeof value === "object" && "_" in (value as Record<string, unknown>)) {
     return coerceToString((value as Record<string, unknown>)._);
   }
 
@@ -64,7 +67,7 @@ export class PodcastFeedParser {
     this.options = {
       timeout: 30000,
       maxRedirects: 5,
-      userAgent: 'EasyPod/1.0 (Podcast Player)',
+      userAgent: "EasyPod/1.0 (Podcast Player)",
       retryAttempts: 3,
       enableCaching: true,
       ...options,
@@ -81,32 +84,32 @@ export class PodcastFeedParser {
     this.parser = new Parser({
       timeout: this.options.timeout,
       headers: {
-        'User-Agent': this.options.userAgent,
+        "User-Agent": this.options.userAgent,
       },
       customFields: {
         feed: [
-          'itunes:image',
-          'itunes:category',
-          'itunes:author',
-          'itunes:summary',
-          'itunes:explicit',
-          'podcast:funding',
-          'podcast:trailer',
-          'podcast:license',
+          "itunes:image",
+          "itunes:category",
+          "itunes:author",
+          "itunes:summary",
+          "itunes:explicit",
+          "podcast:funding",
+          "podcast:trailer",
+          "podcast:license",
         ],
         item: [
-          'itunes:image',
-          'itunes:duration',
-          'itunes:summary',
-          'itunes:explicit',
-          'itunes:season',
-          'itunes:episode',
-          'itunes:keywords',
-          'podcast:chapters',
-          'podcast:transcript',
-          'podcast:funding',
-          'podcast:person',
-          'content:encoded',
+          "itunes:image",
+          "itunes:duration",
+          "itunes:summary",
+          "itunes:explicit",
+          "itunes:season",
+          "itunes:episode",
+          "itunes:keywords",
+          "podcast:chapters",
+          "podcast:transcript",
+          "podcast:funding",
+          "podcast:person",
+          "content:encoded",
         ],
       },
     });
@@ -144,16 +147,24 @@ export class PodcastFeedParser {
           url,
           normalizedFeed,
           response.etag,
-          response.lastModified
+          response.lastModified,
         );
       }
 
       return normalizedFeed;
     } catch (error) {
-      if (error instanceof FeedParseError || error instanceof NetworkError || error instanceof XMLParseError) {
+      if (
+        error instanceof FeedParseError ||
+        error instanceof NetworkError ||
+        error instanceof XMLParseError
+      ) {
         throw error;
       }
-      throw new FeedParseError(`Failed to parse feed: ${error instanceof Error ? error.message : String(error)}`, url, error);
+      throw new FeedParseError(
+        `Failed to parse feed: ${error instanceof Error ? error.message : String(error)}`,
+        url,
+        error,
+      );
     }
   }
 
@@ -166,8 +177,8 @@ export class PodcastFeedParser {
     for (let attempt = 1; attempt <= this.options.retryAttempts; attempt++) {
       try {
         const headers: Record<string, string> = {
-          'User-Agent': this.options.userAgent,
-          'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+          "User-Agent": this.options.userAgent,
+          Accept: "application/rss+xml, application/xml, text/xml, */*",
         };
 
         // Add conditional request headers for caching
@@ -187,7 +198,7 @@ export class PodcastFeedParser {
           status: response.status,
           headers: response.headers as Record<string, string>,
           etag: response.headers.etag,
-          lastModified: response.headers['last-modified'],
+          lastModified: response.headers["last-modified"],
         };
       } catch (error) {
         lastError = error as Error;
@@ -197,21 +208,23 @@ export class PodcastFeedParser {
             throw new NetworkError(
               `HTTP ${error.response.status}: ${error.response.statusText}`,
               url,
-              error.response.status
+              error.response.status,
             );
           }
         }
 
         // Wait before retry (exponential backoff)
         if (attempt < this.options.retryAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
+          await new Promise((resolve) =>
+            setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)),
+          );
         }
       }
     }
 
     throw new NetworkError(
-      `Failed to fetch feed after ${this.options.retryAttempts} attempts: ${lastError?.message || 'Unknown error'}`,
-      url
+      `Failed to fetch feed after ${this.options.retryAttempts} attempts: ${lastError?.message || "Unknown error"}`,
+      url,
     );
   }
 
@@ -225,7 +238,7 @@ export class PodcastFeedParser {
       throw new XMLParseError(
         `Failed to parse RSS XML: ${error instanceof Error ? error.message : String(error)}`,
         url,
-        xmlContent.substring(0, 1000)
+        xmlContent.substring(0, 1000),
       );
     }
   }
@@ -233,9 +246,13 @@ export class PodcastFeedParser {
   /**
    * Normalize raw RSS feed data to standardized format
    */
-  private async normalizeFeed(rawFeed: any, url: string, response: FeedResponse): Promise<ParsedFeed> {
+  private async normalizeFeed(
+    rawFeed: any,
+    url: string,
+    response: FeedResponse,
+  ): Promise<ParsedFeed> {
     const feed: ParsedFeed = {
-      title: rawFeed.title || 'Untitled Podcast',
+      title: rawFeed.title || "Untitled Podcast",
       description: extractTextContent(rawFeed.description),
       url,
       link: validateUrl(rawFeed.link) || url,
@@ -244,7 +261,9 @@ export class PodcastFeedParser {
     };
 
     // Extract feed-level metadata
-    const feedImageFromItunes = this.extractImageUrlFromNode(rawFeed['itunes:image']);
+    const feedImageFromItunes = this.extractImageUrlFromNode(
+      rawFeed["itunes:image"],
+    );
     const feedImageFromImageTag = this.extractImageUrlFromNode(rawFeed.image);
     if (feedImageFromImageTag) {
       feed.image = feedImageFromImageTag;
@@ -252,8 +271,8 @@ export class PodcastFeedParser {
       feed.image = feedImageFromItunes;
     }
 
-    feed.author = rawFeed['itunes:author'] || rawFeed.managingEditor;
-    feed.category = normalizeCategory(rawFeed['itunes:category']?.text);
+    feed.author = rawFeed["itunes:author"] || rawFeed.managingEditor;
+    feed.category = normalizeCategory(rawFeed["itunes:category"]?.text);
     feed.language = rawFeed.language;
     feed.copyright = rawFeed.copyright;
 
@@ -270,14 +289,16 @@ export class PodcastFeedParser {
             feed.episodes.push(episode);
           }
         } catch (error) {
-          console.warn(`Failed to parse episode: ${error instanceof Error ? error.message : String(error)}`);
+          console.warn(
+            `Failed to parse episode: ${error instanceof Error ? error.message : String(error)}`,
+          );
           // Continue processing other episodes
         }
       }
     }
 
     if (!feed.image) {
-      const firstEpisodeWithImage = feed.episodes.find(ep => ep.episodeImage);
+      const firstEpisodeWithImage = feed.episodes.find((ep) => ep.episodeImage);
       if (firstEpisodeWithImage?.episodeImage) {
         feed.image = firstEpisodeWithImage.episodeImage;
       }
@@ -301,55 +322,83 @@ export class PodcastFeedParser {
     }
 
     const pubDate = parseDate(item.pubDate || item.isoDate);
-    const title = item.title || 'Untitled Episode';
+    const title = item.title || "Untitled Episode";
 
-    const rawContentEncoded = coerceToString(item['content:encoded']) ?? coerceToString(item.content);
-    const rawDescription = coerceToString(item.description) ?? coerceToString(item['itunes:summary']);
+    const rawContentEncoded =
+      coerceToString(item["content:encoded"]) ?? coerceToString(item.content);
+    const rawDescription =
+      coerceToString(item.description) ??
+      coerceToString(item["itunes:summary"]);
 
     const sanitizedContentHtml = sanitizeDescription(rawContentEncoded);
     const sanitizedDescriptionHtml = sanitizeDescription(rawDescription);
     const sanitizedContentTrimmedLength = sanitizedContentHtml.trim().length;
-    const descriptionHtml = sanitizedContentTrimmedLength > 0
-      ? sanitizedContentHtml
-      : sanitizedDescriptionHtml;
+    const descriptionHtml =
+      sanitizedContentTrimmedLength > 0
+        ? sanitizedContentHtml
+        : sanitizedDescriptionHtml;
 
-    const rawSummary = coerceToString(item['itunes:summary']) ?? coerceToString(item.summary);
+    const rawSummary =
+      coerceToString(item["itunes:summary"]) ?? coerceToString(item.summary);
 
     const episode: ParsedEpisode = {
       guid: generateEpisodeGuid(item.guid, audioUrl, title, pubDate),
       title,
-      description: extractTextContent(rawSummary ?? rawDescription ?? ''),
+      description: extractTextContent(rawSummary ?? rawDescription ?? ""),
       descriptionHtml,
       audioUrl,
       pubDate: pubDate || new Date(),
     };
 
     // Optional fields
-    episode.duration = parseDuration(item['itunes:duration']) || parseDuration(item.enclosure?.length);
-    const episodeImageFromItunes = this.extractImageUrlFromNode(item['itunes:image']);
-    const episodeImageFromMedia = this.extractImageUrlFromNode(item['media:thumbnail']) || this.extractImageUrlFromNode(item['media:content']);
+    episode.duration =
+      parseDuration(item["itunes:duration"]) ||
+      parseDuration(item.enclosure?.length);
+    const episodeImageFromItunes = this.extractImageUrlFromNode(
+      item["itunes:image"],
+    );
+    const episodeImageFromMedia =
+      this.extractImageUrlFromNode(item["media:thumbnail"]) ||
+      this.extractImageUrlFromNode(item["media:content"]);
     const episodeImageFromItem = this.extractImageUrlFromNode(item.image);
-    episode.episodeImage = getImageUrl(episodeImageFromItunes, episodeImageFromMedia || episodeImageFromItem);
-    episode.seasonNumber = parseInt(item['itunes:season'], 10) || undefined;
-    episode.episodeNumber = parseInt(item['itunes:episode'], 10) || undefined;
-    episode.explicit = item['itunes:explicit'] === 'true' || item['itunes:explicit'] === 'yes';
-    episode.keywords = parseKeywords(item['itunes:keywords']);
+    episode.episodeImage = getImageUrl(
+      episodeImageFromItunes,
+      episodeImageFromMedia || episodeImageFromItem,
+    );
+    episode.seasonNumber = parseInt(item["itunes:season"], 10) || undefined;
+    episode.episodeNumber = parseInt(item["itunes:episode"], 10) || undefined;
+    episode.explicit =
+      item["itunes:explicit"] === "true" || item["itunes:explicit"] === "yes";
+    episode.keywords = parseKeywords(item["itunes:keywords"]);
 
     // Podcast 2.0 fields
-    if (item['podcast:funding']) {
-      episode.funding = normalizeFunding(Array.isArray(item['podcast:funding']) ? item['podcast:funding'] : [item['podcast:funding']]);
+    if (item["podcast:funding"]) {
+      episode.funding = normalizeFunding(
+        Array.isArray(item["podcast:funding"])
+          ? item["podcast:funding"]
+          : [item["podcast:funding"]],
+      );
     }
 
-    if (item['podcast:person']) {
-      episode.persons = normalizePersons(Array.isArray(item['podcast:person']) ? item['podcast:person'] : [item['podcast:person']]);
+    if (item["podcast:person"]) {
+      episode.persons = normalizePersons(
+        Array.isArray(item["podcast:person"])
+          ? item["podcast:person"]
+          : [item["podcast:person"]],
+      );
     }
 
-    if (item['podcast:transcript']) {
-      episode.transcript = validateUrl(item['podcast:transcript'].url || item['podcast:transcript']._);
+    if (item["podcast:transcript"]) {
+      episode.transcript = validateUrl(
+        item["podcast:transcript"].url || item["podcast:transcript"]._,
+      );
     }
 
     // Parse chapters
-    episode.chapters = await this.parseEpisodeChapters(item, episode.descriptionHtml);
+    episode.chapters = await this.parseEpisodeChapters(
+      item,
+      episode.descriptionHtml,
+    );
 
     return episode;
   }
@@ -359,7 +408,7 @@ export class PodcastFeedParser {
       return undefined;
     }
 
-    if (typeof node === 'string') {
+    if (typeof node === "string") {
       return validateUrl(node);
     }
 
@@ -373,14 +422,20 @@ export class PodcastFeedParser {
       return undefined;
     }
 
-    if (typeof node === 'object') {
+    if (typeof node === "object") {
       return (
         validateUrl((node as any).url) ||
         validateUrl((node as any).href) ||
         validateUrl((node as any)._) ||
-        validateUrl((node as any)['#']) ||
-        ((node as any).$ ? (validateUrl((node as any).$.url) || validateUrl((node as any).$.href)) : undefined) ||
-        ((node as any)['@'] ? (validateUrl((node as any)['@'].url) || validateUrl((node as any)['@'].href)) : undefined)
+        validateUrl((node as any)["#"]) ||
+        ((node as any).$
+          ? validateUrl((node as any).$.url) ||
+            validateUrl((node as any).$.href)
+          : undefined) ||
+        ((node as any)["@"]
+          ? validateUrl((node as any)["@"].url) ||
+            validateUrl((node as any)["@"].href)
+          : undefined)
       );
     }
 
@@ -390,22 +445,30 @@ export class PodcastFeedParser {
   /**
    * Parse episode chapters from various sources
    */
-  private async parseEpisodeChapters(item: any, descriptionHtml?: string): Promise<ParsedChapter[]> {
+  private async parseEpisodeChapters(
+    item: any,
+    descriptionHtml?: string,
+  ): Promise<ParsedChapter[]> {
     const chapters: ParsedChapter[] = [];
 
     // Priority 1: Podcast 2.0 chapters JSON
-    if (item['podcast:chapters']?.url) {
+    if (item["podcast:chapters"]?.url) {
       try {
-        const chaptersFromJson = await this.fetchChaptersJson(item['podcast:chapters'].url);
+        const chaptersFromJson = await this.fetchChaptersJson(
+          item["podcast:chapters"].url,
+        );
         chapters.push(...chaptersFromJson);
       } catch (error) {
-        console.warn(`Failed to fetch chapters JSON: ${error instanceof Error ? error.message : String(error)}`);
+        console.warn(
+          `Failed to fetch chapters JSON: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
 
     // Priority 2: Extract from shownotes if no JSON chapters
     if (chapters.length === 0 && descriptionHtml) {
-      const chaptersFromShownotes = extractChaptersFromShownotes(descriptionHtml);
+      const chaptersFromShownotes =
+        extractChaptersFromShownotes(descriptionHtml);
       chapters.push(...chaptersFromShownotes);
     }
 
@@ -419,7 +482,7 @@ export class PodcastFeedParser {
     try {
       const response = await axios.get(url, {
         timeout: this.options.timeout,
-        headers: { 'User-Agent': this.options.userAgent },
+        headers: { "User-Agent": this.options.userAgent },
       });
 
       const chaptersData = response.data;
@@ -429,16 +492,20 @@ export class PodcastFeedParser {
 
       return chaptersData.chapters
         .map((chapter: any) => ({
-          title: chapter.title || '',
+          title: chapter.title || "",
           startTime: parseFloat(chapter.startTime) || 0,
           endTime: chapter.endTime ? parseFloat(chapter.endTime) : undefined,
           image: validateUrl(chapter.img),
           url: validateUrl(chapter.url),
-          source: 'json' as const,
+          source: "json" as const,
         }))
-        .filter((chapter: ParsedChapter) => chapter.title && chapter.startTime >= 0);
+        .filter(
+          (chapter: ParsedChapter) => chapter.title && chapter.startTime >= 0,
+        );
     } catch (error) {
-      throw new Error(`Failed to fetch chapters JSON: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to fetch chapters JSON: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -451,15 +518,15 @@ export class PodcastFeedParser {
 
     // Required fields validation
     if (!feed.title.trim()) {
-      errors.push('Feed title is required');
+      errors.push("Feed title is required");
     }
 
     if (!feed.url) {
-      errors.push('Feed URL is required');
+      errors.push("Feed URL is required");
     }
 
     if (feed.episodes.length === 0) {
-      warnings.push('No episodes found in feed');
+      warnings.push("No episodes found in feed");
     }
 
     // Episode validation

@@ -56,9 +56,9 @@ export const AISettings: React.FC = () => {
   const [validationMessage, setValidationMessage] = useState<string | null>(
     null,
   );
-  const [validationSuccess, setValidationSuccess] = useState<
-    boolean | null
-  >(null);
+  const [validationSuccess, setValidationSuccess] = useState<boolean | null>(
+    null,
+  );
 
   const electronAPI = getElectronAPI();
 
@@ -297,9 +297,9 @@ export const AISettings: React.FC = () => {
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
           AI 功能配置
         </h3>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          配置 LLM Provider、模型和提示词模板
-        </p>
+        {/* <p className="mt-1 text-sm text-gray-600 dark:text-gray-400"> */}
+        {/* 配置 LLM Provider、模型和提示词模板 */}
+        {/* </p> */}
       </div>
 
       {error && (
@@ -319,29 +319,19 @@ export const AISettings: React.FC = () => {
                 : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
             } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
           >
-            Providers & Models
-          </button>
-          <button
-            onClick={() => setActiveTab("prompts")}
-            className={`${
-              activeTab === "prompts"
-                ? "border-blue-500 text-blue-600 dark:text-blue-400"
-                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
-            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
-          >
-            提示词模板
+            Providers
           </button>
         </nav>
       </div>
 
       {/* Providers Tab */}
-      {activeTab === "providers" && (
+      {
         <div className="flex flex-1 min-h-0 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
           {/* Left Panel - Provider List */}
           <div className="w-1/3 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex flex-col min-h-0">
-            <div className="p-4 font-semibold text-sm border-b border-gray-200 dark:border-gray-700">
-              Providers
-            </div>
+            {/* <div className="p-4 font-semibold text-sm border-b border-gray-200 dark:border-gray-700"> */}
+            {/*   Providers */}
+            {/* </div> */}
             <div className="flex-1 overflow-y-auto">
               {providers.map((provider) => (
                 <div
@@ -621,93 +611,7 @@ export const AISettings: React.FC = () => {
             )}
           </div>
         </div>
-      )}
-
-      {/* Prompts Tab */}
-      {activeTab === "prompts" && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              自定义提示词模板，系统会优先使用非内置的自定义模板
-            </p>
-            <Button onClick={addPrompt} variant="primary">
-              <Plus size={16} className="mr-1" /> 添加提示词
-            </Button>
-          </div>
-
-          <div className="space-y-3">
-            {prompts.map((prompt) => (
-              <div
-                key={prompt.id}
-                className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        名称
-                      </label>
-                      <Input
-                        type="text"
-                        value={prompt.name || ""}
-                        onChange={(e) =>
-                          updatePrompt(prompt.id, { name: e.target.value })
-                        }
-                        placeholder="提示词名称"
-                        disabled={prompt.isBuiltin}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        类型
-                      </label>
-                      <select
-                        value={prompt.type}
-                        onChange={(e) =>
-                          updatePrompt(prompt.id, { type: e.target.value })
-                        }
-                        disabled={prompt.isBuiltin}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 disabled:opacity-50"
-                      >
-                        <option value="summary">Summary</option>
-                        <option value="chapters">Chapters</option>
-                        <option value="mindmap">Mindmap</option>
-                      </select>
-                    </div>
-                  </div>
-                  {!prompt.isBuiltin && (
-                    <button
-                      onClick={() => deletePrompt(prompt.id)}
-                      className="ml-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    提示词内容
-                    {prompt.isBuiltin && (
-                      <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                        (内置，只读)
-                      </span>
-                    )}
-                  </label>
-                  <textarea
-                    value={prompt.prompt}
-                    onChange={(e) =>
-                      updatePrompt(prompt.id, { prompt: e.target.value })
-                    }
-                    disabled={prompt.isBuiltin}
-                    rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:bg-gray-100 dark:disabled:bg-gray-700"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      }
     </div>
   );
 };

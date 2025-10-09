@@ -40,8 +40,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // RSS Feed management
   feeds: {
-    subscribe: (url: string, opmlGroup?: string) =>
-      ipcRenderer.invoke('feeds:subscribe', url, opmlGroup),
+    subscribe: (url: string, opmlGroup?: string, options?: any) =>
+      ipcRenderer.invoke('feeds:subscribe', url, opmlGroup, options),
     unsubscribe: (feedId: number) =>
       ipcRenderer.invoke('feeds:unsubscribe', feedId),
     getAll: () => ipcRenderer.invoke('feeds:getAll'),
@@ -192,7 +192,11 @@ export interface ElectronAPI {
   onMediaKey: (callback: (action: string) => void) => () => void;
   showNotification: (title: string, body: string) => Promise<void>;
   feeds: {
-    subscribe: (url: string, opmlGroup?: string) => Promise<{ success: boolean; feed?: any; error?: string }>;
+    subscribe: (
+      url: string,
+      opmlGroup?: string,
+      options?: { subscribe?: boolean; limitEpisodes?: number; returnEpisodes?: boolean }
+    ) => Promise<{ success: boolean; feed?: any; episodes?: any[]; error?: string }>;
     unsubscribe: (feedId: number) => Promise<{ success: boolean; error?: string }>;
     getAll: () => Promise<any[]>;
     getById: (feedId: number) => Promise<any | null>;

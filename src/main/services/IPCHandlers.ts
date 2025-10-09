@@ -118,39 +118,22 @@ export class FeedIPCHandlers {
   private async handleSubscribeFeed(
     event: IpcMainInvokeEvent,
     url: string,
-    opmlGroup?: string
-  ): Promise<{ success: boolean; feed?: any; error?: string }> {
+    opmlGroup?: string,
+    options?: {
+      subscribe?: boolean;
+      limitEpisodes?: number;
+      returnEpisodes?: boolean;
+    }
+  ): Promise<{ success: boolean; feed?: any; episodes?: any[]; error?: string }> {
     try {
+      const shouldSubscribe = options?.subscribe !== false;
+      const episodeLimit = options?.limitEpisodes;
+      const shouldReturnEpisodes = options?.returnEpisodes ?? !shouldSubscribe;
+
       // Check if feed already exists
       const existingFeed = await this.feedsDao.findByUrl(url);
 
-      if (existingFeed) {
-        // If feed exists but is not subscribed, subscribe to it
-        if (!existingFeed.isSubscribed) {
-          await this.feedsDao.subscribe(existingFeed.id);
-
-          // Refresh episodes for the feed
-          const parsedFeed = await this.parser.parseFeed(url);
-          const { latestPubDate } = await this.saveFeedEpisodes(existingFeed.id, parsedFeed, existingFeed.coverUrl);
-
-          if (latestPubDate) {
-            await this.feedsDao.update(existingFeed.id, { lastPubDate: latestPubDate });
-          }
-
-          const refreshedFeed = await this.feedsDao.findById(existingFeed.id);
-          const episodeCount = await this.episodesDao.countByFeed([existingFeed.id]);
-
-          return {
-            success: true,
-            feed: {
-              ...(refreshedFeed ?? existingFeed),
-              isSubscribed: true,
-              episodeCount: episodeCount[existingFeed.id] || 0,
-            }
-          };
-        }
-
-        // Already subscribed
+      if (existingFeed && existingFeed.isSubscribed && shouldSubscribe) {
         return {
           success: false,
           error: 'Already subscribed to this feed',
@@ -161,49 +144,89 @@ export class FeedIPCHandlers {
       const parsedFeed = await this.parser.parseFeed(url);
       const resolvedFeedCoverUrl = parsedFeed.image || parsedFeed.episodes.find(ep => ep.episodeImage)?.episodeImage || null;
 
-      // Create new feed with isSubscribed = true
-      const newFeed: NewFeed = {
-        title: parsedFeed.title,
-        url: parsedFeed.url,
-        coverUrl: resolvedFeedCoverUrl,
-        description: parsedFeed.description || null,
-        lastCheckedAt: new Date().toISOString(),
-        opmlGroup: opmlGroup || null,
-        metaJson: JSON.stringify({
-          language: parsedFeed.language,
-          author: parsedFeed.author,
-          link: parsedFeed.link,
-        }),
-      };
+      let feedRecord = existingFeed;
 
-      const feed = await this.feedsDao.create(newFeed);
+      if (feedRecord) {
+        const updates: Partial<NewFeed> = {
+          title: parsedFeed.title ?? feedRecord.title,
+          description: parsedFeed.description ?? feedRecord.description,
+          coverUrl: resolvedFeedCoverUrl ?? feedRecord.coverUrl,
+          lastCheckedAt: new Date().toISOString(),
+          metaJson: JSON.stringify({
+            language: parsedFeed.language,
+            author: parsedFeed.author,
+            link: parsedFeed.link,
+          }),
+        };
 
-      // Mark as subscribed
-      await this.feedsDao.subscribe(feed.id);
+        if (typeof opmlGroup !== 'undefined') {
+          updates.opmlGroup = opmlGroup;
+        }
 
-      // Save episodes to database
-      const { count: episodeCount, latestPubDate } = await this.saveFeedEpisodes(
-        feed.id,
+        await this.feedsDao.update(feedRecord.id, updates);
+        const refreshed = await this.feedsDao.findById(feedRecord.id);
+        if (refreshed) {
+          feedRecord = refreshed;
+        }
+      } else {
+        const newFeed: NewFeed = {
+          title: parsedFeed.title,
+          url: parsedFeed.url || url,
+          coverUrl: resolvedFeedCoverUrl,
+          description: parsedFeed.description || null,
+          lastCheckedAt: new Date().toISOString(),
+          opmlGroup: opmlGroup ?? null,
+          metaJson: JSON.stringify({
+            language: parsedFeed.language,
+            author: parsedFeed.author,
+            link: parsedFeed.link,
+          }),
+        };
+
+        feedRecord = await this.feedsDao.create(newFeed);
+      }
+
+      if (!feedRecord || typeof feedRecord.id !== 'number') {
+        throw new Error('Failed to create or locate feed record');
+      }
+
+      // Save episodes to database (limited when requested)
+      const { latestPubDate } = await this.saveFeedEpisodes(
+        feedRecord.id,
         parsedFeed,
         resolvedFeedCoverUrl,
+        episodeLimit,
       );
-      let updatedFeed = feed;
+
       if (latestPubDate) {
-        const refreshed = await this.feedsDao.update(feed.id, {
+        const refreshed = await this.feedsDao.update(feedRecord.id, {
           lastPubDate: latestPubDate,
         });
         if (refreshed) {
-          updatedFeed = refreshed;
+          feedRecord = refreshed;
         }
       }
+
+      if (shouldSubscribe && !feedRecord.isSubscribed) {
+        await this.feedsDao.subscribe(feedRecord.id);
+        const refreshed = await this.feedsDao.findById(feedRecord.id);
+        if (refreshed) {
+          feedRecord = refreshed;
+        }
+      }
+
+      const episodeCounts = await this.episodesDao.countByFeed([feedRecord.id]);
+      const episodesPayload = shouldReturnEpisodes
+        ? await this.episodesDao.findByFeed(feedRecord.id, episodeLimit)
+        : undefined;
 
       return {
         success: true,
         feed: {
-          ...updatedFeed,
-          isSubscribed: true,
-          episodeCount,
-        }
+          ...feedRecord,
+          episodeCount: episodeCounts[feedRecord.id] ?? (episodesPayload?.length ?? 0),
+        },
+        ...(episodesPayload ? { episodes: episodesPayload } : {}),
       };
     } catch (error) {
       console.error('Error subscribing to feed:', error);
@@ -220,9 +243,16 @@ export class FeedIPCHandlers {
   private async saveFeedEpisodes(
     feedId: number,
     parsedFeed: any,
-    coverUrl: string | null
+    coverUrl: string | null,
+    limit?: number
   ): Promise<{ count: number; latestPubDate: string | null }> {
-    const episodes: NewEpisode[] = parsedFeed.episodes.map((ep: any) => ({
+    const episodesSource = Array.isArray(parsedFeed.episodes)
+      ? typeof limit === 'number'
+        ? parsedFeed.episodes.slice(0, limit)
+        : parsedFeed.episodes
+      : [];
+
+    const episodes: NewEpisode[] = episodesSource.map((ep: any) => ({
       feedId,
       guid: ep.guid || ep.audioUrl || `${feedId}-${ep.title}`,
       title: ep.title,
@@ -241,7 +271,7 @@ export class FeedIPCHandlers {
       }),
     }));
 
-    const latestPubDateIso: string | null = parsedFeed.episodes.reduce(
+    const latestPubDateIso: string | null = episodesSource.reduce(
       (latest: string | null, episode: any) => {
         const sourceDate =
           episode.pubDate instanceof Date

@@ -6,7 +6,16 @@ import { EpisodeCard } from "../components/Episode/EpisodeCard";
 import { cn } from "../utils/cn";
 import Button from "../components/Button";
 import { useEpisodeDetailNavigation } from "../hooks/useEpisodeDetailNavigation";
-import { LayoutList, PlayCircle, Archive, Search, List, Loader2, AlertCircle, Mic } from "lucide-react";
+import {
+  LayoutList,
+  PlayCircle,
+  Archive,
+  Search,
+  List,
+  Loader2,
+  AlertCircle,
+  Mic,
+} from "lucide-react";
 
 const PAGE_SIZE = 10;
 type EpisodesViewMode = "standard" | "compact";
@@ -68,13 +77,11 @@ export const EpisodesListPage: React.FC = () => {
   const startIndex = (currentPage - 1) * PAGE_SIZE;
   const endIndex = Math.min(startIndex + PAGE_SIZE, episodes.length);
   const toggleGroupClasses =
-    "inline-flex items-center overflow-hidden rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 divide-x divide-gray-200 dark:divide-gray-700";
-  const toggleButtonBaseClasses =
-    "flex h-10 items-center justify-center px-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-800";
+    "inline-flex items-center border border-gray-300 dark:border-gray-600 rounded";
+  const toggleButtonBaseClasses = "p-1.5 transition-colors";
   const toggleButtonInactiveClasses =
-    "text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200";
-  const toggleButtonActiveClasses =
-    "bg-blue-500 text-white hover:bg-blue-500 hover:text-white dark:bg-blue-600 dark:hover:bg-blue-600 dark:text-white";
+    "text-secondary-500 hover:text-secondary-700 dark:text-secondary-400 dark:hover:text-secondary-200";
+  const toggleButtonActiveClasses = "bg-blue-500 text-white";
   const statusOptions = [
     { value: "all" as const, icon: LayoutList, label: "All Episodes" },
     { value: "in_progress" as const, icon: PlayCircle, label: "In Progress" },
@@ -114,7 +121,7 @@ export const EpisodesListPage: React.FC = () => {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              All Episodes
+              Episodes
             </h1>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
               {episodes.length} episode{episodes.length !== 1 ? "s" : ""}
@@ -140,19 +147,23 @@ export const EpisodesListPage: React.FC = () => {
             <div className="relative">
               <input
                 type="text"
-                className="w-full h-10 px-4 pl-10 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100"
+                className="w-full h-8 px-3 pl-9 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100 text-sm"
                 placeholder="Search episodes..."
                 value={localSearchQuery}
                 onChange={(e) => setLocalSearchQuery(e.target.value)}
               />
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             </div>
           </form>
 
           {/* Status Filter */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-            <div className={toggleGroupClasses} role="group" aria-label="Status filter">
-              {statusOptions.map(({ value, icon: Icon, label }) => {
+            <div
+              className={toggleGroupClasses}
+              role="group"
+              aria-label="Status filter"
+            >
+              {statusOptions.map(({ value, icon: Icon, label }, index) => {
                 const isSelected = statusFilter === value;
                 return (
                   <button
@@ -161,7 +172,11 @@ export const EpisodesListPage: React.FC = () => {
                     onClick={() => handleStatusFilterChange(value)}
                     className={cn(
                       toggleButtonBaseClasses,
-                      isSelected ? toggleButtonActiveClasses : toggleButtonInactiveClasses,
+                      index === 0 && "rounded-l",
+                      index === statusOptions.length - 1 && "rounded-r",
+                      isSelected
+                        ? toggleButtonActiveClasses
+                        : toggleButtonInactiveClasses,
                     )}
                     aria-label={label}
                     aria-pressed={isSelected}
@@ -174,12 +189,17 @@ export const EpisodesListPage: React.FC = () => {
             </div>
 
             <div className="flex items-center">
-              <div className={toggleGroupClasses} role="group" aria-label="View mode">
+              <div
+                className={toggleGroupClasses}
+                role="group"
+                aria-label="View mode"
+              >
                 <button
                   type="button"
                   onClick={() => handleViewModeChange("standard")}
                   className={cn(
                     toggleButtonBaseClasses,
+                    "rounded-l",
                     viewMode === "standard"
                       ? toggleButtonActiveClasses
                       : toggleButtonInactiveClasses,
@@ -194,6 +214,7 @@ export const EpisodesListPage: React.FC = () => {
                   onClick={() => handleViewModeChange("compact")}
                   className={cn(
                     toggleButtonBaseClasses,
+                    "rounded-r",
                     viewMode === "compact"
                       ? toggleButtonActiveClasses
                       : toggleButtonInactiveClasses,

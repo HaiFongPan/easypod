@@ -17,7 +17,8 @@ import { getElectronAPI } from "../../utils/electron";
 import { formatDate, formatDuration } from "../../utils/formatters";
 import PlayPauseButton from "../PlayPauseButton";
 import QueueAddButton from "../QueueAddButton";
-import { Archive, Grid, Grid3x3 } from "lucide-react";
+import ArchiveEpisodeButton from "../ArchiveEpisodeButton/ArchiveEpisodeButton";
+import { Grid, Grid3x3 } from "lucide-react";
 import { useEpisodeDetailNavigation } from "../../hooks/useEpisodeDetailNavigation";
 
 interface SubscriptionListProps {
@@ -241,30 +242,15 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
   };
 
   const handleArchiveEpisode = useCallback(
-    async (episode: Episode) => {
-      const numericId = Number(episode.id);
-      if (!Number.isFinite(numericId)) {
-        return;
-      }
-
-      try {
-        // Use episodesStore to trigger queue removal logic
-        const { useEpisodesStore } = await import("../../store/episodesStore");
-        await useEpisodesStore.getState().markAsArchived(numericId);
-
-        // Update local state
-        setFeedEpisodes((prev) =>
-          prev.map((item) =>
-            item.id === episode.id ? { ...item, status: "archived" } : item,
-          ),
-        );
-      } catch (error) {
-        setEpisodesError(
-          error instanceof Error ? error.message : "Failed to archive episode",
-        );
-      }
+    async (episodeId: string) => {
+      // Update local state to reflect archived status
+      setFeedEpisodes((prev) =>
+        prev.map((item) =>
+          item.id === episodeId ? { ...item, status: "archived" } : item,
+        ),
+      );
     },
-    [setFeedEpisodes, setEpisodesError],
+    [setFeedEpisodes],
   );
 
   const formatStats = () => {
@@ -400,7 +386,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                   className={cn(
                     "p-1.5 rounded-l transition-colors",
                     viewMode === "grid"
-                      ? "bg-primary-500 text-white"
+                      ? "bg-blue-500 text-white"
                       : "text-secondary-500 hover:text-secondary-700 dark:text-secondary-400 dark:hover:text-secondary-200",
                   )}
                   aria-label="Standard grid view"
@@ -412,7 +398,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                   className={cn(
                     "p-1.5 rounded-r transition-colors",
                     viewMode === "compact"
-                      ? "bg-primary-500 text-white"
+                      ? "bg-blue-500 text-white"
                       : "text-secondary-500 hover:text-secondary-700 dark:text-secondary-400 dark:hover:text-secondary-200",
                   )}
                   aria-label="Compact grid view"
@@ -803,18 +789,20 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
                                     size="xs"
                                     className="text-primary-600 hover:text-primary-500 focus:ring-primary-300"
                                   />
-                                  <button
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      handleArchiveEpisode(episode);
-                                    }}
-                                    className="flex h-6 w-6 items-center justify-center rounded-full text-secondary-500 transition hover:text-primary-600 dark:text-secondary-300 dark:hover:text-primary-400"
-                                    aria-label="Archive episode"
-                                    title="Archive episode"
-                                  >
-                                    <Archive className="h-4 w-4" />
-                                  </button>
+                                  <ArchiveEpisodeButton
+                                    episodeId={Number(episode.id)}
+                                    status={episode.status}
+                                    size="sm"
+                                    variant="unstyled"
+                                    className={cn(
+                                      "flex h-6 w-6 items-center justify-center rounded-full transition",
+                                      episode.status === "archived"
+                                        ? "text-gray-300 dark:text-gray-700"
+                                        : "text-secondary-500 hover:text-primary-600 dark:text-secondary-300 dark:hover:text-primary-400"
+                                    )}
+                                    iconClassName="h-4 w-4"
+                                    onArchived={() => handleArchiveEpisode(episode.id)}
+                                  />
                                 </div>
                               </div>
                             );

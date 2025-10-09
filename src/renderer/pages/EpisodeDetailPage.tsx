@@ -4,6 +4,7 @@ import Button from "../components/Button";
 import TranscriptList from "../components/Transcript/TranscriptList";
 import { AITranscribeButton } from "../components/AITranscribeButton/AITranscribeButton";
 import { SpeakerRecognizeToggle } from "../components/SpeakerRecognizeToggle/SpeakerRecognizeToggle";
+import { ExportSRTButton } from "../components/ExportSRTButton/ExportSRTButton";
 import PlayPauseButton from "../components/PlayPauseButton/PlayPauseButton";
 import { useEpisodeDetailStore } from "../store/episodeDetailStore";
 import { useNavigationStore } from "../store/navigationStore";
@@ -11,6 +12,7 @@ import { usePlayerStore } from "../store/playerStore";
 import { usePlayQueueStore } from "../store/playQueueStore";
 import { formatDate } from "../utils/formatters";
 import { cn } from "../utils/cn";
+import { convertToSRT, downloadSRT } from "../utils/srtConverter";
 
 const stripHtml = (html: string | null | undefined) => {
   if (!html) return "";
@@ -333,6 +335,9 @@ const EpisodeDetailPage: React.FC = () => {
   // Speaker recognition state
   const [speakerRecognizeEnabled, setSpeakerRecognizeEnabled] = useState(false);
   const [speakerCount, setSpeakerCount] = useState(2);
+
+  // SRT export state
+  const [isExportingSRT, setIsExportingSRT] = useState(false);
 
   // AI summary state
   const [aiSummary, setAiSummary] = useState<{
@@ -798,6 +803,61 @@ const EpisodeDetailPage: React.FC = () => {
     }
   };
 
+  const handleExportSRT = async () => {
+    if (!episode) return;
+
+    try {
+      setIsExportingSRT(true);
+      console.log("[EpisodeDetail] Exporting SRT for episode:", episode.id);
+
+      // Fetch transcript data
+      const result = await window.electronAPI.transcript.getByEpisode(episode.id);
+
+      if (!result.success || !result.transcript) {
+        console.error("[EpisodeDetail] Failed to fetch transcript:", result.error);
+        alert(result.error || "Failed to fetch transcript data");
+        return;
+      }
+
+      const { transcript } = result;
+
+      if (!transcript.subtitles || transcript.subtitles.length === 0) {
+        alert("No transcript segments available to export");
+        return;
+      }
+
+      // Convert to SRT format
+      const srtContent = convertToSRT(transcript.subtitles);
+
+      // Generate filename from episode title and feed title
+      const sanitizeFilename = (str: string) =>
+        str
+          .replace(/[<>:"/\\|?*\x00-\x1F]/g, "") // Remove invalid filename chars
+          .replace(/\s+/g, "_") // Replace spaces with underscores
+          .substring(0, 100); // Limit length
+
+      const feedPart = episode.feedTitle
+        ? `${sanitizeFilename(episode.feedTitle)}_`
+        : "";
+      const titlePart = sanitizeFilename(episode.title);
+      const filename = `${feedPart}${titlePart}.srt`;
+
+      // Download the file
+      downloadSRT(srtContent, filename);
+
+      console.log("[EpisodeDetail] SRT exported successfully:", filename);
+    } catch (error) {
+      console.error("[EpisodeDetail] Error exporting SRT:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "An error occurred while exporting SRT"
+      );
+    } finally {
+      setIsExportingSRT(false);
+    }
+  };
+
   const handleLeftTabChange = (value: "notes" | "transcript") => {
     setLeftTab(value);
     if (isCompactLayout) {
@@ -927,10 +987,7 @@ const EpisodeDetailPage: React.FC = () => {
                 title="Regenerate summary"
               >
                 <RefreshCcw
-                  className={cn(
-                    "h-4 w-4",
-                    aiSummaryLoading && "animate-spin",
-                  )}
+                  className={cn("h-4 w-4", aiSummaryLoading && "animate-spin")}
                 />
               </Button>
             </div>
@@ -1062,7 +1119,7 @@ const EpisodeDetailPage: React.FC = () => {
       : "h-40 w-40"
     : "";
   const titleSizeClass = isCompactLayout
-    ? "text-xl"
+    ? "text-lg"
     : isHeaderCompact
       ? "text-xl lg:text-2xl"
       : "text-2xl lg:text-3xl";
@@ -1114,9 +1171,6 @@ const EpisodeDetailPage: React.FC = () => {
           <div
             className={cn("flex flex-col", isCompactLayout ? "gap-1" : "gap-2")}
           >
-            <p className="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              Episode Detail
-            </p>
             <h1
               className={cn(
                 "mt-1 font-bold leading-tight text-gray-900 transition-all duration-200 dark:text-gray-100",
@@ -1173,6 +1227,13 @@ const EpisodeDetailPage: React.FC = () => {
               size="sm"
               disabled={transcriptTaskStatus === "succeeded"}
             />
+
+            <ExportSRTButton
+              onExport={handleExportSRT}
+              disabled={transcriptTaskStatus !== "succeeded"}
+              loading={isExportingSRT}
+              size="sm"
+            />
           </div>
         </div>
       </div>
@@ -1201,8 +1262,8 @@ const EpisodeDetailPage: React.FC = () => {
               Back
             </Button>
             <div className="inline-flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-              <span>Detail View</span>
-              <span>•</span>
+              {/* <span>Detail View</span> */}
+              {/* <span>•</span> */}
               <span>{episode.feedTitle ?? "Podcast"}</span>
             </div>
           </div>
@@ -1224,7 +1285,6 @@ const EpisodeDetailPage: React.FC = () => {
                       { key: "notes", label: "Show Notes" },
                       { key: "transcript", label: "Transcript" },
                       { key: "summary", label: "AI Summary" },
-                      { key: "mindmap", label: "Mindmap" },
                     ]}
                     value={compactTab}
                     onChange={handleCompactTabChange}
@@ -1236,9 +1296,7 @@ const EpisodeDetailPage: React.FC = () => {
                       ? notesPanel
                       : compactTab === "transcript"
                         ? transcriptPanel
-                        : compactTab === "summary"
-                          ? summaryPanel
-                          : mindmapPanel}
+                        : summaryPanel}
                   </Tabs>
                 </div>
               </div>
@@ -1268,13 +1326,12 @@ const EpisodeDetailPage: React.FC = () => {
                     <Tabs
                       tabs={[
                         { key: "summary", label: "AI Summary" },
-                        { key: "mindmap", label: "Mindmap" },
                       ]}
                       value={rightTab}
                       onChange={handleRightTabChange}
                       contentClassName="pb-24"
                     >
-                      {rightTab === "summary" ? summaryPanel : mindmapPanel}
+                      {summaryPanel}
                     </Tabs>
                   </div>
                 </div>

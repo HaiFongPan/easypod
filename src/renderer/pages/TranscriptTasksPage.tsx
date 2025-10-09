@@ -80,9 +80,7 @@ export const TranscriptTasksPage: React.FC = () => {
 
   const handleDelete = async (task: TranscriptTask) => {
     if (
-      !confirm(
-        `确定要删除「${task.episode.title}」的转写任务吗？\n\n这将删除所有相关的转写数据和 AI 摘要。`,
-      )
+      !confirm(`Are you sure?\nAll AGC of ${task.episode.title} will be delete`)
     ) {
       return;
     }
@@ -94,11 +92,11 @@ export const TranscriptTasksPage: React.FC = () => {
       if (result.success) {
         await fetchTasks();
       } else {
-        alert(`删除失败: ${result.error}`);
+        alert(`Delete failed: ${result.error}`);
       }
     } catch (err) {
       alert(
-        `删除失败: ${err instanceof Error ? err.message : "Unknown error"}`,
+        `Delete Error: ${err instanceof Error ? err.message : "Unknown error"}`,
       );
     }
   };
@@ -111,11 +109,11 @@ export const TranscriptTasksPage: React.FC = () => {
       if (result.success) {
         await fetchTasks();
       } else {
-        alert(`重试失败: ${result.error}`);
+        alert(`Retry Failed: ${result.error}`);
       }
     } catch (err) {
       alert(
-        `重试失败: ${err instanceof Error ? err.message : "Unknown error"}`,
+        `Retry Error: ${err instanceof Error ? err.message : "Unknown error"}`,
       );
     }
   };
@@ -147,13 +145,13 @@ export const TranscriptTasksPage: React.FC = () => {
   const getStatusText = (status: TranscriptTask["status"]) => {
     switch (status) {
       case "pending":
-        return "等待中";
+        return "Pending";
       case "processing":
-        return "处理中";
+        return "Processing";
       case "succeeded":
-        return "成功";
+        return "Success";
       case "failed":
-        return "失败";
+        return "Fail";
     }
   };
 
@@ -195,7 +193,7 @@ export const TranscriptTasksPage: React.FC = () => {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              AI Transcript Tasks
+              Tasks
             </h1>
           </div>
 
@@ -232,7 +230,7 @@ export const TranscriptTasksPage: React.FC = () => {
             <input
               type="text"
               className="w-full px-4 py-2 pl-10 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100"
-              placeholder="搜索节目标题..."
+              placeholder="Search Episode..."
               value={localSearchQuery}
               onChange={(e) => setLocalSearchQuery(e.target.value)}
             />
@@ -247,9 +245,7 @@ export const TranscriptTasksPage: React.FC = () => {
         {loading && (
           <div className="flex flex-col items-center justify-center h-full">
             <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
-            <p className="mt-4 text-gray-600 dark:text-gray-400">
-              加载任务列表...
-            </p>
+            <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
           </div>
         )}
 
@@ -258,9 +254,9 @@ export const TranscriptTasksPage: React.FC = () => {
           <div className="flex flex-col items-center justify-center h-full">
             <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
             <p className="text-gray-900 dark:text-gray-100 mb-2">
-              错误: {error}
+              Error: {error}
             </p>
-            <Button onClick={() => fetchTasks()}>重试</Button>
+            <Button onClick={() => fetchTasks()}>Retry</Button>
           </div>
         )}
 
@@ -269,12 +265,10 @@ export const TranscriptTasksPage: React.FC = () => {
           <div className="flex flex-col items-center justify-center h-full p-8">
             <Mic className="w-24 h-24 text-gray-400 dark:text-gray-600 mb-4" />
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              暂无转写任务
+              Nothing here
             </h2>
             <p className="text-gray-600 dark:text-gray-400 text-center max-w-md">
-              {searchQuery
-                ? "未找到匹配的任务，请尝试其他关键词"
-                : "当前没有转写任务"}
+              {searchQuery ? "Nothing here" : "No task found"}
             </p>
           </div>
         )}
@@ -298,7 +292,7 @@ export const TranscriptTasksPage: React.FC = () => {
                         <img
                           src={getCoverUrl(task)}
                           alt={task.episode.title}
-                          className="w-9 h-8 rounded object-cover"
+                          className="w-8 h-8 rounded object-cover"
                         />
                       ) : (
                         <div className="w-16 h-16 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
@@ -313,7 +307,7 @@ export const TranscriptTasksPage: React.FC = () => {
                         {task.episode.title}
                       </h3>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        服务: {task.service.toUpperCase()}
+                        Powerby: {task.service.toUpperCase()}
                       </p>
                     </div>
 
@@ -342,7 +336,7 @@ export const TranscriptTasksPage: React.FC = () => {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleRetry(task)}
-                          title="重试"
+                          title="Retry"
                         >
                           <RotateCcw className="w-4 h-4" />
                         </Button>
@@ -351,7 +345,7 @@ export const TranscriptTasksPage: React.FC = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDelete(task)}
-                        title="删除"
+                        title="Delete"
                         className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -365,7 +359,7 @@ export const TranscriptTasksPage: React.FC = () => {
             {total > PAGE_SIZE && (
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  显示 {startIndex + 1}-{endIndex} / 共 {total} 个任务
+                  Shoing {startIndex + 1}-{endIndex} of {total} tasks
                 </p>
                 <div className="flex items-center space-x-2">
                   <Button
@@ -374,10 +368,10 @@ export const TranscriptTasksPage: React.FC = () => {
                     onClick={() => goToPage(currentPage - 1)}
                     disabled={currentPage === 1}
                   >
-                    上一页
+                    Previous
                   </Button>
                   <span className="text-sm text-gray-600 dark:text-gray-400">
-                    第 {currentPage} / {totalPages} 页
+                    Page {currentPage} of {totalPages}
                   </span>
                   <Button
                     variant="secondary"
@@ -385,7 +379,7 @@ export const TranscriptTasksPage: React.FC = () => {
                     onClick={() => goToPage(currentPage + 1)}
                     disabled={currentPage === totalPages}
                   >
-                    下一页
+                    Next
                   </Button>
                 </div>
               </div>

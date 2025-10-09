@@ -1,3 +1,4 @@
+import './setupLogging';
 import { app, BrowserWindow, Menu, ipcMain, shell } from 'electron';
 import { join } from 'path';
 import { platform } from 'os';
