@@ -7,6 +7,7 @@ interface VolumeControlProps {
   onVolumeChange: (volume: number) => void;
   onMuteToggle: () => void;
   className?: string;
+  buttonClassName?: string;
 }
 
 const VolumeControl: React.FC<VolumeControlProps> = ({
@@ -15,6 +16,7 @@ const VolumeControl: React.FC<VolumeControlProps> = ({
   onVolumeChange,
   onMuteToggle,
   className,
+  buttonClassName,
 }) => {
   const [showSlider, setShowSlider] = useState(false);
   const volumeRef = useRef<HTMLDivElement>(null);
@@ -92,7 +94,10 @@ const VolumeControl: React.FC<VolumeControlProps> = ({
         {/* Volume Icon */}
         <button
           onClick={onMuteToggle}
-          className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          className={cn(
+            buttonClassName ??
+              'p-2 rounded-full text-gray-600 transition-colors hover:bg-blue-500 hover:text-white dark:text-gray-300'
+          )}
           title={isMuted ? 'Unmute' : 'Mute'}
         >
           {getVolumeIcon()}
@@ -101,7 +106,7 @@ const VolumeControl: React.FC<VolumeControlProps> = ({
         {/* Volume Slider - 显示在按钮上方 */}
         {showSlider && (
           <div className="absolute bottom-full left-1/2 z-50 transform -translate-x-1/2 pb-2">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 px-4 py-3 flex flex-col items-center">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 px-4 py-3 flex w-24 flex-col items-center">
               <div
                 ref={volumeRef}
                 className="w-1 h-24 bg-gray-200 dark:bg-gray-700 rounded-full relative cursor-pointer"
@@ -109,13 +114,13 @@ const VolumeControl: React.FC<VolumeControlProps> = ({
               >
                 {/* Volume fill */}
                 <div
-                  className="absolute bottom-0 left-0 w-full bg-blue-600 dark:bg-blue-500 rounded-full"
+                  className="absolute bottom-0 left-0 w-full bg-blue-500 rounded-full"
                   style={{ height: `${displayVolume * 100}%` }}
                 />
               </div>
 
               {/* Volume percentage */}
-              <div className="text-xs text-center mt-2 text-gray-600 dark:text-gray-400">
+              <div className="mt-2 w-full text-center text-xs text-gray-600 dark:text-gray-400 tabular-nums">
                 {Math.round(displayVolume * 100)}%
               </div>
             </div>

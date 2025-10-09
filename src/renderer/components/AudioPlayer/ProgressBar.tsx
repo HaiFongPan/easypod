@@ -88,14 +88,14 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
 
         {/* Progress fill */}
         <div
-          className="absolute top-0 left-0 h-full bg-primary-600 transition-all duration-150 ease-out"
+          className="absolute top-0 left-0 h-full bg-blue-500 transition-all duration-150 ease-out"
           style={{ width: `${progressPercentage}%` }}
         />
 
         {/* Progress thumb */}
         {!disabled && (
           <div
-            className="absolute top-1/2 w-3 h-3 bg-primary-600 rounded-full transform -translate-y-1/2 -translate-x-1/2 shadow-lg opacity-0 hover:opacity-100 transition-opacity duration-150"
+            className="absolute top-1/2 w-3 h-3 bg-blue-500 rounded-full transform -translate-y-1/2 -translate-x-1/2 shadow-lg opacity-0 hover:opacity-100 transition-opacity duration-150"
             style={{ left: `${progressPercentage}%` }}
           />
         )}

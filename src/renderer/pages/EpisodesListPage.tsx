@@ -21,7 +21,6 @@ export const EpisodesListPage: React.FC = () => {
     fetchAllEpisodes,
     setSearchQuery,
     setStatusFilter,
-    markAsArchived,
   } = useEpisodesStore(
     (state) => ({
       episodes: state.episodes,
@@ -32,7 +31,6 @@ export const EpisodesListPage: React.FC = () => {
       fetchAllEpisodes: state.fetchAllEpisodes,
       setSearchQuery: state.setSearchQuery,
       setStatusFilter: state.setStatusFilter,
-      markAsArchived: state.markAsArchived,
     }),
     shallow,
   );
@@ -93,10 +91,6 @@ export const EpisodesListPage: React.FC = () => {
       return;
     }
     setStatusFilter(status);
-  };
-
-  const handleArchive = async (id: number) => {
-    await markAsArchived(id);
   };
 
   const handleViewModeChange = (mode: EpisodesViewMode) => {
@@ -270,7 +264,6 @@ export const EpisodesListPage: React.FC = () => {
                   <EpisodeCard
                     key={episode.id}
                     episode={episode}
-                    onArchive={handleArchive}
                     variant={viewMode}
                     onSelect={openEpisodeDetail}
                   />

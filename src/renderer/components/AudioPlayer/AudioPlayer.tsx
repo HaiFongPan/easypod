@@ -11,6 +11,7 @@ import FocusControl from './FocusControl';
 import PlayPauseButton from '../PlayPauseButton';
 import QueuePanel from './QueuePanel';
 import { useEpisodeDetailNavigation } from '../../hooks/useEpisodeDetailNavigation';
+import { ArchiveEpisodeButton } from '../ArchiveEpisodeButton';
 
 interface AudioPlayerProps {
   className?: string;
@@ -50,6 +51,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ className }) => {
     },
   });
   const queueLength = usePlayQueueStore((state) => state.queue.length);
+  const controlButtonClasses =
+    'flex h-10 w-10 items-center justify-center rounded-full bg-transparent text-gray-600 shadow-sm transition hover:bg-blue-500 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:bg-transparent disabled:text-gray-300 dark:text-gray-300 dark:hover:text-white dark:hover:bg-blue-500 dark:focus-visible:ring-offset-gray-800 dark:disabled:text-gray-600 dark:bg-transparent';
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -133,7 +136,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ className }) => {
             onClick={() => openEpisodeDetail(currentEpisode)}
             className="w-full text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded"
           >
-            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
+            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-500 dark:group-hover:text-blue-500 transition">
               {currentEpisode.title}
             </h4>
             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
@@ -204,12 +207,38 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ className }) => {
         />
 
         {/* Volume Control */}
-        <VolumeControl
-          volume={volume}
-          isMuted={isMuted}
-          onVolumeChange={setVolume}
-          onMuteToggle={toggleMute}
-        />
+        <div className="flex items-center gap-1">
+          <VolumeControl
+            volume={volume}
+            isMuted={isMuted}
+            onVolumeChange={setVolume}
+            onMuteToggle={toggleMute}
+            buttonClassName={controlButtonClasses}
+          />
+          {currentEpisode && (
+            <ArchiveEpisodeButton
+              episodeId={currentEpisode.id}
+              status={currentEpisode.status}
+              size="md"
+              stopPropagation={false}
+              variant="unstyled"
+              className={cn(
+                controlButtonClasses,
+                'disabled:text-gray-400 dark:disabled:text-gray-600'
+              )}
+              aria-label={
+                currentEpisode.status === 'archived'
+                  ? 'Episode already archived'
+                  : 'Archive episode'
+              }
+              title={
+                currentEpisode.status === 'archived'
+                  ? 'Already archived'
+                  : 'Archive episode'
+              }
+            />
+          )}
+        </div>
 
         {/* Queue Panel Toggle */}
         <div
@@ -220,8 +249,10 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ className }) => {
           <button
             type="button"
             className={cn(
-              'relative flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-gray-600 shadow-sm transition hover:border-blue-400 hover:text-blue-600 dark:border-gray-600 dark:text-gray-300 dark:hover:border-blue-500 dark:hover:text-blue-400',
-              isQueueOpen && 'border-blue-400 text-blue-600 dark:border-blue-500 dark:text-blue-300'
+              'relative',
+              controlButtonClasses,
+              isQueueOpen &&
+                'bg-blue-500 text-white hover:bg-blue-500 hover:text-white dark:text-white'
             )}
             title="Show play queue"
           >

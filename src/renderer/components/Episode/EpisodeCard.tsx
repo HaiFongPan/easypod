@@ -4,17 +4,16 @@ import { formatDuration, formatDate } from '../../utils/formatters';
 import { cn } from '../../utils/cn';
 import PlayPauseButton from '../PlayPauseButton';
 import QueueAddButton from '../QueueAddButton';
+import { ArchiveEpisodeButton } from '../ArchiveEpisodeButton';
 
 interface EpisodeCardProps {
   episode: Episode;
-  onArchive?: (id: number) => void;
   variant?: 'standard' | 'compact';
   onSelect?: (episode: Episode) => void;
 }
 
 export const EpisodeCard: React.FC<EpisodeCardProps> = ({
   episode,
-  onArchive,
   variant = 'standard',
   onSelect,
 }) => {
@@ -24,8 +23,6 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
     : 0;
   const isCompact = variant === 'compact';
   const actionButtonSize = isCompact ? 'sm' : 'md';
-  const actionButtonDimensions = actionButtonSize === 'sm' ? 'h-8 w-8' : 'h-10 w-10';
-  const actionIconDimensions = actionButtonSize === 'sm' ? 'h-4 w-4' : 'h-5 w-5';
   const descriptionLimit = isCompact ? 120 : 200;
   const plainDescription = episode.descriptionHtml
     ? episode.descriptionHtml
@@ -188,43 +185,18 @@ export const EpisodeCard: React.FC<EpisodeCardProps> = ({
             showTooltip
           />
 
-          {onArchive && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (episode.status !== 'archived') {
-                  onArchive(episode.id);
-                }
-              }}
-              disabled={episode.status === 'archived'}
-              className={cn(
-                'flex items-center justify-center rounded-full transition',
-                actionButtonDimensions,
-                episode.status === 'archived'
-                  ? 'text-gray-300 dark:text-gray-700 cursor-not-allowed'
-                  : 'text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700 dark:hover:text-red-400'
-              )}
-              aria-label={episode.status === 'archived' ? 'Already archived' : 'Archive episode'}
-              title={episode.status === 'archived' ? 'Already archived' : 'Archive episode'}
-            >
-              <svg
-                className={actionIconDimensions}
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect width="20" height="5" x="2" y="3" rx="1"/>
-                <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/>
-                <path d="m9.5 17 5-5"/>
-                <path d="m9.5 12 5 5"/>
-              </svg>
-            </button>
-          )}
+          <ArchiveEpisodeButton
+            episodeId={episode.id}
+            status={episode.status}
+            size={actionButtonSize}
+            className={cn(
+              'transition',
+              episode.status === 'archived' &&
+                'text-gray-300 dark:text-gray-700 hover:text-gray-300 dark:hover:text-gray-700',
+            )}
+            title={episode.status === 'archived' ? 'Already archived' : 'Archive episode'}
+            aria-label={episode.status === 'archived' ? 'Episode already archived' : 'Archive episode'}
+          />
         </div>
       </div>
     </div>
