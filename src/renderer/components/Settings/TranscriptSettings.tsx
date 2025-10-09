@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Star, Download, Upload } from 'lucide-react';
+import { Star } from 'lucide-react';
 import Button from '../Button/Button';
 import Input from '../Input/Input';
 import { getElectronAPI } from '../../utils/electron';
@@ -76,74 +76,19 @@ export const TranscriptSettings: React.FC = () => {
     }
   };
 
-  const handleExport = async () => {
-    try {
-      const result = await electronAPI.transcriptConfig.exportConfig();
-      if (result.success && result.config) {
-        const blob = new Blob([JSON.stringify(result.config, null, 2)], {
-          type: 'application/json',
-        });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'transcript-config.json';
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-    } catch (error) {
-      alert(`导出失败: ${error}`);
-    }
-  };
-
-  const handleImport = async () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = async (e: any) => {
-      const file = e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-          try {
-            const config = JSON.parse(event.target?.result as string);
-            const result = await electronAPI.transcriptConfig.importConfig(config);
-            if (result.success) {
-              alert('配置导入成功');
-              window.location.reload();
-            }
-          } catch (error) {
-            alert('配置文件格式错误');
-          }
-        };
-        reader.readAsText(file);
-      }
-    };
-    input.click();
-  };
-
   if (loading) {
     return <div className="text-gray-600 dark:text-gray-400">加载中...</div>;
   }
 
   return (
     <div className="flex-1 flex flex-col gap-6 overflow-hidden">
-      <div className="shrink-0 flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            转写服务配置
-          </h3>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            配置 FunASR 本地转写服务或阿里云 API
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={handleExport} variant="secondary" className="text-sm">
-            <Download size={16} className="mr-1" /> 导出配置
-          </Button>
-          <Button onClick={handleImport} variant="secondary" className="text-sm">
-            <Upload size={16} className="mr-1" /> 导入配置
-          </Button>
-        </div>
+      <div className="shrink-0">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          转写服务配置
+        </h3>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+          配置 FunASR 本地转写服务或阿里云 API
+        </p>
       </div>
 
       {/* Two-column layout */}
@@ -223,6 +168,16 @@ const FunASRSettingsPanel: React.FC = () => {
       const result = await getElectronAPI().transcriptConfig.getFunASRConfig();
       if (result.success && result.config) {
         setConfig(result.config);
+
+        // 根据配置判断是否使用默认模型
+        // 优先使用配置中的 useDefaultModels 字段
+        if (result.config.useDefaultModels !== undefined) {
+          setUseDefaultModels(result.config.useDefaultModels);
+        } else {
+          // 向后兼容: 如果没有 useDefaultModels 字段,根据模型路径判断
+          // 等待 defaultModels 加载后再判断
+          setUseDefaultModels(true); // 默认先设为 true
+        }
       } else {
         setConfig(null);
       }
@@ -238,10 +193,32 @@ const FunASRSettingsPanel: React.FC = () => {
       const result = await getElectronAPI().transcriptConfig.getDefaultModels();
       if (result.success && result.models) {
         setDefaultModels(result.models);
+
+        // 如果 config 已加载且没有 useDefaultModels 字段,根据模型路径判断
+        const currentConfig = await getElectronAPI().transcriptConfig.getFunASRConfig();
+        if (currentConfig.success && currentConfig.config) {
+          if (currentConfig.config.useDefaultModels === undefined) {
+            // 向后兼容: 根据模型路径判断
+            const isDefault = isUsingDefaultModels(currentConfig.config, result.models);
+            setUseDefaultModels(isDefault);
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to load default models:', error);
     }
+  };
+
+  /**
+   * 判断当前配置是否使用默认模型
+   */
+  const isUsingDefaultModels = (cfg: FunASRConfig, defaults: any): boolean => {
+    return (
+      cfg.model === defaults.model &&
+      cfg.vadModel === defaults.vadModel &&
+      cfg.puncModel === defaults.puncModel &&
+      cfg.spkModel === defaults.spkModel
+    );
   };
 
   const handleSave = async () => {
@@ -252,8 +229,12 @@ const FunASRSettingsPanel: React.FC = () => {
             ...defaultModels,
             device: config?.device || 'cpu',
             maxSingleSegmentTime: config?.maxSingleSegmentTime || 60000,
+            useDefaultModels: true,
           }
-        : config;
+        : {
+            ...config,
+            useDefaultModels: false,
+          };
 
       const result = await getElectronAPI().transcriptConfig.setFunASRConfig(configToSave || {});
       if (result.success) {

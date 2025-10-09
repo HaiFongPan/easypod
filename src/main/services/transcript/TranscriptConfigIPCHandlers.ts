@@ -4,6 +4,10 @@ import { existsSync } from 'fs';
 import axios from 'axios';
 import { VoiceToTextFactory } from './VoiceToTextFactory';
 import { AliyunService } from './AliyunService';
+import { FunasrService } from './FunasrService';
+import { getDatabaseManager } from '../../database/connection';
+import { episodeVoiceTextTasks } from '../../database/schema';
+import { eq, and } from 'drizzle-orm';
 
 export class TranscriptConfigIPCHandlers {
   private configManager = getTranscriptConfigManager();
@@ -27,8 +31,6 @@ export class TranscriptConfigIPCHandlers {
     // General configuration
     ipcMain.handle('transcript:config:getDefaultService', this.handleGetDefaultService.bind(this));
     ipcMain.handle('transcript:config:setDefaultService', this.handleSetDefaultService.bind(this));
-    ipcMain.handle('transcript:config:export', this.handleExportConfig.bind(this));
-    ipcMain.handle('transcript:config:import', this.handleImportConfig.bind(this));
   }
 
   private async handleGetFunASRConfig(
@@ -50,13 +52,59 @@ export class TranscriptConfigIPCHandlers {
     params: { config: Partial<FunASRConfig> }
   ): Promise<{ success: boolean; error?: string }> {
     try {
+      // 1. 保存配置到数据库
       await this.configManager.setFunASRConfig(params.config);
+
+      // 2. 检查 FunASR 服务状态
+      const funasrService = VoiceToTextFactory.getService('funasr') as FunasrService | undefined;
+      if (!funasrService) {
+        // 服务未初始化,下次转写时自动加载新配置
+        return { success: true };
+      }
+
+      // 3. 检查是否有活跃转写任务
+      const hasActiveTasks = await this.checkActiveFunASRTasks();
+      if (hasActiveTasks) {
+        return {
+          success: false,
+          error: '有转写任务正在进行，请等待任务完成后再修改配置',
+        };
+      }
+
+      // 4. 重新初始化模型
+      console.log('[TranscriptConfigIPCHandlers] Reinitializing FunASR model with new config');
+      await funasrService.reinitializeModel();
+
       return { success: true };
     } catch (error) {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to set FunASR config',
       };
+    }
+  }
+
+  /**
+   * 检查是否有活跃的 FunASR 转写任务
+   */
+  private async checkActiveFunASRTasks(): Promise<boolean> {
+    try {
+      const db = getDatabaseManager().getDrizzle();
+      const tasks = await db
+        .select()
+        .from(episodeVoiceTextTasks)
+        .where(
+          and(
+            eq(episodeVoiceTextTasks.service, 'funasr'),
+            eq(episodeVoiceTextTasks.status, 'processing')
+          )
+        )
+        .limit(1);
+
+      return tasks.length > 0;
+    } catch (error) {
+      console.error('[TranscriptConfigIPCHandlers] Failed to check active tasks:', error);
+      return false; // 查询失败时允许重载,避免阻塞
     }
   }
 
@@ -191,35 +239,6 @@ export class TranscriptConfigIPCHandlers {
     }
   }
 
-  private async handleExportConfig(
-    event: IpcMainInvokeEvent
-  ): Promise<{ success: boolean; config?: any; error?: string }> {
-    try {
-      const config = await this.configManager.export();
-      return { success: true, config };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to export config',
-      };
-    }
-  }
-
-  private async handleImportConfig(
-    event: IpcMainInvokeEvent,
-    params: { config: any }
-  ): Promise<{ success: boolean; error?: string }> {
-    try {
-      await this.configManager.import(params.config);
-      return { success: true };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to import config',
-      };
-    }
-  }
-
   destroy(): void {
     ipcMain.removeHandler('transcript:config:getFunASR');
     ipcMain.removeHandler('transcript:config:setFunASR');
@@ -230,7 +249,5 @@ export class TranscriptConfigIPCHandlers {
     ipcMain.removeHandler('transcript:config:testAliyunAPI');
     ipcMain.removeHandler('transcript:config:getDefaultService');
     ipcMain.removeHandler('transcript:config:setDefaultService');
-    ipcMain.removeHandler('transcript:config:export');
-    ipcMain.removeHandler('transcript:config:import');
   }
 }

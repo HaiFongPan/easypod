@@ -1,16 +1,5 @@
-import { app } from 'electron';
-
-type ElectronStoreModule = typeof import('electron-store');
-
-// Use runtime dynamic import to load ESM-only electron-store from CommonJS build output.
-const dynamicImport = new Function(
-  'specifier',
-  'return import(specifier);',
-) as (specifier: string) => Promise<ElectronStoreModule>;
-
-async function loadElectronStore(): Promise<ElectronStoreModule> {
-  return dynamicImport('electron-store');
-}
+import { TranscriptSettingsDao } from '../../database/dao/transcriptSettingsDao';
+import { encryptString, decryptString } from '../../utils/encryption';
 
 export interface FunASRConfig {
   model: string;
@@ -21,6 +10,7 @@ export interface FunASRConfig {
   maxSingleSegmentTime?: number;
   serverHost?: string;
   serverPort?: number;
+  useDefaultModels?: boolean; // UI 状态持久化
 }
 
 export interface AliyunConfig {
@@ -32,10 +22,8 @@ export interface AliyunConfig {
   disfluencyRemoval?: boolean;
 }
 
-interface TranscriptConfigSchema {
-  funasr?: FunASRConfig;
-  aliyun?: AliyunConfig;
-  defaultService?: 'funasr' | 'aliyun';
+interface DefaultServiceConfig {
+  defaultService: 'funasr' | 'aliyun';
 }
 
 const DEFAULT_FUNASR_CONFIG: Partial<FunASRConfig> = {
@@ -43,6 +31,7 @@ const DEFAULT_FUNASR_CONFIG: Partial<FunASRConfig> = {
   maxSingleSegmentTime: 60000, // 60 seconds
   serverHost: '127.0.0.1',
   serverPort: 17953,
+  useDefaultModels: true,
 };
 
 const DEFAULT_ALIYUN_CONFIG: Partial<AliyunConfig> = {
@@ -53,54 +42,33 @@ const DEFAULT_ALIYUN_CONFIG: Partial<AliyunConfig> = {
   disfluencyRemoval: true,
 };
 
-type StoreInstance = {
-  get<K extends keyof TranscriptConfigSchema>(key: K): TranscriptConfigSchema[K] | undefined;
-  set<K extends keyof TranscriptConfigSchema>(key: K, value: TranscriptConfigSchema[K]): void;
-  clear(): void;
-};
-
 export class TranscriptConfigManager {
-  private store: StoreInstance | null = null;
-  private initPromise: Promise<void> | null = null;
+  private dao: TranscriptSettingsDao;
 
   constructor() {
-    this.initPromise = this.initStore();
-  }
-
-  private async initStore(): Promise<void> {
-    try {
-      const ElectronStore = (await loadElectronStore()).default;
-      this.store = new ElectronStore<TranscriptConfigSchema>({
-        name: 'transcript-config',
-        cwd: app.getPath('userData'),
-        encryptionKey: 'easypod-transcript-config', // Simple encryption for API keys
-      }) as any;
-    } catch (error) {
-      console.error('Failed to initialize electron-store:', error);
-      throw error;
-    }
-  }
-
-  private async ensureStore(): Promise<StoreInstance> {
-    if (this.initPromise) {
-      await this.initPromise;
-    }
-    if (!this.store) {
-      throw new Error('Store not initialized');
-    }
-    return this.store;
+    this.dao = new TranscriptSettingsDao();
   }
 
   /**
    * Get FunASR configuration
+   * Returns default config if no custom config exists
    */
-  async getFunASRConfig(): Promise<FunASRConfig | null> {
-    const store = await this.ensureStore();
-    const config = store.get('funasr');
-    if (!config || !config.model) {
-      return null;
+  async getFunASRConfig(): Promise<FunASRConfig> {
+    const config = await this.dao.getConfig<FunASRConfig>('funasr');
+
+    // If no config exists, return defaults with default models
+    if (!config) {
+      const defaultModels = this.getDefaultFunASRModels();
+      return {
+        ...DEFAULT_FUNASR_CONFIG,
+        model: defaultModels.model,
+        vadModel: defaultModels.vadModel,
+        puncModel: defaultModels.puncModel,
+        spkModel: defaultModels.spkModel,
+      } as FunASRConfig;
     }
 
+    // Merge with defaults
     return {
       ...DEFAULT_FUNASR_CONFIG,
       ...config,
@@ -111,12 +79,11 @@ export class TranscriptConfigManager {
    * Set FunASR configuration
    */
   async setFunASRConfig(config: Partial<FunASRConfig>): Promise<void> {
-    const store = await this.ensureStore();
-    const current = store.get('funasr') || {};
-    store.set('funasr', {
+    const current = (await this.dao.getConfig<FunASRConfig>('funasr')) || {};
+    await this.dao.setConfig('funasr', {
       ...current,
       ...config,
-    } as FunASRConfig);
+    });
   }
 
   /**
@@ -141,15 +108,18 @@ export class TranscriptConfigManager {
    * Get Aliyun configuration
    */
   async getAliyunConfig(): Promise<AliyunConfig | null> {
-    const store = await this.ensureStore();
-    const config = store.get('aliyun');
+    const config = await this.dao.getConfig<AliyunConfig>('aliyun');
     if (!config || !config.apiKey) {
       return null;
     }
 
+    // 解密 API Key
+    const decryptedApiKey = decryptString(config.apiKey);
+
     return {
       ...DEFAULT_ALIYUN_CONFIG,
       ...config,
+      apiKey: decryptedApiKey,
     } as AliyunConfig;
   }
 
@@ -157,62 +127,40 @@ export class TranscriptConfigManager {
    * Set Aliyun configuration
    */
   async setAliyunConfig(config: Partial<AliyunConfig>): Promise<void> {
-    const store = await this.ensureStore();
-    const current = store.get('aliyun') || {};
-    store.set('aliyun', {
+    const current = (await this.dao.getConfig<AliyunConfig>('aliyun')) || {};
+    const merged = {
       ...current,
       ...config,
-    } as AliyunConfig);
+    };
+
+    // 加密 API Key
+    if (merged.apiKey) {
+      merged.apiKey = encryptString(merged.apiKey);
+    }
+
+    await this.dao.setConfig('aliyun', merged);
   }
 
   /**
    * Get default service
    */
   async getDefaultService(): Promise<'funasr' | 'aliyun'> {
-    const store = await this.ensureStore();
-    return store.get('defaultService') || 'funasr';
+    const config = await this.dao.getConfig<DefaultServiceConfig>('default');
+    return config?.defaultService || 'funasr';
   }
 
   /**
    * Set default service
    */
   async setDefaultService(service: 'funasr' | 'aliyun'): Promise<void> {
-    const store = await this.ensureStore();
-    store.set('defaultService', service);
+    await this.dao.setConfig('default', { defaultService: service });
   }
 
   /**
    * Clear all configuration
    */
   async clear(): Promise<void> {
-    const store = await this.ensureStore();
-    store.clear();
-  }
-
-  /**
-   * Export configuration
-   */
-  async export(): Promise<TranscriptConfigSchema> {
-    return {
-      funasr: (await this.getFunASRConfig()) || undefined,
-      aliyun: (await this.getAliyunConfig()) || undefined,
-      defaultService: await this.getDefaultService(),
-    };
-  }
-
-  /**
-   * Import configuration
-   */
-  async import(config: TranscriptConfigSchema): Promise<void> {
-    if (config.funasr) {
-      await this.setFunASRConfig(config.funasr);
-    }
-    if (config.aliyun) {
-      await this.setAliyunConfig(config.aliyun);
-    }
-    if (config.defaultService) {
-      await this.setDefaultService(config.defaultService);
-    }
+    await this.dao.clearAll();
   }
 }
 

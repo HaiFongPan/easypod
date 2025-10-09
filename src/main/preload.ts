@@ -123,8 +123,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getDefaultService: () => ipcRenderer.invoke('transcript:config:getDefaultService'),
     setDefaultService: (service: 'funasr' | 'aliyun') =>
       ipcRenderer.invoke('transcript:config:setDefaultService', { service }),
-    exportConfig: () => ipcRenderer.invoke('transcript:config:export'),
-    importConfig: (config: any) => ipcRenderer.invoke('transcript:config:import', { config }),
   },
 
   transcript: {
@@ -277,8 +275,6 @@ export interface ElectronAPI {
     // General configuration
     getDefaultService: () => Promise<{ success: boolean; service?: 'funasr' | 'aliyun'; error?: string }>;
     setDefaultService: (service: 'funasr' | 'aliyun') => Promise<{ success: boolean; error?: string }>;
-    exportConfig: () => Promise<{ success: boolean; config?: any; error?: string }>;
-    importConfig: (config: any) => Promise<{ success: boolean; error?: string }>;
   };
   transcript: {
     submit: (episodeId: number) => Promise<{ success: boolean; taskId?: string; error?: string }>;

@@ -215,17 +215,11 @@ export class FunasrService extends BaseVoiceToTextService {
       return;
     }
 
-    // Get configuration
+    // Get configuration (will return defaults if no custom config exists)
     const configManager = getTranscriptConfigManager();
     const config = await configManager.getFunASRConfig();
 
-    if (!config) {
-      throw new Error(
-        "FunASR config not found. Please configure FunASR models first.",
-      );
-    }
-
-    // Initialize model
+    // Initialize model with config (defaults or custom)
     await this.manager.initializeModel({
       asr_model: config.model,
       device: config.device || "cpu",
@@ -418,6 +412,15 @@ export class FunasrService extends BaseVoiceToTextService {
     }
 
     return task[0].episodeId;
+  }
+
+  /**
+   * 重新初始化模型 (用于配置热重载)
+   */
+  async reinitializeModel(): Promise<void> {
+    console.log('[FunasrService] Reinitializing model');
+    this.initialized = false;
+    await this.ensureInitialized();
   }
 
   /**

@@ -446,8 +446,6 @@ const createMockElectronAPI = (): ElectronAPI => {
       // General configuration
       getDefaultService: async () => ({ success: true, service: 'funasr' as const }),
       setDefaultService: async () => ({ success: true }),
-      exportConfig: async () => ({ success: true, config: {} }),
-      importConfig: async () => ({ success: true }),
     },
     transcript: {
       submit: async () => ({ success: false, error: 'Mock implementation' }),
