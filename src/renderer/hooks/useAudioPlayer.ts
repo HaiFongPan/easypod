@@ -81,7 +81,7 @@ export const useAudioPlayer = (options: UseAudioPlayerOptions = {}) => {
             useEpisodeDetailStore.getState().setEpisode(nextEpisode);
           }
 
-          usePlayerStore.getState().loadAndPlay(nextEpisode);
+          usePlayerStore.getState().loadAndPlay(nextEpisode, false); // Don't move to queue start when auto-playing
         }
       } else {
         // If not in queue, just play next from queue

@@ -32,7 +32,7 @@ const SpeakerAvatar: React.FC<SpeakerAvatarProps> = ({
   return (
     <div
       className={cn(
-        'flex flex-shrink-0 items-center justify-center overflow-hidden rounded-full',
+        'flex flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-transparent transition-colors dark:bg-white dark:p-0.5',
         sizeClasses[size],
         className
       )}
@@ -41,7 +41,7 @@ const SpeakerAvatar: React.FC<SpeakerAvatarProps> = ({
       <img
         src={imageSrc}
         alt={`Speaker ${speakerId + 1}`}
-        className="h-full w-full object-cover"
+        className="h-full w-full rounded-full object-cover"
       />
     </div>
   );

@@ -216,7 +216,7 @@ export const usePlayQueueStore = create<PlayQueueStore>()(
       }
 
       const nextEpisode = queue[nextIndex].episode;
-      usePlayerStore.getState().loadAndPlay(nextEpisode);
+      usePlayerStore.getState().loadAndPlay(nextEpisode, false); // Don't move to queue start
       set({ currentIndex: nextIndex });
     },
 
@@ -228,7 +228,7 @@ export const usePlayQueueStore = create<PlayQueueStore>()(
 
       const previousIndex = currentIndex > 0 ? currentIndex - 1 : 0;
       const previousEpisode = queue[previousIndex].episode;
-      usePlayerStore.getState().loadAndPlay(previousEpisode);
+      usePlayerStore.getState().loadAndPlay(previousEpisode, false); // Don't move to queue start
       set({ currentIndex: previousIndex });
     },
 

@@ -13,12 +13,14 @@ interface TranscriptListProps {
   episodeId: number;
   onJumpToTime?: (timeMs: number) => void;
   scrollContainerRef?: React.RefObject<HTMLDivElement>;
+  refreshTrigger?: number | string; // Optional trigger to force refresh
 }
 
 const TranscriptList: React.FC<TranscriptListProps> = ({
   episodeId,
   onJumpToTime,
   scrollContainerRef,
+  refreshTrigger,
 }) => {
   const sentenceRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const isManualScrolling = useRef(false);
@@ -43,10 +45,10 @@ const TranscriptList: React.FC<TranscriptListProps> = ({
   // Check if player episode matches detail page episode
   const isMatchingEpisode = currentEpisode?.id === episodeId;
 
-  // Load transcript on mount or episode change
+  // Load transcript on mount, episode change, or refresh trigger
   useEffect(() => {
     loadTranscript(episodeId);
-  }, [episodeId, loadTranscript]);
+  }, [episodeId, loadTranscript, refreshTrigger]);
 
   // Update current sentence index based on player position
   useEffect(() => {

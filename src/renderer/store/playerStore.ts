@@ -26,7 +26,7 @@ interface PlayerStore {
   // Actions
   setAudioRef: (audio: HTMLAudioElement) => void;
   loadEpisode: (episode: Episode) => void;
-  loadAndPlay: (episode: Episode) => void;
+  loadAndPlay: (episode: Episode, moveToQueueStart?: boolean) => void;
   play: () => void;
   pause: () => void;
   playPause: () => void;
@@ -105,7 +105,14 @@ export const usePlayerStore = create<PlayerStore>()(
           }
         },
 
-        loadAndPlay: (episode) => {
+        loadAndPlay: async (episode, moveToQueueStart = true) => {
+          // Move episode to queue start when user manually plays (not from queue navigation)
+          if (moveToQueueStart) {
+            const { usePlayQueueStore } = await import('./playQueueStore');
+            await usePlayQueueStore.getState().moveToQueueStart(episode);
+          }
+
+          // Load and play the episode
           get().loadEpisode(episode);
           // Play after a short delay to allow audio to load
           setTimeout(() => {

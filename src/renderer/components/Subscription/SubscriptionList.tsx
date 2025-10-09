@@ -248,12 +248,11 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
       }
 
       try {
-        const electron = getElectronAPI();
-        const result = await electron.episodes.markAsArchived(numericId);
-        if (!result?.success) {
-          throw new Error(result?.error || "Failed to archive episode");
-        }
+        // Use episodesStore to trigger queue removal logic
+        const { useEpisodesStore } = await import("../../store/episodesStore");
+        await useEpisodesStore.getState().markAsArchived(numericId);
 
+        // Update local state
         setFeedEpisodes((prev) =>
           prev.map((item) =>
             item.id === episode.id ? { ...item, status: "archived" } : item,

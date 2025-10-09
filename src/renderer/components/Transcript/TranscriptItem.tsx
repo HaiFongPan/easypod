@@ -49,7 +49,7 @@ const TranscriptItem = React.forwardRef<HTMLDivElement, TranscriptItemProps>(
           </div>
 
           {/* Text Content */}
-          <p className="select-text text-sm leading-relaxed text-gray-900 dark:text-gray-100">
+          <p className="col-span-2 select-text text-sm leading-relaxed text-gray-900 dark:text-gray-100">
             {sentence.text}
           </p>
         </div>
