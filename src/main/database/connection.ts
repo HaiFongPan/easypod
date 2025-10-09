@@ -276,6 +276,17 @@ export class DatabaseManager {
       )
     `);
 
+    // Create transcript settings table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS transcript_settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        service TEXT NOT NULL UNIQUE,
+        config_json TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     console.log('All tables created successfully');
   }
 

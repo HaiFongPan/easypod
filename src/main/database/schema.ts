@@ -255,6 +255,15 @@ export const episodeAiSummarys = sqliteTable('episode_ai_summarys', {
   updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
 });
 
+// Transcript settings table - 转写服务配置
+export const transcriptSettings = sqliteTable('transcript_settings', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  service: text('service').notNull().unique(), // 'funasr' | 'aliyun' | 'default'
+  configJson: text('config_json').notNull(), // JSON 存储配置对象
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
 // Define relationships and types
 export type Feed = typeof feeds.$inferSelect;
 export type NewFeed = typeof feeds.$inferInsert;
@@ -312,3 +321,6 @@ export type NewPrompt = typeof prompts.$inferInsert;
 
 export type EpisodeAiSummary = typeof episodeAiSummarys.$inferSelect;
 export type NewEpisodeAiSummary = typeof episodeAiSummarys.$inferInsert;
+
+export type TranscriptSetting = typeof transcriptSettings.$inferSelect;
+export type NewTranscriptSetting = typeof transcriptSettings.$inferInsert;

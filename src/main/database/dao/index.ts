@@ -13,6 +13,7 @@ export * from './llmProvidersDao';
 export * from './llmModelsDao';
 export * from './promptsDao';
 export * from './episodeAiSummarysDao';
+export * from './transcriptSettingsDao';
 
 // Database service that provides access to all DAOs
 export class DatabaseService {
