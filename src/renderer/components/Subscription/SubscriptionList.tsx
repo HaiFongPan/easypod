@@ -242,7 +242,7 @@ const SubscriptionList: React.FC<SubscriptionListProps> = ({ className }) => {
   };
 
   const handleArchiveEpisode = useCallback(
-    async (episodeId: string) => {
+    async (episodeId: number) => {
       // Update local state to reflect archived status
       setFeedEpisodes((prev) =>
         prev.map((item) =>

@@ -4,12 +4,7 @@ import { LlmModelsDao } from "../../database/dao/llmModelsDao";
 import { PromptsDao } from "../../database/dao/promptsDao";
 import { EpisodeAiSummarysDao } from "../../database/dao/episodeAiSummarysDao";
 import { EpisodeTranscriptsDao } from "../../database/dao/episodeTranscriptsDao";
-import type {
-  AIService,
-  SummaryResponse,
-  ChapterResponse,
-  MindmapResponse,
-} from "./types";
+import type { AIService, ChapterResponse } from "./types";
 
 export class AIServiceManager {
   private providersDao: LlmProvidersDao;
@@ -133,8 +128,75 @@ export class AIServiceManager {
       const simplifiedSusbtitle = transcript.subtitles.map(
         ({ text, start, end }) => ({ text, start, end }),
       );
-      const transcriptText = JSON.stringify(simplifiedSusbtitle);
-      const result = await service.getChapters(transcriptText, chaptersPrompt);
+      const idToTiming = new Map<number, { start: number; end: number }>();
+      const segmentsForLLM = simplifiedSusbtitle.map((segment, index) => {
+        const id = index + 1;
+        idToTiming.set(id, {
+          start: segment.start,
+          end: segment.end,
+        });
+        return {
+          id,
+          text: segment.text,
+        };
+      });
+
+      const inputPayload = {
+        segmentsCount: segmentsForLLM.length,
+        segments: segmentsForLLM,
+      };
+
+      const transcriptText = JSON.stringify(inputPayload);
+      const rawResult = await service.getChapters(transcriptText, chaptersPrompt);
+
+      if (
+        !rawResult ||
+        !Array.isArray(rawResult.chapters) ||
+        rawResult.chapters.length === 0
+      ) {
+        throw new Error("AI 未返回有效的章节结果");
+      }
+
+      const chapters = rawResult.chapters
+        .map((chapter) => {
+          const chapterId = Number(chapter.start);
+          if (!Number.isFinite(chapterId)) {
+            return null;
+          }
+          const timing = idToTiming.get(chapterId);
+          if (!timing) {
+            return null;
+          }
+
+          const title = (chapter.summary || "").trim();
+          const content = (chapter.content || "").trim();
+          if (!title || !content) {
+            return null;
+          }
+
+          return {
+            start: timing.start,
+            end: timing.end ?? timing.start,
+            summary: `${title}:${content}`,
+          };
+        })
+        .filter((chapter): chapter is { start: number; end: number; summary: string } => Boolean(chapter));
+
+      if (chapters.length === 0) {
+        throw new Error("章节数据为空，无法保存");
+      }
+
+      const result: ChapterResponse = {
+        totalChapters: Number.isFinite(rawResult.totalChapters)
+          ? Number(rawResult.totalChapters)
+          : chapters.length,
+        detectedTime:
+          typeof rawResult.detectedTime === "string" &&
+          rawResult.detectedTime !== "__FILL_BY_SYSTEM__"
+            ? rawResult.detectedTime
+            : new Date().toISOString(),
+        chapters,
+      };
 
       const tokenUsage =
         (service as OpenAIService).lastTokenUsage?.totalTokens ?? 0;
@@ -145,14 +207,14 @@ export class AIServiceManager {
       const existing = await this.summariesDao.findByEpisode(episodeId);
       if (existing) {
         await this.summariesDao.update(episodeId, {
-          chapters: JSON.stringify(result.chapters),
+          chapters: JSON.stringify(result),
         });
       } else {
         await this.summariesDao.create({
           episodeId,
           summary: "",
           tags: "",
-          chapters: JSON.stringify(result.chapters),
+          chapters: JSON.stringify(result),
         });
       }
 
@@ -201,12 +263,42 @@ export class AIServiceManager {
         return { success: false, error: "该集尚未生成总结" };
       }
 
+      let chapters: Array<{ start: number; end: number; summary: string }> = [];
+      let totalChapters: number | undefined;
+      let detectedTime: string | undefined;
+
+      try {
+        const parsed = JSON.parse(summary.chapters);
+        if (Array.isArray(parsed)) {
+          chapters = parsed;
+        } else if (
+          parsed &&
+          typeof parsed === "object" &&
+          Array.isArray(parsed.chapters)
+        ) {
+          chapters = parsed.chapters;
+          if (Number.isFinite(parsed.totalChapters)) {
+            totalChapters = Number(parsed.totalChapters);
+          }
+          if (typeof parsed.detectedTime === "string") {
+            detectedTime = parsed.detectedTime;
+          }
+        }
+      } catch (error) {
+        console.warn(
+          "[AIServiceManager] Failed to parse chapters JSON:",
+          error,
+        );
+      }
+
       return {
         success: true,
         data: {
           summary: summary.summary,
           tags: summary.tags.split(",").filter((t) => t.trim()),
-          chapters: JSON.parse(summary.chapters),
+          chapters,
+          totalChapters,
+          detectedTime,
         },
       };
     } catch (error) {

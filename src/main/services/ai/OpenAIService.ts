@@ -3,7 +3,7 @@ import type {
   AIService,
   AIServiceConfig,
   SummaryResponse,
-  ChapterResponse,
+  ChapterLLMResponse,
   MindmapResponse,
   TokenUsage,
 } from "./types";
@@ -15,6 +15,13 @@ export class OpenAIService implements AIService {
 
   constructor(config: AIServiceConfig) {
     this.config = config;
+    console.log(
+      "[OpenAIService] Initialized",
+      JSON.stringify({
+        baseUrl: config.baseUrl ?? "default",
+        model: config.model,
+      }),
+    );
     this.client = new OpenAI({
       baseURL: config.baseUrl,
       apiKey: config.apiKey,
@@ -28,11 +35,18 @@ export class OpenAIService implements AIService {
     userPrompt: string,
     transcript: string,
   ): Promise<any> {
+    console.log(
+      "[OpenAIService] callAPI invoked",
+      JSON.stringify({
+        model: this.config.model,
+        promptLength: transcript.length,
+      }),
+    );
     const response = await this.client.chat.completions.create({
       model: this.config.model,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: `${userPrompt}\n\n播客内容：\n${transcript}` },
+        { role: "user", content: `${userPrompt}\n\nInput：\n${transcript}` },
       ],
       response_format: { type: "json_object" },
       temperature: 1,
@@ -59,9 +73,15 @@ export class OpenAIService implements AIService {
     transcript: string,
     customPrompt?: string,
   ): Promise<SummaryResponse> {
+    console.log(
+      "[OpenAIService] getSummary called",
+      JSON.stringify({
+        transcriptLength: transcript.length,
+        hasCustomPrompt: Boolean(customPrompt),
+      }),
+    );
     const systemPrompt = "你是一个专业的播客内容分析助手。";
     const userPrompt =
-      customPrompt ||
       '请总结以下播客内容的核心观点、金句和行动建议，并生成 5-10 个相关标签。返回 JSON 格式：{"summary": "总结内容", "tags": ["标签1", "标签2"]}';
 
     return await this.callAPI(systemPrompt, userPrompt, transcript);
@@ -70,30 +90,64 @@ export class OpenAIService implements AIService {
   async getChapters(
     transcript: string,
     customPrompt?: string,
-  ): Promise<ChapterResponse> {
+  ): Promise<ChapterLLMResponse> {
     const systemPrompt = `
-You are an expert podcast summarizer and knowledge distiller called “EasyPod AI”.
-Your goal is to process podcast transcripts and generate clear, accurate, and structured summaries. 
-You work like an experienced editor who understands context, speakers, and topics. 
+你是“EasyPod AI”的章节编辑助手，负责将播客逐段转录摘要为结构化章节。请严格遵循指令，仅输出合法 JSON。
+`.trim();
 
-Rules:
+    const baseUserPrompt = `
+【输入说明】
+- 输入是一个 JSON 对象：
+  {
+    "segmentsCount": <整数>,
+    "segments": [
+      { "id": <1-based整数>, "text": "<该片段文本>" },
+      ...
+    ]
+  }
+- segments 已按时间顺序排序；系统会根据 id 映射真实时间，你无需推算时间。
+- 文本可能包含主持人、嘉宾、转场或广告，请综合语义拆分章节。
 
-- Write in a natural, human-readable style — clear and engaging, but factual.
-- Avoid repetition or filler words.
-- Be faithful to the content; do not add opinions or make up facts.
-- If the transcript is incomplete, mention “(based on partial transcript)” in your output.
-- Output in **structured JSON** format, following given schema
-`;
-    const userPrompt =
-      customPrompt ||
-      `
-Rules for this task:
+【输出要求】
+- 仅输出以下结构的 JSON，字段齐全且不得新增其他键：
+{
+  "totalChapters": <整数>,
+  "detectedTime": "__FILL_BY_SYSTEM__",
+  "chapters": [
+    {
+      "start": <整数id>,
+      "summary": "<≤50字标题>",
+      "content": "<≥140字详细内容>"
+    }
+  ]
+}
+- "start" 必须是输入 segments 中的 id，且按升序排列。
+- "summary" 为不超过 50 字的精炼标题。
+- "content" ≥140 字，完整描述该章节的主题、核心论点、关键细节、结论或启示，语句自然流畅，禁止空话与重复。
+- 章节数量应与播客逻辑匹配：通常 5-12 章。如内容特别长，可达 20 章；如内容极短，可少于 5 章，但需给出完整覆盖。
 
-- Output in JSON format, following schema: {"chapters": [{"start": 0, "end": 60000, "summary": "章节总结"}]}'
-- Output languange must be **Chinese**
-- input is a structured json, [{start, end, text}, {start, end, text}], each item's start presents the position(millisecond) of THE text in audio
-`;
+【写作建议】
+- 优先结合话题转折、主持人提问、嘉宾观点切换等语义界标来划分章节。
+- 保持事实准确，禁止编造信息；必要时引用原文关键词辅助说明。
+- 若仅看到片段或存在信息缺失，需在相关章节末尾注明“（基于部分转录）”。
 
+【输出自检】
+- JSON 严格可解析；无多余文本、注释或解释。
+- 章节按 start 升序排列，且总数与 totalChapters 一致。
+- 每个章节的 summary、content 不得为空；content ≥140 字。
+`.trim();
+
+    const userPrompt = customPrompt
+      ? `${baseUserPrompt}\n\n【额外指令】\n${customPrompt}`
+      : baseUserPrompt;
+
+    console.log(
+      "[OpenAIService] getChapters called",
+      JSON.stringify({
+        transcriptLength: transcript.length,
+        hasCustomPrompt: Boolean(customPrompt),
+      }),
+    );
     return await this.callAPI(systemPrompt, userPrompt, transcript);
   }
 
@@ -101,6 +155,13 @@ Rules for this task:
     transcript: string,
     customPrompt?: string,
   ): Promise<MindmapResponse> {
+    console.log(
+      "[OpenAIService] getMindmap called",
+      JSON.stringify({
+        transcriptLength: transcript.length,
+        hasCustomPrompt: Boolean(customPrompt),
+      }),
+    );
     const systemPrompt = "你是一个专业的播客内容分析助手。";
     const userPrompt =
       customPrompt ||

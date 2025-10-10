@@ -344,6 +344,8 @@ const EpisodeDetailPage: React.FC = () => {
     summary: string;
     tags: string[];
     chapters: Array<{ start: number; end: number; summary: string }>;
+    totalChapters?: number;
+    detectedTime?: string;
   } | null>(null);
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
   const [aiChaptersLoading, setAiChaptersLoading] = useState(false);
