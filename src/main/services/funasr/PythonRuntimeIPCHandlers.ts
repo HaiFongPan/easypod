@@ -17,17 +17,15 @@ export class PythonRuntimeIPCHandlers {
 
   /**
    * 获取 Python Runtime 状态
-   * - ready: details 不为 null
-   * - uninitialized: details 为 null 且无错误
+   * - ready: runtime 已准备好（内存缓存或磁盘上的初始化产物）
+   * - uninitialized: 尚未初始化
    * - error: 捕获到异常
    */
   private async handleGetStatus(
     event: IpcMainInvokeEvent
   ): Promise<{ status: 'ready' | 'uninitialized' | 'error'; error?: string }> {
     try {
-      const details = this.runtimeManager.getDetails();
-
-      if (details) {
+      if (this.runtimeManager.isProvisioned()) {
         return { status: 'ready' };
       }
 

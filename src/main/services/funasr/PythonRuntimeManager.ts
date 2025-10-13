@@ -91,6 +91,17 @@ export class PythonRuntimeManager extends EventEmitter {
     return this.details;
   }
 
+  isProvisioned(): boolean {
+    // In-memory details take precedence; otherwise fall back to on-disk markers.
+    if (this.details) {
+      return true;
+    }
+    if (this.ensurePromise) {
+      return false;
+    }
+    return this.hasRuntimeArtifacts();
+  }
+
   private async initializeRuntime(
     options: EnsureRuntimeOptions,
   ): Promise<PythonRuntimeDetails> {
@@ -439,6 +450,81 @@ export class PythonRuntimeManager extends EventEmitter {
       rmSync(path, { recursive: true, force: true });
     }
     mkdirSync(path, { recursive: true });
+  }
+
+  private hasRuntimeArtifacts(): boolean {
+    // Detect an already-prepared runtime from previous sessions so the UI
+    // doesn't report "uninitialized" until ensureReady() repopulates details.
+    const override = process.env.EASYPOD_FUNASR_PYTHON;
+    if (override && this.pathLooksLikePythonBinary(override)) {
+      return true;
+    }
+
+    const userRoot = this.getUserRuntimeRoot();
+    const runtimeDir = join(userRoot, "runtime");
+    const runtimeManifestPath = join(userRoot, "runtime.json");
+    if (
+      existsSync(runtimeManifestPath) &&
+      this.containsPythonBinary(runtimeDir)
+    ) {
+      return true;
+    }
+
+    const venvDir = join(userRoot, "venv");
+    if (this.containsPythonBinary(venvDir)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private pathLooksLikePythonBinary(path: string): boolean {
+    try {
+      const stats = statSync(path);
+      return stats.isFile();
+    } catch {
+      return false;
+    }
+  }
+
+  private containsPythonBinary(root: string, depth = 0): boolean {
+    if (!existsSync(root)) {
+      return false;
+    }
+    if (depth > MAX_SEARCH_DEPTH) {
+      return false;
+    }
+
+    let entries;
+    try {
+      entries = readdirSync(root, { withFileTypes: true });
+    } catch {
+      return false;
+    }
+
+    const candidateNames =
+      process.platform === "win32"
+        ? ["python.exe", "python3.exe"]
+        : ["python3", "python"];
+
+    for (const entry of entries) {
+      if (
+        (entry.isFile() || entry.isSymbolicLink()) &&
+        candidateNames.includes(entry.name)
+      ) {
+        return true;
+      }
+    }
+
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        if (this.containsPythonBinary(join(root, entry.name), depth + 1)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   private async extractArchive(
