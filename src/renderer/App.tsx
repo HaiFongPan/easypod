@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout/Layout';
 import MainContent from './components/MainContent';
+import { ToastProvider } from './components/Toast/ToastProvider';
 import { useAppStore } from './store/appStore';
 import { usePlayQueueStore } from './store/playQueueStore';
 import { usePlayerStore } from './store/playerStore';
@@ -49,16 +50,18 @@ function App() {
   };
 
   return (
-    <div className="h-full">
-      <Layout
-        isDarkMode={isDarkMode}
-        onToggleDarkMode={toggleDarkMode}
-        appVersion={version}
-        platform={platform}
-      >
-        <MainContent />
-      </Layout>
-    </div>
+    <ToastProvider>
+      <div className="h-full">
+        <Layout
+          isDarkMode={isDarkMode}
+          onToggleDarkMode={toggleDarkMode}
+          appVersion={version}
+          platform={platform}
+        >
+          <MainContent />
+        </Layout>
+      </div>
+    </ToastProvider>
   );
 }
 

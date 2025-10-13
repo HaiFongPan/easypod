@@ -3,6 +3,7 @@ import { Star } from 'lucide-react';
 import Button from '../Button/Button';
 import Input from '../Input/Input';
 import { getElectronAPI } from '../../utils/electron';
+import RuntimeStatusIndicator from './RuntimeStatusIndicator';
 
 interface FunASRConfig {
   model: string;
@@ -157,6 +158,7 @@ const FunASRSettingsPanel: React.FC = () => {
   const [useDefaultModels, setUseDefaultModels] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     loadConfig();
@@ -250,12 +252,16 @@ const FunASRSettingsPanel: React.FC = () => {
     }
   };
 
+
   if (loading) {
     return <div className="text-gray-600 dark:text-gray-400">加载中...</div>;
   }
 
   return (
     <div className="space-y-6">
+      {/* Python Runtime 状态指示器 */}
+      <RuntimeStatusIndicator refreshTrigger={refreshTrigger} />
+
       <div className="flex items-center">
         <input
           type="checkbox"

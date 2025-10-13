@@ -456,6 +456,11 @@ const createMockElectronAPI = (): ElectronAPI => {
       retryTask: async () => ({ success: false, error: 'Mock implementation' }),
       getByEpisode: async () => ({ success: false, error: 'Mock implementation' }),
     },
+    pythonRuntime: {
+      getStatus: async () => ({ status: 'uninitialized' as const }),
+      initialize: async () => ({ success: false, error: 'Mock implementation - Python runtime not available in browser' }),
+      onLog: () => () => undefined,
+    },
     llmProviders: {
       getAll: async () => [],
       create: async () => ({ success: true }),

@@ -6,6 +6,7 @@ import { FeedIPCHandlers } from './services/IPCHandlers';
 import { getDatabaseManager } from './database/connection';
 import { FunASRIPCHandlers } from './services/funasr/FunASRIPCHandlers';
 import { getPythonRuntimeManager } from './services/funasr/PythonRuntimeManager';
+import { PythonRuntimeIPCHandlers } from './services/funasr/PythonRuntimeIPCHandlers';
 import { TranscriptConfigIPCHandlers } from './services/transcript/TranscriptConfigIPCHandlers';
 import { TranscriptIPCHandlers } from './services/transcript/TranscriptIPCHandlers';
 
@@ -16,6 +17,7 @@ const debugPythonRuntime = process.env.DEBUG_PYTHON_RUNTIME === '1' || isDevelop
 let mainWindow: BrowserWindow | null = null;
 let feedIPCHandlers: FeedIPCHandlers | null = null;
 let funasrIPCHandlers: FunASRIPCHandlers | null = null;
+let pythonRuntimeIPCHandlers: PythonRuntimeIPCHandlers | null = null;
 let transcriptConfigIPCHandlers: TranscriptConfigIPCHandlers | null = null;
 let transcriptIPCHandlers: TranscriptIPCHandlers | null = null;
 
@@ -95,6 +97,10 @@ app.whenReady().then(async () => {
 
   // Initialize FunASR IPC handlers
   funasrIPCHandlers = new FunASRIPCHandlers();
+
+  // Initialize Python Runtime IPC handlers
+  pythonRuntimeIPCHandlers = new PythonRuntimeIPCHandlers(mainWindow);
+  console.log('[PythonRuntime] Python Runtime IPC handlers initialized');
 
   // Initialize Transcript Config IPC handlers
   transcriptConfigIPCHandlers = new TranscriptConfigIPCHandlers();
@@ -199,6 +205,10 @@ app.on('before-quit', () => {
   if (funasrIPCHandlers) {
     funasrIPCHandlers.destroy();
     funasrIPCHandlers = null;
+  }
+  if (pythonRuntimeIPCHandlers) {
+    pythonRuntimeIPCHandlers.destroy();
+    pythonRuntimeIPCHandlers = null;
   }
   if (transcriptConfigIPCHandlers) {
     transcriptConfigIPCHandlers.destroy();

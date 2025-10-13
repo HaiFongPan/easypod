@@ -142,6 +142,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('transcript:retryTask', { episodeId }),
   },
 
+  // Python Runtime
+  pythonRuntime: {
+    getStatus: () => ipcRenderer.invoke('pythonRuntime:getStatus'),
+    initialize: () => ipcRenderer.invoke('pythonRuntime:initialize'),
+    onLog: (callback: (log: string) => void) => {
+      const listener = (_: any, log: string) => callback(log);
+      ipcRenderer.on('pythonRuntime:log', listener);
+      return () => ipcRenderer.removeListener('pythonRuntime:log', listener);
+    },
+  },
+
   // LLM Providers
   llmProviders: {
     getAll: () => ipcRenderer.invoke('llmProviders:getAll'),
@@ -318,6 +329,11 @@ export interface ElectronAPI {
       };
       error?: string;
     }>;
+  };
+  pythonRuntime: {
+    getStatus: () => Promise<{ status: 'ready' | 'uninitialized' | 'error'; error?: string }>;
+    initialize: () => Promise<{ success: boolean; error?: string }>;
+    onLog: (callback: (log: string) => void) => () => void;
   };
   llmProviders: {
     getAll: () => Promise<any[]>;
