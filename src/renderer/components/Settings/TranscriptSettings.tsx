@@ -4,6 +4,7 @@ import Button from '../Button/Button';
 import Input from '../Input/Input';
 import { getElectronAPI } from '../../utils/electron';
 import RuntimeStatusIndicator from './RuntimeStatusIndicator';
+import ModelDownloadIndicator from './ModelDownloadIndicator';
 
 interface FunASRConfig {
   model: string;
@@ -155,7 +156,6 @@ export const TranscriptSettings: React.FC = () => {
 const FunASRSettingsPanel: React.FC = () => {
   const [config, setConfig] = useState<FunASRConfig | null>(null);
   const [defaultModels, setDefaultModels] = useState<any>(null);
-  const [useDefaultModels, setUseDefaultModels] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -170,16 +170,6 @@ const FunASRSettingsPanel: React.FC = () => {
       const result = await getElectronAPI().transcriptConfig.getFunASRConfig();
       if (result.success && result.config) {
         setConfig(result.config);
-
-        // 根据配置判断是否使用默认模型
-        // 优先使用配置中的 useDefaultModels 字段
-        if (result.config.useDefaultModels !== undefined) {
-          setUseDefaultModels(result.config.useDefaultModels);
-        } else {
-          // 向后兼容: 如果没有 useDefaultModels 字段,根据模型路径判断
-          // 等待 defaultModels 加载后再判断
-          setUseDefaultModels(true); // 默认先设为 true
-        }
       } else {
         setConfig(null);
       }
@@ -195,48 +185,20 @@ const FunASRSettingsPanel: React.FC = () => {
       const result = await getElectronAPI().transcriptConfig.getDefaultModels();
       if (result.success && result.models) {
         setDefaultModels(result.models);
-
-        // 如果 config 已加载且没有 useDefaultModels 字段,根据模型路径判断
-        const currentConfig = await getElectronAPI().transcriptConfig.getFunASRConfig();
-        if (currentConfig.success && currentConfig.config) {
-          if (currentConfig.config.useDefaultModels === undefined) {
-            // 向后兼容: 根据模型路径判断
-            const isDefault = isUsingDefaultModels(currentConfig.config, result.models);
-            setUseDefaultModels(isDefault);
-          }
-        }
       }
     } catch (error) {
       console.error('Failed to load default models:', error);
     }
   };
 
-  /**
-   * 判断当前配置是否使用默认模型
-   */
-  const isUsingDefaultModels = (cfg: FunASRConfig, defaults: any): boolean => {
-    return (
-      cfg.model === defaults.model &&
-      cfg.vadModel === defaults.vadModel &&
-      cfg.puncModel === defaults.puncModel &&
-      cfg.spkModel === defaults.spkModel
-    );
-  };
-
   const handleSave = async () => {
     setSaving(true);
     try {
-      const configToSave = useDefaultModels
-        ? {
-            ...defaultModels,
-            device: config?.device || 'cpu',
-            maxSingleSegmentTime: config?.maxSingleSegmentTime || 60000,
-            useDefaultModels: true,
-          }
-        : {
-            ...config,
-            useDefaultModels: false,
-          };
+      const configToSave = {
+        ...defaultModels,
+        device: config?.device || 'cpu',
+        maxSingleSegmentTime: config?.maxSingleSegmentTime || 60000,
+      };
 
       const result = await getElectronAPI().transcriptConfig.setFunASRConfig(configToSave || {});
       if (result.success) {
@@ -257,63 +219,33 @@ const FunASRSettingsPanel: React.FC = () => {
     return <div className="text-gray-600 dark:text-gray-400">加载中...</div>;
   }
 
+  // Get model IDs and names from defaultModels
+  const modelIds = defaultModels
+    ? [
+        defaultModels.model,
+        defaultModels.vadModel,
+        defaultModels.puncModel,
+        defaultModels.spkModel,
+      ]
+    : [];
+
+  const modelNames: Record<string, string> = defaultModels
+    ? {
+        [defaultModels.model]: 'ASR 模型 (Paraformer-Large)',
+        [defaultModels.vadModel]: 'VAD 模型 (FSMN-VAD)',
+        [defaultModels.puncModel]: '标点模型 (CT-Transformer)',
+        [defaultModels.spkModel]: '说话人模型 (CAM++)',
+      }
+    : {};
+
   return (
     <div className="space-y-6">
       {/* Python Runtime 状态指示器 */}
       <RuntimeStatusIndicator refreshTrigger={refreshTrigger} />
 
-      <div className="flex items-center">
-        <input
-          type="checkbox"
-          id="useDefaultModels"
-          checked={useDefaultModels}
-          onChange={(e) => setUseDefaultModels(e.target.checked)}
-          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-        />
-        <label htmlFor="useDefaultModels" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-          使用默认模型路径
-        </label>
-      </div>
-
-      {useDefaultModels ? (
-        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-          <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
-            使用内置的 FunASR 模型，无需手动配置路径。
-          </p>
-          <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-            <li>• ASR 模型: paraformer-large</li>
-            <li>• VAD 模型: fsmn_vad</li>
-            <li>• 标点模型: ct-transformer</li>
-            <li>• 说话人模型: campplus</li>
-          </ul>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <Input
-            label="ASR 模型路径"
-            value={config?.model || ''}
-            onChange={(e) => setConfig({ ...config!, model: e.target.value })}
-            placeholder="/path/to/paraformer-large"
-          />
-          <Input
-            label="VAD 模型路径 (可选)"
-            value={config?.vadModel || ''}
-            onChange={(e) => setConfig({ ...config!, vadModel: e.target.value })}
-            placeholder="/path/to/fsmn_vad"
-          />
-          <Input
-            label="标点模型路径 (可选)"
-            value={config?.puncModel || ''}
-            onChange={(e) => setConfig({ ...config!, puncModel: e.target.value })}
-            placeholder="/path/to/ct-transformer"
-          />
-          <Input
-            label="说话人模型路径 (可选)"
-            value={config?.spkModel || ''}
-            onChange={(e) => setConfig({ ...config!, spkModel: e.target.value })}
-            placeholder="/path/to/campplus"
-          />
-        </div>
+      {/* Model Download Management */}
+      {modelIds.length > 0 && (
+        <ModelDownloadIndicator modelIds={modelIds} modelNames={modelNames} />
       )}
 
       <div>

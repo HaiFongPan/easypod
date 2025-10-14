@@ -1,8 +1,10 @@
 import { ipcMain, IpcMainInvokeEvent, BrowserWindow } from 'electron';
 import { getPythonRuntimeManager } from './PythonRuntimeManager';
+import { getFunASRManager } from './FunASRManager';
 
 export class PythonRuntimeIPCHandlers {
   private runtimeManager = getPythonRuntimeManager();
+  private funasrManager = getFunASRManager();
   private logListener: ((log: string) => void) | null = null;
 
   constructor(private mainWindow: BrowserWindow | null = null) {
@@ -44,6 +46,19 @@ export class PythonRuntimeIPCHandlers {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       await this.runtimeManager.ensureReady({ checkFunasr: false });
+
+      // Start FunASR service after runtime is ready
+      // This starts the HTTP server but doesn't initialize models yet
+      // Models will be initialized on first transcription or when explicitly requested
+      try {
+        await this.funasrManager.ensureReady();
+        console.log('[PythonRuntime] FunASR service started successfully');
+      } catch (funasrError) {
+        console.warn('[PythonRuntime] FunASR service failed to start:', funasrError);
+        // Don't fail the initialization, just log the warning
+        // The service might start later when needed
+      }
+
       return { success: true };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

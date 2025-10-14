@@ -125,6 +125,28 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('transcript:config:setDefaultService', { service }),
   },
 
+  transcriptModel: {
+    // Model download management
+    getStatus: (modelId: string) =>
+      ipcRenderer.invoke('transcript:model:getStatus', { modelId }),
+    getAllStatus: (modelIds: string[]) =>
+      ipcRenderer.invoke('transcript:model:getAllStatus', { modelIds }),
+    download: (modelId: string, cacheDir?: string) =>
+      ipcRenderer.invoke('transcript:model:download', { modelId, cacheDir }),
+    cancelDownload: (modelId: string) =>
+      ipcRenderer.invoke('transcript:model:cancelDownload', { modelId }),
+    subscribeProgress: (modelId: string) =>
+      ipcRenderer.invoke('transcript:model:subscribeProgress', { modelId }),
+    unsubscribeProgress: (modelId: string) =>
+      ipcRenderer.invoke('transcript:model:unsubscribeProgress', { modelId }),
+    // Listen to progress events
+    onProgress: (callback: (event: any) => void) => {
+      const listener = (_event: any, data: any) => callback(data);
+      ipcRenderer.on('transcript:model:progress', listener);
+      return () => ipcRenderer.removeListener('transcript:model:progress', listener);
+    },
+  },
+
   transcript: {
     submit: (episodeId: number, options?: { spkEnable?: boolean; spkNumberPredict?: number }) =>
       ipcRenderer.invoke('transcript:submit', { episodeId, options }),
@@ -290,6 +312,49 @@ export interface ElectronAPI {
     // General configuration
     getDefaultService: () => Promise<{ success: boolean; service?: 'funasr' | 'aliyun'; error?: string }>;
     setDefaultService: (service: 'funasr' | 'aliyun') => Promise<{ success: boolean; error?: string }>;
+  };
+  transcriptModel: {
+    getStatus: (modelId: string) => Promise<{
+      success: boolean;
+      status?: {
+        modelId: string;
+        status: 'pending' | 'downloading' | 'completed' | 'failed';
+        progress: number;
+        downloadedSize: number;
+        totalSize: number;
+        downloadPath?: string;
+        errorMessage?: string;
+        lastUpdated?: string;
+      };
+      error?: string;
+    }>;
+    getAllStatus: (modelIds: string[]) => Promise<{
+      success: boolean;
+      status?: Record<string, {
+        modelId: string;
+        status: 'pending' | 'downloading' | 'completed' | 'failed';
+        progress: number;
+        downloadedSize: number;
+        totalSize: number;
+        downloadPath?: string;
+        errorMessage?: string;
+        lastUpdated?: string;
+      }>;
+      error?: string;
+    }>;
+    download: (modelId: string, cacheDir?: string) => Promise<{ success: boolean; error?: string }>;
+    cancelDownload: (modelId: string) => Promise<{ success: boolean; error?: string }>;
+    subscribeProgress: (modelId: string) => Promise<{ success: boolean; error?: string }>;
+    unsubscribeProgress: (modelId: string) => Promise<{ success: boolean; error?: string }>;
+    onProgress: (callback: (event: {
+      modelId: string;
+      status: string;
+      progress: number;
+      downloadedSize: number;
+      totalSize: number;
+      downloadPath?: string;
+      error?: string;
+    }) => void) => () => void;
   };
   transcript: {
     submit: (episodeId: number, options?: { spkEnable?: boolean; spkNumberPredict?: number }) => Promise<{ success: boolean; taskId?: string; error?: string }>;

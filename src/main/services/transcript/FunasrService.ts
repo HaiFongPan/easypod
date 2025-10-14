@@ -220,6 +220,17 @@ export class FunasrService extends BaseVoiceToTextService {
     const configManager = getTranscriptConfigManager();
     const config = await configManager.getFunASRConfig();
 
+    const paylod = {
+      asr_model: config.model,
+      device: config.device || "cpu",
+      options: {
+        vad_model: config.vadModel,
+        punc_model: config.puncModel,
+        spk_model: config.spkModel,
+        max_single_segment_time: config.maxSingleSegmentTime || 60000,
+      },
+    };
+    console.log(paylod);
     // Initialize model with config (defaults or custom)
     await this.manager.initializeModel({
       asr_model: config.model,

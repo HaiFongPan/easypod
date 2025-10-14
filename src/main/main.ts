@@ -81,9 +81,9 @@ app.whenReady().then(async () => {
   // Initialize RSS feed IPC handlers
   feedIPCHandlers = new FeedIPCHandlers();
 
-  // Set up Python Runtime logging
+  // Set up Python Runtime logging and auto-start FunASR service
+  const runtimeManager = getPythonRuntimeManager();
   if (debugPythonRuntime) {
-    const runtimeManager = getPythonRuntimeManager();
     runtimeManager.on('log', (message: string) => {
       console.log('[PythonRuntime]', message);
     });
@@ -95,6 +95,26 @@ app.whenReady().then(async () => {
     });
   }
 
+  // Auto-start FunASR service if Python Runtime is already provisioned
+  if (runtimeManager.isProvisioned()) {
+    console.log('[App] Python Runtime is provisioned, starting FunASR service...');
+    // Import getFunASRManager here to avoid circular dependency
+    const { getFunASRManager } = await import('./services/funasr/FunASRManager');
+    const funasrManager = getFunASRManager();
+
+    // Start service in background, don't block app startup
+    funasrManager.ensureReady()
+      .then(() => {
+        console.log('[App] FunASR service started successfully');
+      })
+      .catch((error) => {
+        console.warn('[App] FunASR service failed to start:', error);
+        // Don't fail app startup, service can be started later
+      });
+  } else {
+    console.log('[App] Python Runtime not provisioned yet, skipping FunASR service startup');
+  }
+
   // Initialize FunASR IPC handlers
   funasrIPCHandlers = new FunASRIPCHandlers();
 
@@ -103,7 +123,7 @@ app.whenReady().then(async () => {
   console.log('[PythonRuntime] Python Runtime IPC handlers initialized');
 
   // Initialize Transcript Config IPC handlers
-  transcriptConfigIPCHandlers = new TranscriptConfigIPCHandlers();
+  transcriptConfigIPCHandlers = new TranscriptConfigIPCHandlers(mainWindow);
 
   // Initialize Transcript IPC handlers
   transcriptIPCHandlers = new TranscriptIPCHandlers();

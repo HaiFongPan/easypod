@@ -447,6 +447,15 @@ const createMockElectronAPI = (): ElectronAPI => {
       getDefaultService: async () => ({ success: true, service: 'funasr' as const }),
       setDefaultService: async () => ({ success: true }),
     },
+    transcriptModel: {
+      getStatus: async () => ({ success: true, status: undefined }),
+      getAllStatus: async () => ({ success: true, status: {} }),
+      download: async () => ({ success: false, error: 'Mock implementation - model download not available in browser' }),
+      cancelDownload: async () => ({ success: false, error: 'Mock implementation' }),
+      subscribeProgress: async () => ({ success: false, error: 'Mock implementation' }),
+      unsubscribeProgress: async () => ({ success: false, error: 'Mock implementation' }),
+      onProgress: () => () => undefined,
+    },
     transcript: {
       submit: async () => ({ success: false, error: 'Mock implementation' }),
       query: async () => ({ success: false, error: 'Mock implementation' }),

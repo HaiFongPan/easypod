@@ -1,4 +1,4 @@
-import { ipcMain, IpcMainInvokeEvent } from 'electron';
+import { ipcMain, IpcMainInvokeEvent, BrowserWindow } from 'electron';
 import { getTranscriptConfigManager, FunASRConfig, AliyunConfig } from './TranscriptConfigManager';
 import { existsSync } from 'fs';
 import axios from 'axios';
@@ -8,11 +8,14 @@ import { FunasrService } from './FunasrService';
 import { getDatabaseManager } from '../../database/connection';
 import { episodeVoiceTextTasks } from '../../database/schema';
 import { eq, and } from 'drizzle-orm';
+import { getModelDownloadManager, ModelDownloadState, DownloadProgressEvent } from './ModelDownloadManager';
 
 export class TranscriptConfigIPCHandlers {
   private configManager = getTranscriptConfigManager();
+  private downloadManager = getModelDownloadManager();
+  private progressSubscriptions: Map<string, () => void> = new Map();
 
-  constructor() {
+  constructor(private mainWindow: BrowserWindow | null = null) {
     this.registerHandlers();
   }
 
@@ -31,6 +34,14 @@ export class TranscriptConfigIPCHandlers {
     // General configuration
     ipcMain.handle('transcript:config:getDefaultService', this.handleGetDefaultService.bind(this));
     ipcMain.handle('transcript:config:setDefaultService', this.handleSetDefaultService.bind(this));
+
+    // Model download management
+    ipcMain.handle('transcript:model:getStatus', this.handleGetModelStatus.bind(this));
+    ipcMain.handle('transcript:model:getAllStatus', this.handleGetAllModelStatus.bind(this));
+    ipcMain.handle('transcript:model:download', this.handleDownloadModel.bind(this));
+    ipcMain.handle('transcript:model:cancelDownload', this.handleCancelDownload.bind(this));
+    ipcMain.handle('transcript:model:subscribeProgress', this.handleSubscribeProgress.bind(this));
+    ipcMain.handle('transcript:model:unsubscribeProgress', this.handleUnsubscribeProgress.bind(this));
   }
 
   private async handleGetFunASRConfig(
@@ -239,6 +250,146 @@ export class TranscriptConfigIPCHandlers {
     }
   }
 
+  /**
+   * Get download status for a specific model
+   */
+  private async handleGetModelStatus(
+    event: IpcMainInvokeEvent,
+    params: { modelId: string }
+  ): Promise<{ success: boolean; status?: ModelDownloadState; error?: string }> {
+    try {
+      const status = await this.downloadManager.getModelStatus(params.modelId);
+      return { success: true, status };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get model status',
+      };
+    }
+  }
+
+  /**
+   * Get download status for all models
+   */
+  private async handleGetAllModelStatus(
+    event: IpcMainInvokeEvent,
+    params: { modelIds: string[] }
+  ): Promise<{ success: boolean; status?: Record<string, ModelDownloadState>; error?: string }> {
+    try {
+      const status = await this.downloadManager.getAllModelStatus(params.modelIds);
+      return { success: true, status };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get model status',
+      };
+    }
+  }
+
+  /**
+   * Start downloading a model
+   */
+  private async handleDownloadModel(
+    event: IpcMainInvokeEvent,
+    params: { modelId: string; cacheDir?: string }
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const result = await this.downloadManager.downloadModel(params.modelId, params.cacheDir);
+      return result;
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to start download',
+      };
+    }
+  }
+
+  /**
+   * Cancel an ongoing download
+   */
+  private async handleCancelDownload(
+    event: IpcMainInvokeEvent,
+    params: { modelId: string }
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const result = await this.downloadManager.cancelDownload(params.modelId);
+
+      // Cleanup subscription if exists
+      this.cleanupSubscription(params.modelId);
+
+      return result;
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to cancel download',
+      };
+    }
+  }
+
+  /**
+   * Subscribe to download progress updates
+   */
+  private async handleSubscribeProgress(
+    event: IpcMainInvokeEvent,
+    params: { modelId: string }
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const modelId = params.modelId;
+
+      // Cleanup existing subscription
+      this.cleanupSubscription(modelId);
+
+      // Create new subscription
+      const cleanup = await this.downloadManager.subscribeProgress(
+        modelId,
+        (progressEvent: DownloadProgressEvent) => {
+          // Forward progress to renderer
+          if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+            this.mainWindow.webContents.send('transcript:model:progress', progressEvent);
+          }
+        }
+      );
+
+      this.progressSubscriptions.set(modelId, cleanup);
+
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to subscribe to progress',
+      };
+    }
+  }
+
+  /**
+   * Unsubscribe from download progress updates
+   */
+  private async handleUnsubscribeProgress(
+    event: IpcMainInvokeEvent,
+    params: { modelId: string }
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      this.cleanupSubscription(params.modelId);
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to unsubscribe',
+      };
+    }
+  }
+
+  /**
+   * Cleanup a progress subscription
+   */
+  private cleanupSubscription(modelId: string): void {
+    const cleanup = this.progressSubscriptions.get(modelId);
+    if (cleanup) {
+      cleanup();
+      this.progressSubscriptions.delete(modelId);
+    }
+  }
+
   destroy(): void {
     ipcMain.removeHandler('transcript:config:getFunASR');
     ipcMain.removeHandler('transcript:config:setFunASR');
@@ -249,5 +400,20 @@ export class TranscriptConfigIPCHandlers {
     ipcMain.removeHandler('transcript:config:testAliyunAPI');
     ipcMain.removeHandler('transcript:config:getDefaultService');
     ipcMain.removeHandler('transcript:config:setDefaultService');
+
+    // Model download handlers
+    ipcMain.removeHandler('transcript:model:getStatus');
+    ipcMain.removeHandler('transcript:model:getAllStatus');
+    ipcMain.removeHandler('transcript:model:download');
+    ipcMain.removeHandler('transcript:model:cancelDownload');
+    ipcMain.removeHandler('transcript:model:subscribeProgress');
+    ipcMain.removeHandler('transcript:model:unsubscribeProgress');
+
+    // Cleanup all subscriptions
+    this.progressSubscriptions.forEach((cleanup) => cleanup());
+    this.progressSubscriptions.clear();
+
+    // Cleanup download manager
+    this.downloadManager.destroy();
   }
 }

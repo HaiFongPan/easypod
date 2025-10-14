@@ -19,6 +19,18 @@ export interface TranscriptData {
   updatedAt: string;
 }
 
+export interface ModelDownloadState {
+  modelId: string;
+  status: 'pending' | 'downloading' | 'completed' | 'failed';
+  progress: number; // 0-100
+  downloadedSize: number;
+  totalSize: number;
+  downloadPath?: string;
+  errorMessage?: string;
+  speed?: number; // MB/s
+  estimatedTimeRemaining?: number; // seconds
+}
+
 interface TranscriptState {
   // Current transcript data
   transcript: TranscriptData | null;
@@ -32,13 +44,33 @@ interface TranscriptState {
   autoScrollEnabled: boolean;
   manualScrollDetected: boolean;
 
-  // Actions
+  // Model download states
+  models: Record<string, ModelDownloadState>;
+  _progressListenerCleanup?: () => void;
+
+  // Transcript actions
   loadTranscript: (episodeId: number) => Promise<void>;
   clearTranscript: () => void;
   setCurrentSentenceIndex: (index: number) => void;
   enableAutoScroll: () => void;
   disableAutoScroll: () => void;
   setManualScrollDetected: (detected: boolean) => void;
+
+  // Model download actions
+  loadModelStatus: (modelIds: string[]) => Promise<void>;
+  downloadModel: (modelId: string) => Promise<boolean>;
+  cancelDownload: (modelId: string) => Promise<boolean>;
+  updateModelProgress: (progressEvent: {
+    modelId: string;
+    status: string;
+    progress: number;
+    downloadedSize: number;
+    totalSize: number;
+    downloadPath?: string;
+    error?: string;
+  }) => void;
+  setupProgressListener: () => void;
+  cleanupProgressListener: () => void;
 }
 
 export const useTranscriptStore = create<TranscriptState>()(
@@ -51,6 +83,7 @@ export const useTranscriptStore = create<TranscriptState>()(
       currentSentenceIndex: -1,
       autoScrollEnabled: true,
       manualScrollDetected: false,
+      models: {},
 
       // Load transcript from database
       loadTranscript: async (episodeId: number) => {
@@ -125,7 +158,183 @@ export const useTranscriptStore = create<TranscriptState>()(
           set({ manualScrollDetected: false });
         }
       },
+
+      // Model download: Load model status for given model IDs
+      loadModelStatus: async (modelIds: string[]) => {
+        try {
+          const result = await window.electronAPI.transcriptModel.getAllStatus(modelIds);
+
+          if (result.success && result.status) {
+            set({
+              models: result.status,
+            });
+          }
+        } catch (error) {
+          console.error('[TranscriptStore] Failed to load model status:', error);
+        }
+      },
+
+      // Model download: Start downloading a model
+      downloadModel: async (modelId: string) => {
+        try {
+          // Initialize model state
+          set((state) => ({
+            models: {
+              ...state.models,
+              [modelId]: {
+                modelId,
+                status: 'downloading',
+                progress: 0,
+                downloadedSize: 0,
+                totalSize: 0,
+              },
+            },
+          }));
+
+          // Start download
+          const downloadResult = await window.electronAPI.transcriptModel.download(modelId);
+
+          if (!downloadResult.success) {
+            // Update to failed state
+            set((state) => ({
+              models: {
+                ...state.models,
+                [modelId]: {
+                  ...state.models[modelId],
+                  status: 'failed',
+                  errorMessage: downloadResult.error || 'Failed to start download',
+                },
+              },
+            }));
+            return false;
+          }
+
+          // Subscribe to progress updates
+          await window.electronAPI.transcriptModel.subscribeProgress(modelId);
+
+          return true;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          console.error('[TranscriptStore] Failed to start download:', error);
+
+          set((state) => ({
+            models: {
+              ...state.models,
+              [modelId]: {
+                ...state.models[modelId],
+                status: 'failed',
+                errorMessage: message,
+              },
+            },
+          }));
+
+          return false;
+        }
+      },
+
+      // Model download: Cancel an ongoing download
+      cancelDownload: async (modelId: string) => {
+        try {
+          const result = await window.electronAPI.transcriptModel.cancelDownload(modelId);
+
+          if (result.success) {
+            // Update local state
+            set((state) => ({
+              models: {
+                ...state.models,
+                [modelId]: {
+                  ...state.models[modelId],
+                  status: 'failed',
+                  errorMessage: 'Download cancelled by user',
+                },
+              },
+            }));
+
+            // Unsubscribe from progress
+            await window.electronAPI.transcriptModel.unsubscribeProgress(modelId);
+
+            return true;
+          }
+
+          return false;
+        } catch (error) {
+          console.error('[TranscriptStore] Failed to cancel download:', error);
+          return false;
+        }
+      },
+
+      // Model download: Update model progress from SSE event
+      updateModelProgress: (progressEvent) => {
+        const { modelId } = progressEvent;
+        const currentState = get().models[modelId];
+
+        // Calculate download speed
+        let speed: number | undefined;
+        if (currentState && currentState.downloadedSize > 0) {
+          const sizeDiff = progressEvent.downloadedSize - currentState.downloadedSize;
+          const timeDiff = 1; // Assuming updates every ~1 second
+          speed = sizeDiff / timeDiff / (1024 * 1024); // Convert to MB/s
+        }
+
+        // Calculate estimated time remaining
+        let estimatedTimeRemaining: number | undefined;
+        if (speed && speed > 0) {
+          const remainingBytes = progressEvent.totalSize - progressEvent.downloadedSize;
+          estimatedTimeRemaining = remainingBytes / (speed * 1024 * 1024);
+        }
+
+        set((state) => ({
+          models: {
+            ...state.models,
+            [modelId]: {
+              modelId,
+              status: progressEvent.status as any,
+              progress: progressEvent.progress,
+              downloadedSize: progressEvent.downloadedSize,
+              totalSize: progressEvent.totalSize,
+              downloadPath: progressEvent.downloadPath,
+              errorMessage: progressEvent.error,
+              speed,
+              estimatedTimeRemaining,
+            },
+          },
+        }));
+      },
+
+      // Model download: Setup progress listener
+      setupProgressListener: () => {
+        const cleanup = get()._progressListenerCleanup;
+        if (cleanup) {
+          // Already set up
+          return;
+        }
+
+        const unsubscribe = window.electronAPI.transcriptModel.onProgress((event) => {
+          get().updateModelProgress(event);
+        });
+
+        set({ _progressListenerCleanup: unsubscribe });
+      },
+
+      // Model download: Cleanup progress listener
+      cleanupProgressListener: () => {
+        const cleanup = get()._progressListenerCleanup;
+        if (cleanup) {
+          cleanup();
+          set({ _progressListenerCleanup: undefined });
+        }
+      },
     }),
     { name: 'Transcript Store' }
   )
 );
+
+// Auto-setup progress listener when store is created
+useTranscriptStore.getState().setupProgressListener();
+
+// Cleanup on window unload
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    useTranscriptStore.getState().cleanupProgressListener();
+  });
+}
