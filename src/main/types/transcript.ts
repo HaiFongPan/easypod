@@ -59,10 +59,10 @@ export interface EpisodeTranscript {
  * Chapter info for AI-generated chapters
  */
 export interface ChapterInfo {
-  title: string;
   start: number; // Start time in milliseconds
   end: number; // End time in milliseconds
-  summary?: string; // Optional chapter summary
+  summary: string; // Chapter headline
+  content: string; // Detailed chapter description
 }
 
 /**

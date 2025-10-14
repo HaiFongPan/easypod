@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from "axios";
 import { TranscriptSettingsDao } from "../../database/dao/transcriptSettingsDao";
 import { getFunASRManager } from "../funasr/FunASRManager";
+import { getDefaultFunASRPort } from "../../config/portConfig";
 
 export interface ModelDownloadState {
   modelId: string;
@@ -35,7 +36,7 @@ export class ModelDownloadManager {
 
   constructor(
     funasrServerHost: string = "127.0.0.1",
-    funasrServerPort: number = 17953,
+    funasrServerPort: number = getDefaultFunASRPort(),
   ) {
     this.dao = new TranscriptSettingsDao();
     this.baseURL = `http://${funasrServerHost}:${funasrServerPort}`;
@@ -148,6 +149,18 @@ export class ModelDownloadManager {
     try {
       const funasrManager = getFunASRManager();
       await funasrManager.ensureReady();
+
+      // Update baseURL with actual server URL after startup
+      const actualUrl = funasrManager.getBaseUrl();
+      if (actualUrl) {
+        this.baseURL = actualUrl;
+        this.httpClient = axios.create({
+          baseURL: this.baseURL,
+          timeout: 10000,
+        });
+        console.log(`[ModelDownloadManager] Updated baseURL to ${actualUrl}`);
+      }
+
       this.serviceStartAttempted = true;
       console.log("[ModelDownloadManager] FunASR service started successfully");
     } catch (error) {
@@ -361,7 +374,7 @@ let instance: ModelDownloadManager | null = null;
 
 export function getModelDownloadManager(
   host: string = "127.0.0.1",
-  port: number = 17953,
+  port: number = getDefaultFunASRPort(),
 ): ModelDownloadManager {
   if (!instance) {
     instance = new ModelDownloadManager(host, port);

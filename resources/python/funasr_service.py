@@ -570,6 +570,8 @@ async def download_progress_stream(model_id: str):
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the EasyPod FunASR HTTP service")
     parser.add_argument("--host", default="127.0.0.1")
+    # Default port is 17953, but Electron will pass the actual port after checking for conflicts
+    # See src/main/config/portConfig.ts for port configuration
     parser.add_argument("--port", type=int, default=17953)
     parser.add_argument("--log-level", default="INFO")
     parser.add_argument("--reload", action="store_true")

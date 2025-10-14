@@ -1,5 +1,6 @@
 import { TranscriptSettingsDao } from "../../database/dao/transcriptSettingsDao";
 import { encryptString, decryptString } from "../../utils/encryption";
+import { getDefaultFunASRPort } from "../../config/portConfig";
 
 export interface FunASRConfig {
   model: string;
@@ -30,7 +31,7 @@ const DEFAULT_FUNASR_CONFIG: Partial<FunASRConfig> = {
   device: "cpu",
   maxSingleSegmentTime: 60000, // 60 seconds
   serverHost: "127.0.0.1",
-  serverPort: 17953,
+  serverPort: getDefaultFunASRPort(),
   useDefaultModels: true,
 };
 

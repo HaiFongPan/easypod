@@ -83,6 +83,14 @@ export class FunASRManager extends EventEmitter {
     }
   }
 
+  getBaseUrl(): string | null {
+    return this.server.getBaseUrl();
+  }
+
+  isRunning(): boolean {
+    return this.server.isRunning();
+  }
+
   static create(options?: FunASRManagerOptions): FunASRManager {
     return new FunASRManager(options);
   }

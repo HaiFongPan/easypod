@@ -19,6 +19,7 @@ export interface ChapterItem {
   start: number; // milliseconds
   end: number; // milliseconds
   summary: string;
+  content: string;
 }
 
 export interface ChapterResponse {

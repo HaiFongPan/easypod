@@ -12,6 +12,7 @@ import { join } from 'path';
 import axios from 'axios';
 import { app } from 'electron';
 import { getPythonRuntimeManager } from './PythonRuntimeManager';
+import { findAvailablePort, getDefaultFunASRPort, getMaxPortRetries } from '../../config/portConfig';
 
 export interface FunASRServerOptions {
   host?: string;
@@ -23,9 +24,9 @@ export interface FunASRServerOptions {
 export interface FunASRServerState {
   url: string;
   pid: number;
+  port: number;
 }
 
-const DEFAULT_PORT = 17953;
 const HEALTH_TIMEOUT_MS = 30_000;
 const HEALTH_RETRY_INTERVAL_MS = 1_000;
 
@@ -37,12 +38,13 @@ export class FunASRServer extends EventEmitter {
     checkFunasr: boolean;
   };
   private baseUrl: string | null = null;
+  private actualPort: number | null = null;
 
   constructor(options: FunASRServerOptions = {}) {
     super();
     this.options = {
       host: options.host ?? '127.0.0.1',
-      port: options.port ?? DEFAULT_PORT,
+      port: options.port ?? getDefaultFunASRPort(),
       scriptPath: options.scriptPath,
       checkFunasr: options.checkFunasr ?? false,
     };
@@ -50,7 +52,11 @@ export class FunASRServer extends EventEmitter {
 
   async start(): Promise<FunASRServerState> {
     if (this.child && !this.child.killed) {
-      return { url: this.requireBaseUrl(), pid: this.child.pid ?? -1 };
+      return {
+        url: this.requireBaseUrl(),
+        pid: this.child.pid ?? -1,
+        port: this.actualPort ?? this.options.port,
+      };
     }
 
     const runtime = await getPythonRuntimeManager().ensureReady({
@@ -62,7 +68,14 @@ export class FunASRServer extends EventEmitter {
       throw new Error(`FunASR service script not found at ${scriptPath}`);
     }
 
-    const args = [scriptPath, '--host', this.options.host, '--port', String(this.options.port)];
+    // Find an available port
+    const availablePort = await findAvailablePort(
+      this.options.port,
+      getMaxPortRetries(),
+    );
+    this.actualPort = availablePort;
+
+    const args = [scriptPath, '--host', this.options.host, '--port', String(availablePort)];
     const child = spawn(runtime.pythonPath, args, {
       env: runtime.env,
       cwd: runtime.runtimeDir,
@@ -72,13 +85,14 @@ export class FunASRServer extends EventEmitter {
     child.stdin.end();
 
     this.child = child;
-    this.baseUrl = `http://${this.options.host}:${this.options.port}`;
+    this.baseUrl = `http://${this.options.host}:${availablePort}`;
 
     this.setupLogging(runtime.logsDir, child);
 
     child.on('exit', (code, signal) => {
       this.emit('exit', { code, signal });
       this.child = null;
+      this.actualPort = null;
     });
 
     child.on('error', (error) => {
@@ -87,8 +101,12 @@ export class FunASRServer extends EventEmitter {
 
     await this.waitForHealth();
 
-    this.emit('ready', { url: this.baseUrl, pid: child.pid });
-    return { url: this.requireBaseUrl(), pid: child.pid ?? -1 };
+    this.emit('ready', { url: this.baseUrl, pid: child.pid, port: availablePort });
+    return {
+      url: this.requireBaseUrl(),
+      pid: child.pid ?? -1,
+      port: availablePort,
+    };
   }
 
   async stop(): Promise<void> {

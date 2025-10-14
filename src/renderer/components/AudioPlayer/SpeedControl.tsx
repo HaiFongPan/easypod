@@ -42,8 +42,7 @@ const SpeedControl: React.FC<SpeedControlProps> = ({
           className={cn(
             "w-12 px-3 py-1 rounded-md text-sm font-medium transition-colors text-center",
             "text-gray-600 hover:bg-blue-500 hover:text-white dark:text-gray-200",
-            playbackRate !== 1.0 &&
-              "bg-blue-500 text-white dark:bg-blue-500",
+            // playbackRate !== 1.0 && "bg-blue-500 text-white dark:bg-blue-500",
           )}
           title="Playback Speed"
         >
@@ -61,7 +60,8 @@ const SpeedControl: React.FC<SpeedControlProps> = ({
                   className={cn(
                     "w-full px-3 py-2 text-sm text-center transition-colors",
                     "text-gray-600 hover:bg-blue-500 hover:text-white dark:text-gray-200",
-                    speed === playbackRate && "bg-blue-500 text-white dark:bg-blue-500",
+                    speed === playbackRate &&
+                      "bg-blue-500 text-white dark:bg-blue-500",
                   )}
                 >
                   {speed === 1.0 ? "1×" : `${speed}×`}

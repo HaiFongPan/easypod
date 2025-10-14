@@ -17,6 +17,7 @@
     "build:renderer": "vite build",
     "build:python-runtime": "bash scripts/build-python-runtime.sh",
     "build:all": "npm run build:python-runtime && npm run build && npm run dist",
+    "build:icon": "bash scripts/generate-icon.sh",
     "verify:python-runtime": "node scripts/verify-runtime.js",
     "check:python-runtime": "node scripts/check-runtime-status.js",
     "diagnose:python-runtime": "node scripts/diagnose-runtime.js",
@@ -40,7 +41,9 @@
     "files": [
       "dist/**/*",
       "node_modules/**/*",
-      "resources/**/*"
+      "resources/**/*",
+      "!resources/python-runtime/**/*",
+      "!resources/icon.iconset/**/*"
     ],
     "extraResources": [
       {

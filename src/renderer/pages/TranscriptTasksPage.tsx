@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { cn } from "../utils/cn";
 import Button from "../components/Button";
 import {
@@ -13,6 +13,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { useToast } from "../components/Toast/ToastProvider";
+import type { Episode } from "../store/episodesStore";
+import { useEpisodeDetailNavigation } from "../hooks/useEpisodeDetailNavigation";
 
 const PAGE_SIZE = 10;
 
@@ -43,6 +45,8 @@ export const TranscriptTasksPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [localSearchQuery, setLocalSearchQuery] = useState("");
   const toast = useToast();
+  const openEpisodeDetail = useEpisodeDetailNavigation();
+  const [openingEpisodeId, setOpeningEpisodeId] = useState<number | null>(null);
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -116,6 +120,36 @@ export const TranscriptTasksPage: React.FC = () => {
     } catch (err) {
       toast.error(
         `重试失败: ${err instanceof Error ? err.message : "Unknown error"}`,
+      );
+    }
+  };
+
+  const handleOpenEpisodeDetail = async (episodeId: number) => {
+    if (openingEpisodeId === episodeId) {
+      return;
+    }
+    setOpeningEpisodeId(episodeId);
+    try {
+      const result = await window.electronAPI.episodes.getById(episodeId);
+      if (result?.episode) {
+        const episode = result.episode as Episode;
+        openEpisodeDetail({
+          ...episode,
+          feedTitle: episode.feedTitle ?? undefined,
+          feedCoverUrl: episode.feedCoverUrl ?? undefined,
+        });
+      } else {
+        toast.error("无法加载节目详情");
+      }
+    } catch (err) {
+      toast.error(
+        `加载节目详情失败: ${
+          err instanceof Error ? err.message : "Unknown error"
+        }`,
+      );
+    } finally {
+      setOpeningEpisodeId((current) =>
+        current === episodeId ? null : current,
       );
     }
   };
@@ -305,9 +339,21 @@ export const TranscriptTasksPage: React.FC = () => {
 
                     {/* Title */}
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                        {task.episode.title}
-                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEpisodeDetail(task.episodeId)}
+                        className={cn(
+                          "inline-flex min-w-0 items-center gap-2 text-left text-sm font-medium text-gray-900 transition hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-gray-100 dark:focus:ring-blue-300",
+                          openingEpisodeId === task.episodeId &&
+                            "cursor-wait opacity-80",
+                        )}
+                        disabled={openingEpisodeId === task.episodeId}
+                      >
+                        {openingEpisodeId === task.episodeId && (
+                          <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin text-blue-500 dark:text-blue-400" />
+                        )}
+                        <span className="truncate">{task.episode.title}</span>
+                      </button>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         Powerby: {task.service.toUpperCase()}
                       </p>

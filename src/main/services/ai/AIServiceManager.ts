@@ -4,7 +4,7 @@ import { LlmModelsDao } from "../../database/dao/llmModelsDao";
 import { PromptsDao } from "../../database/dao/promptsDao";
 import { EpisodeAiSummarysDao } from "../../database/dao/episodeAiSummarysDao";
 import { EpisodeTranscriptsDao } from "../../database/dao/episodeTranscriptsDao";
-import type { AIService, ChapterResponse } from "./types";
+import type { AIService, ChapterItem, ChapterResponse } from "./types";
 
 export class AIServiceManager {
   private providersDao: LlmProvidersDao;
@@ -168,19 +168,29 @@ export class AIServiceManager {
             return null;
           }
 
-          const title = (chapter.summary || "").trim();
+          const summary = (chapter.summary || "").trim();
           const content = (chapter.content || "").trim();
-          if (!title || !content) {
+          if (!summary || !content) {
             return null;
           }
 
           return {
             start: timing.start,
             end: timing.end ?? timing.start,
-            summary: `${title}:${content}`,
+            summary,
+            content,
           };
         })
-        .filter((chapter): chapter is { start: number; end: number; summary: string } => Boolean(chapter));
+        .filter(
+          (
+            chapter,
+          ): chapter is {
+            start: number;
+            end: number;
+            summary: string;
+            content: string;
+          } => Boolean(chapter),
+        );
 
       if (chapters.length === 0) {
         throw new Error("章节数据为空，无法保存");
@@ -263,20 +273,81 @@ export class AIServiceManager {
         return { success: false, error: "该集尚未生成总结" };
       }
 
-      let chapters: Array<{ start: number; end: number; summary: string }> = [];
+      let chapters: ChapterItem[] = [];
       let totalChapters: number | undefined;
       let detectedTime: string | undefined;
 
       try {
         const parsed = JSON.parse(summary.chapters);
+        const normalizeChapter = (chapter: any): ChapterItem | null => {
+          if (!chapter || typeof chapter !== "object") {
+            return null;
+          }
+
+          const start = Number(chapter.start);
+          if (!Number.isFinite(start)) {
+            return null;
+          }
+
+          const endValue = Number(chapter.end);
+          const end = Number.isFinite(endValue) ? endValue : start;
+
+          let summaryText =
+            typeof chapter.summary === "string" ? chapter.summary.trim() : "";
+          if (!summaryText && typeof chapter.title === "string") {
+            summaryText = chapter.title.trim();
+          }
+
+          let contentText =
+            typeof chapter.content === "string" ? chapter.content.trim() : "";
+
+          if (!contentText && summaryText.includes(":")) {
+            const delimiterIndex = summaryText.indexOf(":");
+            if (delimiterIndex >= 0) {
+              const maybeSummary = summaryText.slice(0, delimiterIndex).trim();
+              const maybeContent = summaryText.slice(delimiterIndex + 1).trim();
+              if (maybeSummary) {
+                summaryText = maybeSummary;
+              }
+              if (maybeContent) {
+                contentText = maybeContent;
+              }
+            }
+          }
+
+          if (!summaryText) {
+            return null;
+          }
+
+          if (!contentText && typeof chapter.description === "string") {
+            contentText = chapter.description.trim();
+          }
+
+          return {
+            start,
+            end,
+            summary: summaryText,
+            content: contentText,
+          };
+        };
+
+        const extractChapters = (value: any): ChapterItem[] => {
+          if (!Array.isArray(value)) {
+            return [];
+          }
+          return value
+            .map((item) => normalizeChapter(item))
+            .filter((chapter): chapter is ChapterItem => Boolean(chapter));
+        };
+
         if (Array.isArray(parsed)) {
-          chapters = parsed;
+          chapters = extractChapters(parsed);
         } else if (
           parsed &&
           typeof parsed === "object" &&
           Array.isArray(parsed.chapters)
         ) {
-          chapters = parsed.chapters;
+          chapters = extractChapters(parsed.chapters);
           if (Number.isFinite(parsed.totalChapters)) {
             totalChapters = Number(parsed.totalChapters);
           }

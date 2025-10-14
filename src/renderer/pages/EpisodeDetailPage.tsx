@@ -346,7 +346,12 @@ const EpisodeDetailPage: React.FC = () => {
   const [aiSummary, setAiSummary] = useState<{
     summary: string;
     tags: string[];
-    chapters: Array<{ start: number; end: number; summary: string }>;
+    chapters: Array<{
+      start: number;
+      end: number;
+      summary: string;
+      content: string;
+    }>;
     totalChapters?: number;
     detectedTime?: string;
   } | null>(null);
@@ -719,8 +724,7 @@ const EpisodeDetailPage: React.FC = () => {
         await window.electronAPI.transcriptConfig.getDefaultService();
 
       if (!defaultServiceResult.success) {
-        const message =
-          defaultServiceResult.error || "无法获取默认转写服务";
+        const message = defaultServiceResult.error || "无法获取默认转写服务";
         toast.error(message);
         return;
       }
@@ -746,8 +750,7 @@ const EpisodeDetailPage: React.FC = () => {
       } else if (defaultService === "aliyun") {
         const validation = await validateTranscriptReadiness("aliyun");
         if (!validation.canProceed) {
-          const message =
-            validation.message || "请配置阿里云 API 后再试";
+          const message = validation.message || "请配置阿里云 API 后再试";
           toast.error(message);
           setCurrentView("settings");
           return;
@@ -866,10 +869,15 @@ const EpisodeDetailPage: React.FC = () => {
       console.log("[EpisodeDetail] Exporting SRT for episode:", episode.id);
 
       // Fetch transcript data
-      const result = await window.electronAPI.transcript.getByEpisode(episode.id);
+      const result = await window.electronAPI.transcript.getByEpisode(
+        episode.id,
+      );
 
       if (!result.success || !result.transcript) {
-        console.error("[EpisodeDetail] Failed to fetch transcript:", result.error);
+        console.error(
+          "[EpisodeDetail] Failed to fetch transcript:",
+          result.error,
+        );
         toast.error(result.error || "无法获取转写内容");
         return;
       }
@@ -904,9 +912,7 @@ const EpisodeDetailPage: React.FC = () => {
     } catch (error) {
       console.error("[EpisodeDetail] Error exporting SRT:", error);
       const message =
-        error instanceof Error
-          ? error.message
-          : "导出字幕文件时发生错误";
+        error instanceof Error ? error.message : "导出字幕文件时发生错误";
       toast.error(message);
     } finally {
       setIsExportingSRT(false);
@@ -1102,9 +1108,6 @@ const EpisodeDetailPage: React.FC = () => {
                       key={`ai-chapter-${index}`}
                       className="flex items-start gap-3"
                     >
-                      <div className="mt-1 text-xs font-semibold text-gray-600 dark:text-gray-400">
-                        {index + 1}.
-                      </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <button
@@ -1113,9 +1116,16 @@ const EpisodeDetailPage: React.FC = () => {
                           >
                             {timeStr}
                           </button>
+                          <span className="font-medium font-bold text-gray-900 dark:text-gray-100">
+                            {chapter.summary}
+                          </span>
                         </div>
                         <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 select-text">
-                          {chapter.summary}
+                          {chapter.content ? (
+                            <span className="text-gray-700 dark:text-gray-300">
+                              {chapter.content}
+                            </span>
+                          ) : null}
                         </p>
                       </div>
                     </li>
@@ -1221,14 +1231,17 @@ const EpisodeDetailPage: React.FC = () => {
             />
           </div>
         )}
-        <div className="flex-1">
+          <div className="flex-1">
           {/* Title and Metadata */}
           <div
-            className={cn("flex flex-col", isCompactLayout ? "gap-1" : "gap-2")}
+            className={cn(
+              "flex flex-col items-start text-left",
+              isCompactLayout ? "gap-1" : "gap-2",
+            )}
           >
             <h1
               className={cn(
-                "mt-1 font-bold leading-tight text-gray-900 transition-all duration-200 dark:text-gray-100",
+                "mt-1 font-bold leading-tight text-gray-900 transition-all duration-200 dark:text-gray-100 text-left",
                 titleSizeClass,
               )}
             >
@@ -1237,7 +1250,7 @@ const EpisodeDetailPage: React.FC = () => {
             {publishInfo && (
               <p
                 className={cn(
-                  "text-gray-600 dark:text-gray-400",
+                  "text-gray-600 dark:text-gray-400 text-left",
                   publishInfoClass,
                 )}
               >
@@ -1299,7 +1312,7 @@ const EpisodeDetailPage: React.FC = () => {
     <div className="flex flex-1 flex-col overflow-hidden bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
       <div className="flex-1 overflow-hidden">
         <div className="grid h-full grid-rows-[auto_1fr]">
-          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-800">
+          <div className="flex items-center gap-3 border-b border-gray-200 px-6 py-4 dark:border-gray-800">
             <Button variant="ghost" size="sm" onClick={handleBack}>
               <span className="mr-2 inline-flex items-center">
                 <svg
@@ -1316,7 +1329,7 @@ const EpisodeDetailPage: React.FC = () => {
               </span>
               Back
             </Button>
-            <div className="inline-flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <div className="inline-flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 ml-2">
               {/* <span>Detail View</span> */}
               {/* <span>•</span> */}
               <span>{episode.feedTitle ?? "Podcast"}</span>
@@ -1379,9 +1392,7 @@ const EpisodeDetailPage: React.FC = () => {
                 <div className="flex h-full min-h-0 min-w-0 flex-col bg-gray-50 dark:bg-gray-950">
                   <div className="flex-1 min-h-0">
                     <Tabs
-                      tabs={[
-                        { key: "summary", label: "AI Summary" },
-                      ]}
+                      tabs={[{ key: "summary", label: "AI Summary" }]}
                       value={rightTab}
                       onChange={handleRightTabChange}
                       contentClassName="pb-24"
