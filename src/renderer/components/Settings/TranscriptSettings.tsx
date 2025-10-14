@@ -6,17 +6,6 @@ import { getElectronAPI } from '../../utils/electron';
 import RuntimeStatusIndicator from './RuntimeStatusIndicator';
 import ModelDownloadIndicator from './ModelDownloadIndicator';
 
-interface FunASRConfig {
-  model: string;
-  vadModel?: string;
-  puncModel?: string;
-  spkModel?: string;
-  device?: 'cpu' | 'cuda';
-  maxSingleSegmentTime?: number;
-  serverHost?: string;
-  serverPort?: number;
-}
-
 interface AliyunConfig {
   apiKey: string;
   baseURL?: string;
@@ -154,31 +143,13 @@ export const TranscriptSettings: React.FC = () => {
 };
 
 const FunASRSettingsPanel: React.FC = () => {
-  const [config, setConfig] = useState<FunASRConfig | null>(null);
   const [defaultModels, setDefaultModels] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [refreshTrigger] = useState(0);
 
   useEffect(() => {
-    loadConfig();
     loadDefaultModels();
   }, []);
-
-  const loadConfig = async () => {
-    try {
-      const result = await getElectronAPI().transcriptConfig.getFunASRConfig();
-      if (result.success && result.config) {
-        setConfig(result.config);
-      } else {
-        setConfig(null);
-      }
-    } catch (error) {
-      console.error('Failed to load FunASR config:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadDefaultModels = async () => {
     try {
@@ -188,32 +159,10 @@ const FunASRSettingsPanel: React.FC = () => {
       }
     } catch (error) {
       console.error('Failed to load default models:', error);
-    }
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const configToSave = {
-        ...defaultModels,
-        device: config?.device || 'cpu',
-        maxSingleSegmentTime: config?.maxSingleSegmentTime || 60000,
-      };
-
-      const result = await getElectronAPI().transcriptConfig.setFunASRConfig(configToSave || {});
-      if (result.success) {
-        alert('FunASR 配置保存成功');
-        await loadConfig();
-      } else {
-        alert(`保存失败: ${result.error}`);
-      }
-    } catch (error) {
-      alert(`保存失败: ${error}`);
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
-
 
   if (loading) {
     return <div className="text-gray-600 dark:text-gray-400">加载中...</div>;
@@ -247,37 +196,6 @@ const FunASRSettingsPanel: React.FC = () => {
       {modelIds.length > 0 && (
         <ModelDownloadIndicator modelIds={modelIds} modelNames={modelNames} />
       )}
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          计算设备
-        </label>
-        <select
-          value={config?.device || 'cpu'}
-          onChange={(e) => setConfig({ ...config!, device: e.target.value as 'cpu' | 'cuda' })}
-          className="input w-full"
-        >
-          <option value="cpu">CPU</option>
-          <option value="cuda">CUDA (需要 GPU)</option>
-        </select>
-      </div>
-
-      <Input
-        type="number"
-        label="最大单段时长 (秒)"
-        value={(config?.maxSingleSegmentTime || 60000) / 1000}
-        onChange={(e) =>
-          setConfig({ ...config!, maxSingleSegmentTime: Number(e.target.value) * 1000 })
-        }
-        min={10}
-        max={300}
-      />
-
-      <div className="pt-4">
-        <Button onClick={handleSave} loading={saving}>
-          保存配置
-        </Button>
-      </div>
     </div>
   );
 };

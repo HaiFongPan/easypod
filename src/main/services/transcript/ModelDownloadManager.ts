@@ -1,10 +1,10 @@
-import axios, { AxiosInstance } from 'axios';
-import { TranscriptSettingsDao } from '../../database/dao/transcriptSettingsDao';
-import { getFunASRManager } from '../funasr/FunASRManager';
+import axios, { AxiosInstance } from "axios";
+import { TranscriptSettingsDao } from "../../database/dao/transcriptSettingsDao";
+import { getFunASRManager } from "../funasr/FunASRManager";
 
 export interface ModelDownloadState {
   modelId: string;
-  status: 'pending' | 'downloading' | 'completed' | 'failed';
+  status: "pending" | "downloading" | "completed" | "failed";
   progress: number; // 0-100
   downloadedSize: number;
   totalSize: number;
@@ -33,7 +33,10 @@ export class ModelDownloadManager {
   private sseConnections: Map<string, EventSource> = new Map();
   private serviceStartAttempted: boolean = false;
 
-  constructor(funasrServerHost: string = '127.0.0.1', funasrServerPort: number = 17953) {
+  constructor(
+    funasrServerHost: string = "127.0.0.1",
+    funasrServerPort: number = 17953,
+  ) {
     this.dao = new TranscriptSettingsDao();
     this.baseURL = `http://${funasrServerHost}:${funasrServerPort}`;
     this.httpClient = axios.create({
@@ -46,9 +49,20 @@ export class ModelDownloadManager {
    * Get the download status of a specific model
    */
   async getModelStatus(modelId: string): Promise<ModelDownloadState> {
+    // Prefer returning cached state from database
+    const cachedStates =
+      await this.dao.getConfig<Record<string, ModelDownloadState>>("funasr");
+    const cachedState = cachedStates?.[modelId];
+    if (cachedState?.status === "completed") {
+      console.log(
+        `[ModelDownloadManager] Using cached state for ${modelId}: ${cachedState.status} (progress ${cachedState.progress}%)`,
+      );
+      return cachedState;
+    }
+
     // Try to get real-time status from Python service first
     try {
-      const response = await this.httpClient.get('/download-status', {
+      const response = await this.httpClient.get("/download-status", {
         params: { model_id: modelId },
         timeout: 3000,
       });
@@ -67,7 +81,7 @@ export class ModelDownloadManager {
 
         console.log(
           `[ModelDownloadManager] Got status for ${modelId}: ${apiState.status} - ${apiState.progress.toFixed(1)}% ` +
-            `(${apiState.downloadedSize}/${apiState.totalSize} bytes)`
+            `(${apiState.downloadedSize}/${apiState.totalSize} bytes)`,
         );
 
         // Save to database for persistence
@@ -79,22 +93,17 @@ export class ModelDownloadManager {
       // Service not available, fall back to database
       console.debug(
         `[ModelDownloadManager] Service unavailable for ${modelId}:`,
-        error instanceof Error ? error.message : error
+        error instanceof Error ? error.message : error,
       );
     }
 
-    // Fall back to database (source of truth when service is down)
-    const allStates = await this.dao.getConfig<Record<string, ModelDownloadState>>('funasr');
-    if (allStates && allStates[modelId]) {
-      console.log(`[ModelDownloadManager] Using cached state for ${modelId}: ${allStates[modelId].status}`);
-      return allStates[modelId];
-    }
-
     // If not in DB and service unavailable, return default pending state
-    console.log(`[ModelDownloadManager] No state found for ${modelId}, returning pending`);
+    console.log(
+      `[ModelDownloadManager] No state found for ${modelId}, returning pending`,
+    );
     return {
       modelId,
-      status: 'pending',
+      status: "pending",
       progress: 0,
       downloadedSize: 0,
       totalSize: 0,
@@ -104,13 +113,15 @@ export class ModelDownloadManager {
   /**
    * Get download status for all models
    */
-  async getAllModelStatus(modelIds: string[]): Promise<Record<string, ModelDownloadState>> {
+  async getAllModelStatus(
+    modelIds: string[],
+  ): Promise<Record<string, ModelDownloadState>> {
     const results: Record<string, ModelDownloadState> = {};
 
     await Promise.all(
       modelIds.map(async (modelId) => {
         results[modelId] = await this.getModelStatus(modelId);
-      })
+      }),
     );
 
     return results;
@@ -131,14 +142,19 @@ export class ModelDownloadManager {
     }
 
     // Try to start the service
-    console.log('[ModelDownloadManager] FunASR service not running, attempting to start...');
+    console.log(
+      "[ModelDownloadManager] FunASR service not running, attempting to start...",
+    );
     try {
       const funasrManager = getFunASRManager();
       await funasrManager.ensureReady();
       this.serviceStartAttempted = true;
-      console.log('[ModelDownloadManager] FunASR service started successfully');
+      console.log("[ModelDownloadManager] FunASR service started successfully");
     } catch (error) {
-      console.error('[ModelDownloadManager] Failed to start FunASR service:', error);
+      console.error(
+        "[ModelDownloadManager] Failed to start FunASR service:",
+        error,
+      );
       this.serviceStartAttempted = true; // Mark as attempted even if failed
       throw error;
     }
@@ -147,14 +163,17 @@ export class ModelDownloadManager {
   /**
    * Start downloading a model
    */
-  async downloadModel(modelId: string, cacheDir?: string): Promise<{ success: boolean; error?: string }> {
+  async downloadModel(
+    modelId: string,
+    cacheDir?: string,
+  ): Promise<{ success: boolean; error?: string }> {
     // Try to ensure service is started
     try {
       await this.ensureServiceStarted();
     } catch (error) {
       return {
         success: false,
-        error: 'FunASR 服务无法启动，请确保 Python Runtime 已就绪',
+        error: "FunASR 服务无法启动，请确保 Python Runtime 已就绪",
       };
     }
 
@@ -163,12 +182,12 @@ export class ModelDownloadManager {
     if (!isHealthy) {
       return {
         success: false,
-        error: 'FunASR 服务未启动或无法连接，请确保 Python Runtime 已就绪',
+        error: "FunASR 服务未启动或无法连接，请确保 Python Runtime 已就绪",
       };
     }
 
     try {
-      const response = await this.httpClient.post('/download-model', {
+      const response = await this.httpClient.post("/download-model", {
         model_id: modelId,
         cache_dir: cacheDir,
       });
@@ -177,7 +196,7 @@ export class ModelDownloadManager {
         // Initialize state in database
         await this.saveModelState({
           modelId,
-          status: 'downloading',
+          status: "downloading",
           progress: 0,
           downloadedSize: 0,
           totalSize: 0,
@@ -186,11 +205,18 @@ export class ModelDownloadManager {
 
         return { success: true };
       } else {
-        return { success: false, error: response.data.error || 'Unknown error' };
+        return {
+          success: false,
+          error: response.data.error || "Unknown error",
+        };
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to start download';
-      console.error(`[ModelDownloadManager] Download failed for ${modelId}:`, error);
+      const message =
+        error instanceof Error ? error.message : "Failed to start download";
+      console.error(
+        `[ModelDownloadManager] Download failed for ${modelId}:`,
+        error,
+      );
       return { success: false, error: `下载启动失败: ${message}` };
     }
   }
@@ -198,19 +224,23 @@ export class ModelDownloadManager {
   /**
    * Cancel an ongoing model download
    */
-  async cancelDownload(modelId: string): Promise<{ success: boolean; error?: string }> {
+  async cancelDownload(
+    modelId: string,
+  ): Promise<{ success: boolean; error?: string }> {
     try {
-      const response = await this.httpClient.delete(`/download-model/${encodeURIComponent(modelId)}`);
+      const response = await this.httpClient.delete(
+        `/download-model/${encodeURIComponent(modelId)}`,
+      );
 
       if (response.data.success) {
         // Update state in database
         await this.saveModelState({
           modelId,
-          status: 'failed',
+          status: "failed",
           progress: 0,
           downloadedSize: 0,
           totalSize: 0,
-          errorMessage: 'Download cancelled by user',
+          errorMessage: "Download cancelled by user",
           lastUpdated: new Date().toISOString(),
         });
 
@@ -219,10 +249,14 @@ export class ModelDownloadManager {
 
         return { success: true };
       } else {
-        return { success: false, error: response.data.error || 'Failed to cancel' };
+        return {
+          success: false,
+          error: response.data.error || "Failed to cancel",
+        };
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to cancel download';
+      const message =
+        error instanceof Error ? error.message : "Failed to cancel download";
       return { success: false, error: message };
     }
   }
@@ -233,7 +267,7 @@ export class ModelDownloadManager {
    */
   async subscribeProgress(
     modelId: string,
-    onProgress: (event: DownloadProgressEvent) => void
+    onProgress: (event: DownloadProgressEvent) => void,
   ): Promise<() => void> {
     // For Node.js environment, we'll use polling instead of SSE
     // SSE is handled in renderer process via fetch API
@@ -253,11 +287,14 @@ export class ModelDownloadManager {
         });
 
         // Stop polling if completed or failed
-        if (state.status === 'completed' || state.status === 'failed') {
+        if (state.status === "completed" || state.status === "failed") {
           clearInterval(pollInterval);
         }
       } catch (error) {
-        console.error(`[ModelDownloadManager] Polling error for ${modelId}:`, error);
+        console.error(
+          `[ModelDownloadManager] Polling error for ${modelId}:`,
+          error,
+        );
       }
     }, 1000); // Poll every second
 
@@ -272,7 +309,10 @@ export class ModelDownloadManager {
    */
   private async saveModelState(state: ModelDownloadState): Promise<void> {
     // Get all existing model states
-    const allStates = (await this.dao.getConfig<Record<string, ModelDownloadState>>('funasr')) || {};
+    const allStates =
+      (await this.dao.getConfig<Record<string, ModelDownloadState>>(
+        "funasr",
+      )) || {};
 
     // Update the specific model state
     allStates[state.modelId] = {
@@ -281,7 +321,7 @@ export class ModelDownloadManager {
     };
 
     // Save back to database
-    await this.dao.setConfig('funasr', allStates);
+    await this.dao.setConfig("funasr", allStates);
   }
 
   /**
@@ -308,7 +348,7 @@ export class ModelDownloadManager {
    */
   async checkServiceHealth(): Promise<boolean> {
     try {
-      const response = await this.httpClient.get('/health', { timeout: 3000 });
+      const response = await this.httpClient.get("/health", { timeout: 3000 });
       return response.status === 200;
     } catch (error) {
       return false;
@@ -320,8 +360,8 @@ export class ModelDownloadManager {
 let instance: ModelDownloadManager | null = null;
 
 export function getModelDownloadManager(
-  host: string = '127.0.0.1',
-  port: number = 17953
+  host: string = "127.0.0.1",
+  port: number = 17953,
 ): ModelDownloadManager {
   if (!instance) {
     instance = new ModelDownloadManager(host, port);
