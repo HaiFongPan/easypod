@@ -29,6 +29,7 @@ const createWindow = (): void => {
     minWidth: 800,
     minHeight: 600,
     show: false,
+    icon: join(__dirname, '../../resources/icon.icns'),
     titleBarStyle: 'hiddenInset',
     webPreferences: {
       nodeIntegration: false,

@@ -27,8 +27,15 @@ export const ModelDownloadIndicator: React.FC<ModelDownloadIndicatorProps> = ({
   modelIds,
   modelNames,
 }) => {
-  const { models, loadModelStatus, downloadModel, cancelDownload } = useTranscriptStore();
+  const {
+    models,
+    loadModelStatus,
+    downloadModel,
+    downloadModels,
+    cancelDownload,
+  } = useTranscriptStore();
   const [expandedModels, setExpandedModels] = useState<Set<string>>(new Set());
+  const [isBatchDownloading, setIsBatchDownloading] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
@@ -62,6 +69,54 @@ export const ModelDownloadIndicator: React.FC<ModelDownloadIndicatorProps> = ({
     const success = await cancelDownload(modelId);
     if (success) {
       toast.info(`已取消下载: ${modelNames[modelId] || modelId}`);
+    }
+  };
+
+  const handleDownloadAll = async () => {
+    const pendingModelIds = modelIds.filter((modelId) => {
+      const status = models[modelId]?.status;
+      return status !== 'completed' && status !== 'downloading';
+    });
+
+    if (pendingModelIds.length === 0) {
+      const downloadingModels = modelIds.filter((modelId) => models[modelId]?.status === 'downloading');
+      if (downloadingModels.length > 0) {
+        toast.info('部分模型正在下载中');
+      } else {
+        toast.success('所有模型已下载完成');
+      }
+      return;
+    }
+
+    setIsBatchDownloading(true);
+    try {
+      const result = await downloadModels(pendingModelIds);
+
+      if (result.started.length > 0) {
+        toast.success(`已开始下载 ${result.started.length} 个模型`);
+        setExpandedModels((prev) => {
+          const next = new Set(prev);
+          result.started.forEach((modelId) => next.add(modelId));
+          return next;
+        });
+      }
+
+      if (result.skipped.length > 0) {
+        toast.info('部分模型已下载或正在下载，已跳过');
+      }
+
+      if (result.failed.length > 0) {
+        const failedNames = result.failed
+          .map(({ modelId }) => modelNames[modelId] || modelId)
+          .join('、');
+        toast.error(`以下模型下载启动失败: ${failedNames}`);
+      }
+
+      if (result.started.length === 0 && result.failed.length === 0) {
+        toast.info('没有可下载的模型');
+      }
+    } finally {
+      setIsBatchDownloading(false);
     }
   };
 
@@ -199,7 +254,7 @@ export const ModelDownloadIndicator: React.FC<ModelDownloadIndicatorProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">FunASR 模型</h4>
           <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
@@ -208,9 +263,26 @@ export const ModelDownloadIndicator: React.FC<ModelDownloadIndicatorProps> = ({
             {!allCompleted && !anyDownloading && '需要下载以下模型才能使用转写功能'}
           </p>
         </div>
-        {allCompleted && (
-          <CheckCircle className="w-5 h-5 text-green-500" />
-        )}
+        <div className="flex items-center gap-2">
+          {!allCompleted && (
+            <Button onClick={handleDownloadAll} variant="primary" size="sm" disabled={isBatchDownloading}>
+              {isBatchDownloading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  正在启动...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  一键下载
+                </>
+              )}
+            </Button>
+          )}
+          {allCompleted && (
+            <CheckCircle className="w-5 h-5 text-green-500" />
+          )}
+        </div>
       </div>
 
       {/* Info banner */}

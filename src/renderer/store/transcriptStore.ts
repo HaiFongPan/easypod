@@ -59,6 +59,13 @@ interface TranscriptState {
   // Model download actions
   loadModelStatus: (modelIds: string[]) => Promise<void>;
   downloadModel: (modelId: string) => Promise<boolean>;
+  downloadModels: (
+    modelIds: string[],
+  ) => Promise<{
+    started: string[];
+    skipped: string[];
+    failed: { modelId: string; error?: string }[];
+  }>;
   cancelDownload: (modelId: string) => Promise<boolean>;
   updateModelProgress: (progressEvent: {
     modelId: string;
@@ -230,6 +237,33 @@ export const useTranscriptStore = create<TranscriptState>()(
 
           return false;
         }
+      },
+
+      // Model download: Start multiple model downloads in batch
+      downloadModels: async (modelIds: string[]) => {
+        const started: string[] = [];
+        const skipped: string[] = [];
+        const failed: { modelId: string; error?: string }[] = [];
+
+        for (const modelId of modelIds) {
+          const currentState = get().models[modelId];
+
+          if (currentState?.status === 'completed' || currentState?.status === 'downloading') {
+            skipped.push(modelId);
+            continue;
+          }
+
+          const success = await get().downloadModel(modelId);
+
+          if (success) {
+            started.push(modelId);
+          } else {
+            const errorMessage = get().models[modelId]?.errorMessage;
+            failed.push({ modelId, error: errorMessage });
+          }
+        }
+
+        return { started, skipped, failed };
       },
 
       // Model download: Cancel an ongoing download

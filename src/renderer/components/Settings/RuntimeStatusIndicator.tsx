@@ -27,8 +27,8 @@ export const RuntimeStatusIndicator: React.FC<RuntimeStatusIndicatorProps> = ({
     { id: 'check', label: '检查环境', status: 'pending' },
     { id: 'archive', label: '查找 Runtime Archive', status: 'pending' },
     { id: 'extract', label: '解压 Runtime', status: 'pending' },
-    { id: 'deps', label: '安装依赖', status: 'pending' },
-    { id: 'verify', label: '验证安装', status: 'pending' },
+    { id: 'python', label: '定位 Python 解释器', status: 'pending' },
+    { id: 'verify', label: '验证 funasr 可用性', status: 'pending' },
   ]);
 
   const toast = useToast();
@@ -73,19 +73,27 @@ export const RuntimeStatusIndicator: React.FC<RuntimeStatusIndicatorProps> = ({
     }
     if (log.includes('Extraction completed successfully') || log.includes('✓ Extraction completed')) {
       updates.push({ id: 'extract', status: 'completed' });
-      setProgress(60);
+      setProgress(50);
     }
 
-    // 查找 Python
-    if (log.includes('Searching for Python binary') || log.includes('Python found:')) {
-      updates.push({ id: 'deps', status: 'in_progress' });
+    // 定位 Python 解释器
+    if (log.includes('Searching for Python binary')) {
+      updates.push({ id: 'python', status: 'in_progress' });
+      setProgress(60);
+    }
+    if (log.includes('Python found:') && log.includes('✓')) {
+      updates.push({ id: 'python', status: 'completed' });
       setProgress(75);
     }
 
-    // 验证
-    if (log.includes('Checking funasr import') || log.includes('funasr import successful')) {
+    // 验证 funasr
+    if (log.includes('Checking funasr import')) {
       updates.push({ id: 'verify', status: 'in_progress' });
-      setProgress(90);
+      setProgress(85);
+    }
+    if (log.includes('funasr import successful')) {
+      updates.push({ id: 'verify', status: 'completed' });
+      setProgress(95);
     }
 
     // 完成
