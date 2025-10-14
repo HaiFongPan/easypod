@@ -310,7 +310,7 @@ export interface ElectronAPI {
     testAliyunAPI: () => Promise<{ success: boolean; message?: string; error?: string }>;
 
     // General configuration
-    getDefaultService: () => Promise<{ success: boolean; service?: 'funasr' | 'aliyun'; error?: string }>;
+    getDefaultService: () => Promise<{ success: boolean; service?: 'funasr' | 'aliyun' | null; error?: string }>;
     setDefaultService: (service: 'funasr' | 'aliyun') => Promise<{ success: boolean; error?: string }>;
   };
   transcriptModel: {

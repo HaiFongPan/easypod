@@ -13,6 +13,8 @@ import { usePlayQueueStore } from "../store/playQueueStore";
 import { formatDate } from "../utils/formatters";
 import { cn } from "../utils/cn";
 import { convertToSRT, downloadSRT } from "../utils/srtConverter";
+import { useToast } from "../components/Toast/ToastProvider";
+import { validateTranscriptReadiness } from "../utils/transcriptValidation";
 
 const stripHtml = (html: string | null | undefined) => {
   if (!html) return "";
@@ -325,6 +327,7 @@ const EpisodeDetailPage: React.FC = () => {
   const previousView = useNavigationStore((state) => state.previousView);
   const goBack = useNavigationStore((state) => state.goBack);
   const setCurrentView = useNavigationStore((state) => state.setCurrentView);
+  const toast = useToast();
 
   // Transcript task state
   const [transcriptTaskStatus, setTranscriptTaskStatus] =
@@ -709,6 +712,54 @@ const EpisodeDetailPage: React.FC = () => {
       count: speakerCount,
     });
 
+    let defaultService: "funasr" | "aliyun" | null = null;
+
+    try {
+      const defaultServiceResult =
+        await window.electronAPI.transcriptConfig.getDefaultService();
+
+      if (!defaultServiceResult.success) {
+        const message =
+          defaultServiceResult.error || "无法获取默认转写服务";
+        toast.error(message);
+        return;
+      }
+
+      defaultService = defaultServiceResult.service ?? null;
+      if (!defaultService) {
+        toast.info("请先在设置页选择默认转写服务");
+        setCurrentView("settings");
+        return;
+      }
+
+      if (defaultService === "funasr") {
+        const validation = await validateTranscriptReadiness("funasr");
+        if (!validation.canProceed) {
+          const message =
+            validation.details?.modelsReady === false
+              ? "请先初始化 FunASR，并在设置页完成模型下载"
+              : validation.message || "FunASR 环境未就绪，请先初始化";
+          toast.error(message);
+          setCurrentView("settings");
+          return;
+        }
+      } else if (defaultService === "aliyun") {
+        const validation = await validateTranscriptReadiness("aliyun");
+        if (!validation.canProceed) {
+          const message =
+            validation.message || "请配置阿里云 API 后再试";
+          toast.error(message);
+          setCurrentView("settings");
+          return;
+        }
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "无法检查转写配置";
+      toast.error(`无法开始转写：${message}`);
+      return;
+    }
+
     setTranscriptTaskStatus("submitting");
     setTranscriptError(null);
 
@@ -733,10 +784,11 @@ const EpisodeDetailPage: React.FC = () => {
         setTranscriptTaskStatus("processing");
       } else {
         console.error("[EpisodeDetail] Failed to submit task:", result.error);
-        setTranscriptError(
-          result.error || "Failed to submit transcription task",
-        );
+        const errorMessage =
+          result.error || "Failed to submit transcription task";
+        setTranscriptError(errorMessage);
         setTranscriptTaskStatus("failed");
+        toast.error(errorMessage);
       }
     } catch (error) {
       console.error("[EpisodeDetail] Exception when submitting task:", error);
@@ -744,6 +796,7 @@ const EpisodeDetailPage: React.FC = () => {
         error instanceof Error ? error.message : "Unknown error";
       setTranscriptError(errorMessage);
       setTranscriptTaskStatus("failed");
+      toast.error(`提交转写任务失败：${errorMessage}`);
     }
   };
 
@@ -817,14 +870,14 @@ const EpisodeDetailPage: React.FC = () => {
 
       if (!result.success || !result.transcript) {
         console.error("[EpisodeDetail] Failed to fetch transcript:", result.error);
-        alert(result.error || "Failed to fetch transcript data");
+        toast.error(result.error || "无法获取转写内容");
         return;
       }
 
       const { transcript } = result;
 
       if (!transcript.subtitles || transcript.subtitles.length === 0) {
-        alert("No transcript segments available to export");
+        toast.info("暂无可导出的转写段落");
         return;
       }
 
@@ -850,11 +903,11 @@ const EpisodeDetailPage: React.FC = () => {
       console.log("[EpisodeDetail] SRT exported successfully:", filename);
     } catch (error) {
       console.error("[EpisodeDetail] Error exporting SRT:", error);
-      alert(
+      const message =
         error instanceof Error
           ? error.message
-          : "An error occurred while exporting SRT"
-      );
+          : "导出字幕文件时发生错误";
+      toast.error(message);
     } finally {
       setIsExportingSRT(false);
     }

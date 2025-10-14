@@ -444,7 +444,7 @@ const createMockElectronAPI = (): ElectronAPI => {
       testAliyunAPI: async () => ({ success: false, error: 'Mock API' }),
 
       // General configuration
-      getDefaultService: async () => ({ success: true, service: 'funasr' as const }),
+      getDefaultService: async () => ({ success: true }),
       setDefaultService: async () => ({ success: true }),
     },
     transcriptModel: {

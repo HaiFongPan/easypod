@@ -226,7 +226,10 @@ export class TranscriptConfigIPCHandlers {
   ): Promise<{ success: boolean; service?: 'funasr' | 'aliyun'; error?: string }> {
     try {
       const service = await this.configManager.getDefaultService();
-      return { success: true, service };
+      if (service) {
+        return { success: true, service };
+      }
+      return { success: true };
     } catch (error) {
       return {
         success: false,

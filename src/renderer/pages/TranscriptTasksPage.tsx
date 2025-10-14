@@ -12,6 +12,7 @@ import {
   Clock,
   XCircle,
 } from "lucide-react";
+import { useToast } from "../components/Toast/ToastProvider";
 
 const PAGE_SIZE = 10;
 
@@ -41,6 +42,7 @@ export const TranscriptTasksPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [localSearchQuery, setLocalSearchQuery] = useState("");
+  const toast = useToast();
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -92,11 +94,11 @@ export const TranscriptTasksPage: React.FC = () => {
       if (result.success) {
         await fetchTasks();
       } else {
-        alert(`Delete failed: ${result.error}`);
+        toast.error(`删除失败: ${result.error}`);
       }
     } catch (err) {
-      alert(
-        `Delete Error: ${err instanceof Error ? err.message : "Unknown error"}`,
+      toast.error(
+        `删除失败: ${err instanceof Error ? err.message : "Unknown error"}`,
       );
     }
   };
@@ -109,11 +111,11 @@ export const TranscriptTasksPage: React.FC = () => {
       if (result.success) {
         await fetchTasks();
       } else {
-        alert(`Retry Failed: ${result.error}`);
+        toast.error(`重试失败: ${result.error}`);
       }
     } catch (err) {
-      alert(
-        `Retry Error: ${err instanceof Error ? err.message : "Unknown error"}`,
+      toast.error(
+        `重试失败: ${err instanceof Error ? err.message : "Unknown error"}`,
       );
     }
   };

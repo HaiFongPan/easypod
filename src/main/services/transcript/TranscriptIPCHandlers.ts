@@ -130,6 +130,15 @@ export class TranscriptIPCHandlers {
         service: defaultService,
       });
 
+      if (!defaultService) {
+        const error = '默认转写服务未配置';
+        console.error('[TranscriptIPC] Submit task failed: no default service configured', {
+          episodeId: params.episodeId,
+          duration: Date.now() - startTime,
+        });
+        return { success: false, error };
+      }
+
       // 4. Get service instance
       let service;
       try {

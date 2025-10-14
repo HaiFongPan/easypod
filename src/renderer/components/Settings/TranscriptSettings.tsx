@@ -5,6 +5,7 @@ import Input from '../Input/Input';
 import { getElectronAPI } from '../../utils/electron';
 import RuntimeStatusIndicator from './RuntimeStatusIndicator';
 import ModelDownloadIndicator from './ModelDownloadIndicator';
+import { useToast } from '../Toast/ToastProvider';
 
 interface AliyunConfig {
   apiKey: string;
@@ -16,6 +17,7 @@ interface AliyunConfig {
 }
 
 type ServiceType = 'funasr' | 'aliyun';
+type DefaultServiceType = ServiceType | null;
 
 interface ServiceItem {
   id: ServiceType;
@@ -30,8 +32,9 @@ const SERVICES: ServiceItem[] = [
 
 export const TranscriptSettings: React.FC = () => {
   const [selectedService, setSelectedService] = useState<ServiceType>('funasr');
-  const [defaultService, setDefaultService] = useState<ServiceType>('funasr');
+  const [defaultService, setDefaultService] = useState<DefaultServiceType>(null);
   const [loading, setLoading] = useState(true);
+  const toast = useToast();
 
   const electronAPI = getElectronAPI();
 
@@ -43,12 +46,18 @@ export const TranscriptSettings: React.FC = () => {
     try {
       setLoading(true);
       const result = await electronAPI.transcriptConfig.getDefaultService();
-      if (result.success && result.service) {
-        setDefaultService(result.service);
-        setSelectedService(result.service);
+      if (result.success) {
+        const service = result.service ?? null;
+        setDefaultService(service);
+        if (service) {
+          setSelectedService(service);
+        }
+      } else if (result.error) {
+        toast.error(result.error);
       }
     } catch (error) {
       console.error('Failed to load default service:', error);
+      toast.error('无法获取默认转写服务');
     } finally {
       setLoading(false);
     }
@@ -59,11 +68,12 @@ export const TranscriptSettings: React.FC = () => {
       const result = await electronAPI.transcriptConfig.setDefaultService(serviceId);
       if (result.success) {
         setDefaultService(serviceId);
-      } else {
-        alert(`设置失败: ${result.error}`);
+        toast.success('默认服务已更新');
+      } else if (result.error) {
+        toast.error(`设置失败: ${result.error}`);
       }
     } catch (error) {
-      alert(`设置失败: ${error}`);
+      toast.error(`设置失败: ${error}`);
     }
   };
 
@@ -211,6 +221,7 @@ const AliyunSettingsPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     loadConfig();
@@ -234,13 +245,13 @@ const AliyunSettingsPanel: React.FC = () => {
     try {
       const result = await getElectronAPI().transcriptConfig.setAliyunConfig(config);
       if (result.success) {
-        alert('阿里云配置保存成功');
+        toast.success('阿里云配置保存成功');
         await loadConfig();
-      } else {
-        alert(`保存失败: ${result.error}`);
+      } else if (result.error) {
+        toast.error(`保存失败: ${result.error}`);
       }
     } catch (error) {
-      alert(`保存失败: ${error}`);
+      toast.error(`保存失败: ${error}`);
     } finally {
       setSaving(false);
     }
@@ -251,12 +262,12 @@ const AliyunSettingsPanel: React.FC = () => {
     try {
       const result = await getElectronAPI().transcriptConfig.testAliyunAPI();
       if (result.success) {
-        alert(`✓ ${result.message}`);
-      } else {
-        alert(`✗ ${result.error}`);
+        toast.success(`✓ ${result.message || 'API 测试成功'}`);
+      } else if (result.error) {
+        toast.error(`✗ ${result.error}`);
       }
     } catch (error) {
-      alert(`测试失败: ${error}`);
+      toast.error(`测试失败: ${error}`);
     } finally {
       setTesting(false);
     }

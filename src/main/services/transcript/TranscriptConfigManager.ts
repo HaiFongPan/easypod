@@ -145,9 +145,9 @@ export class TranscriptConfigManager {
   /**
    * Get default service
    */
-  async getDefaultService(): Promise<"funasr" | "aliyun"> {
+  async getDefaultService(): Promise<("funasr" | "aliyun") | null> {
     const config = await this.dao.getConfig<DefaultServiceConfig>("default");
-    return config?.defaultService || "funasr";
+    return config?.defaultService ?? null;
   }
 
   /**
