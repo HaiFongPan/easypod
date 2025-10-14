@@ -2,15 +2,39 @@
 
 一款隐私优先的播客播放器，支持本地音频转写和 AI 智能分析。
 
+## 为什么 Vibe Coding 这个项目
+
+目前接触过一些播客 AI 功能的平台，免费收费都有，也都非常好用。例如
+
+- PodWise（收费），非常好用的平台，不过因为其实我需求不高，一般都用每个月 4 次的额度
+- 阿里听悟（免费），虽然有发现模块，但是很多播客搜索不到，当然支持 RSS 很好，只是要找 RSS 链接也很麻烦
+- NotebookLLM（部分免费），强大但是资源要自己上传，IP 不稳定还可能使用不了
+
+没用过：
+
+- 小宇宙（收费），价格还行，但是不想用中心化的播客客户端
+- Pocketcast（收费），这是我一直使用的播客应用，虽然提供了 Plus 能力来转写字幕，但是价格还是贵（$10/月）
+
+于是就产生了让 AI 来写一个应用来试试，顺便释放 macbook 自身的资源。当然 90% 代码都是 AI 写的，大部分代码我都没有看过，能跑就行。当然这个项目肯定没有办法跟专业的播客客户端的 AI 能力相比，毕竟这期只做了简单的 Summary 和章节划分，Prompt 也是自己整的，没有上任何工具、Agent，超简单 Prompt。当然未来也会计划自定义 Prompt、输出 mindmap、提供 chat 之类的功能。
+
+在 docs 下保留了很多我写的、AI 写的计划，虽然很乱，但是觉得还是有必要保留一下现场。
+
+![首页](https://images.bugnone.dev/homepage.png)
+![字幕](https://images.bugnone.dev/transcript.png)
+
 > **🤖 本项目完全由 AI Coding 完成**
-> 使用 Claude Code (claude.ai/code) 从零开始构建，展示了 AI 辅助编程的强大能力。
+> 使用 Claude Code (claude.ai/code) / Codex 从零开始构建，展示了 AI 辅助编程的强大能力（当然代码肯定是屎山级别的）。
 
 ## ✨ 功能特性
+
+> 使用 FunASR 转录对于长音频来说是非常消耗时间的（还没有调整过配置）
+> 例如老罗对谈 Tim 这集（171分钟），如果选择说话人分离大概需要消耗 25 分钟（4CPU），不选择说话人分离大约是 10 分钟（4CPU）
+> 对比的，阿里云接口是大概 5 分钟左右。
 
 ### 核心功能
 
 - **🎙️ 播客订阅与播放**
-  - 支持 RSS 2.0、iTunes 和 Podcast 2.0 标准
+  - 支持 RSS 订阅与播客搜索(itunes 接口)
   - 智能播放队列管理
   - 章节导航与进度记忆
   - 播放速度调节、跳转控制
@@ -53,22 +77,15 @@ npm run type-check
 
 # 4. 运行测试
 npm test
+
+# 5. 启动调试
+npm run dev
 ```
 
 ### 构建与打包
 
 ```bash
-# 构建应用（编译 TypeScript + 打包前端）
-npm run build
-
-# 快速打包（不创建 DMG，用于测试）
-npm run pack
-
-# 完整打包 macOS 应用
-npm run dist:mac
-
-# 生成应用图标（如果修改了图标源文件）
-npm run build:icon
+npm run build:all
 ```
 
 ### Python 运行时（转写功能必需）
@@ -87,20 +104,6 @@ npm run check:python-runtime
 npm run build:all
 ```
 
-#### 开发模式快捷配置
-
-如果你本地已有 Python 3.10+ 环境和 FunASR，可以跳过运行时构建：
-
-```bash
-# 使用系统 Python（仅开发模式）
-export EASYPOD_FUNASR_PYTHON=/path/to/your/python3
-
-# 跳过 FunASR 依赖安装（如果已全局安装）
-export EASYPOD_FUNASR_SKIP_INSTALL=1
-
-npm run dev
-```
-
 ## 📖 使用说明
 
 ### 1. 订阅播客
@@ -110,21 +113,16 @@ npm run dev
 
 ### 2. 转写音频
 
-- 首次使用会自动下载 FunASR 模型（~2GB，需要几分钟）
+- 首次使用会引导下载 FunASR 模型（~2GB，需要几分钟）
+- 如果选择阿里云接口 FunASR 不需要配置
 - 在设置中配置转写服务（FunASR 或阿里云）
 - 单集详情页点击 "转写" 按钮
 
 ### 3. AI 分析
 
 - 在设置中配置 AI 服务提供商和 API Key
-- 支持 OpenAI、DeepSeek、阿里云等兼容接口
+- 支持 OpenAI、DeepSeek、阿里云、ollama 等兼容接口
 - 转写完成后可使用 AI 生成摘要
-
-### 4. 导出笔记
-
-- 支持导出为 Markdown 格式
-- 可选包含转写文本、AI 摘要、章节信息
-- 兼容 Obsidian 双链语法
 
 ## 🏗️ 项目结构
 
@@ -166,17 +164,6 @@ easypod/
 
 特别感谢 **FunASR** 团队提供的强大本地语音识别能力，让隐私保护和高质量转写得以兼得。
 
-## 📝 开发文档
-
-- [项目规划](docs/plan.md) - 开发路线图和功能规划
-- [Python 运行时构建](docs/python-runtime-build.md) - 详细的运行时打包说明
-- [任务文档](docs/tasks/) - 各功能模块的设计文档
-- [CLAUDE.md](CLAUDE.md) - Claude Code 项目指引
-
 ## 📄 许可证
 
 MIT License
-
----
-
-**Made with ❤️ and 🤖 by Claude Code**
