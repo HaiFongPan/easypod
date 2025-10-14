@@ -1,8 +1,8 @@
 {
-  "version": "2025-10-13T14:04:30Z",
+  "version": "2025-10-07T02:27:01Z",
   "python_version": "3.13.5",
   "platform": "macos",
   "funasr_version": "1.2.7",
-  "created_at": "2025-10-13T14:04:30Z",
+  "created_at": "2025-10-07T02:27:01Z",
   "notes": "Pre-built Python runtime with FunASR dependencies"
 }

@@ -1,5 +1,5 @@
 import { ipcMain, IpcMainInvokeEvent } from 'electron';
-import { FunASRManager, FunASRManagerOptions } from './FunASRManager';
+import { FunASRManager, FunASRManagerOptions, getFunASRManager } from './FunASRManager';
 import {
   FunASRInitializeRequest,
   FunASRTranscribeRequest,
@@ -12,7 +12,7 @@ export class FunASRIPCHandlers {
   private handlers: Array<{ channel: string; handler: Handler }>;
 
   constructor(options: FunASRManagerOptions = {}) {
-    this.manager = new FunASRManager(options);
+    this.manager = getFunASRManager(options);
     this.handlers = [];
     this.register();
   }

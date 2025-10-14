@@ -12,13 +12,17 @@ import {
 
 export interface FunASRManagerOptions extends FunASRServerOptions {}
 
+let sharedInstance: FunASRManager | undefined;
+
 export class FunASRManager extends EventEmitter {
   private readonly server: FunASRServer;
   private client: FunASRServiceClient | null = null;
   private startupPromise: Promise<FunASRServiceClient> | null = null;
+  readonly options: FunASRManagerOptions;
 
-  constructor(options: FunASRManagerOptions = {}) {
+  private constructor(options: FunASRManagerOptions = {}) {
     super();
+    this.options = options;
     this.server = new FunASRServer(options);
     this.registerServerEvents();
   }
@@ -74,9 +78,45 @@ export class FunASRManager extends EventEmitter {
   async shutdown(): Promise<void> {
     this.client = null;
     await this.server.stop();
+    if (sharedInstance === this) {
+      sharedInstance = undefined;
+    }
+  }
+
+  static create(options?: FunASRManagerOptions): FunASRManager {
+    return new FunASRManager(options);
   }
 }
 
-export const createFunASRManager = (options?: FunASRManagerOptions): FunASRManager => {
-  return new FunASRManager(options);
+export const getFunASRManager = (
+  options?: FunASRManagerOptions,
+): FunASRManager => {
+  if (!sharedInstance) {
+    sharedInstance = FunASRManager.create(options);
+  }
+
+  if (options && Object.keys(options).length > 0) {
+    const mismatch = Object.entries(options).filter(([key, value]) => {
+      const currentValue = sharedInstance?.options[key as keyof FunASRManagerOptions];
+      return (
+        value !== undefined &&
+        currentValue !== undefined &&
+        currentValue !== value
+      );
+    });
+
+    if (mismatch.length > 0) {
+      sharedInstance.emit(
+        'log',
+        {
+          stream: 'stderr',
+          line: `FunASRManager already initialized with different options: ${JSON.stringify(
+            mismatch,
+          )}`,
+        },
+      );
+    }
+  }
+
+  return sharedInstance;
 };

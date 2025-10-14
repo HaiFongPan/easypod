@@ -1,6 +1,6 @@
 import { BaseVoiceToTextService } from "./VoiceToTextService";
 import { FunasrConverter } from "./converters/FunasrConverter";
-import { createFunASRManager, FunASRManager } from "../funasr/FunASRManager";
+import { FunASRManager, getFunASRManager } from "../funasr/FunASRManager";
 import { getTranscriptConfigManager } from "./TranscriptConfigManager";
 import { getDatabaseManager } from "../../database/connection";
 import { episodeVoiceTextTasks } from "../../database/schema";
@@ -23,7 +23,7 @@ export class FunasrService extends BaseVoiceToTextService {
 
   constructor() {
     super();
-    this.manager = createFunASRManager();
+    this.manager = getFunASRManager();
     this.setupEventHandlers();
   }
 

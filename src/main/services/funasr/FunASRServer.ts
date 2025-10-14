@@ -1,6 +1,13 @@
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import { EventEmitter } from 'events';
-import { existsSync, createWriteStream, WriteStream } from 'fs';
+import {
+  existsSync,
+  createWriteStream,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  WriteStream,
+} from 'fs';
 import { join } from 'path';
 import axios from 'axios';
 import { app } from 'electron';
@@ -122,7 +129,18 @@ export class FunASRServer extends EventEmitter {
     }
 
     if (app.isPackaged) {
-      return join(process.resourcesPath, 'python', 'funasr_service.py');
+      const userPythonDir = join(app.getPath('userData'), 'python');
+      const userScriptPath = join(userPythonDir, 'funasr_service.py');
+
+      if (!existsSync(userScriptPath)) {
+        const bundledScript = this.findBundledScript();
+        if (!bundledScript) {
+          throw new Error('FunASR service script missing from bundled resources.');
+        }
+        this.materializeScript(bundledScript, userPythonDir, userScriptPath);
+      }
+
+      return userScriptPath;
     }
 
     // In development mode, use process.cwd() instead of app.getAppPath()
@@ -178,6 +196,45 @@ export class FunASRServer extends EventEmitter {
     if (this.logStream) {
       this.logStream.end();
       this.logStream = null;
+    }
+  }
+
+  private findBundledScript(): string | null {
+    const candidates = [
+      join(app.getAppPath(), 'resources', 'python', 'funasr_service.py'),
+      join(app.getAppPath(), 'python', 'funasr_service.py'),
+      join(process.resourcesPath, 'resources', 'python', 'funasr_service.py'),
+      join(process.resourcesPath, 'python', 'funasr_service.py'),
+    ];
+
+    for (const candidate of candidates) {
+      if (existsSync(candidate)) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  private materializeScript(sourcePath: string, targetDir: string, targetPath: string): void {
+    mkdirSync(targetDir, { recursive: true });
+
+    const sourceBuffer = readFileSync(sourcePath);
+    let needsWrite = true;
+
+    if (existsSync(targetPath)) {
+      try {
+        const existingBuffer = readFileSync(targetPath);
+        if (existingBuffer.equals(sourceBuffer)) {
+          needsWrite = false;
+        }
+      } catch {
+        needsWrite = true;
+      }
+    }
+
+    if (needsWrite) {
+      writeFileSync(targetPath, sourceBuffer);
     }
   }
 }

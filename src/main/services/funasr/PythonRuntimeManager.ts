@@ -632,7 +632,23 @@ export class PythonRuntimeManager extends EventEmitter {
     };
 
     const originalPath = process.env.PATH ?? process.env.Path ?? "";
-    env.PATH = scriptsDir + delimiter + originalPath;
+    const pathSet = new Set<string>();
+    const pushPath = (value: string | null | undefined) => {
+      if (!value) {
+        return;
+      }
+      if (!value.trim()) {
+        return;
+      }
+      pathSet.add(value);
+    };
+
+    pushPath(scriptsDir);
+    originalPath.split(delimiter).forEach((segment) => pushPath(segment));
+    this.getDefaultPathFallbacks().forEach((segment) => pushPath(segment));
+
+    env.PATH = Array.from(pathSet).join(delimiter);
+
     if (venvPath) {
       env.VIRTUAL_ENV = venvPath;
       env.PYTHONHOME = "";
@@ -694,6 +710,33 @@ export class PythonRuntimeManager extends EventEmitter {
       this.emit("log", `Python launcher resolution failed: ${String(error)}`);
     }
     return "py";
+  }
+
+  private getDefaultPathFallbacks(): string[] {
+    const fallbacks = new Set<string>();
+
+    if (process.platform === "darwin") {
+      fallbacks.add("/usr/local/bin");
+      fallbacks.add("/opt/homebrew/bin");
+    } else if (process.platform === "linux") {
+      fallbacks.add("/usr/local/bin");
+    } else if (process.platform === "win32") {
+      const systemRoot = process.env.SystemRoot;
+      if (systemRoot) {
+        fallbacks.add(join(systemRoot, "System32"));
+      }
+    }
+
+    const extra = process.env.EASYPOD_EXTRA_PATH;
+    if (extra) {
+      extra.split(delimiter).forEach((segment) => {
+        if (segment.trim()) {
+          fallbacks.add(segment.trim());
+        }
+      });
+    }
+
+    return Array.from(fallbacks);
   }
 
   private async installDependenciesIfNeeded(
