@@ -4,6 +4,8 @@ import Button from "../Button";
 import AudioPlayer from "../AudioPlayer";
 import { useNavigationStore, AppView } from "../../store/navigationStore";
 import { useAppStore } from "../../store/appStore";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import appIcon from "../../assets/app-icon.png";
 
 const SidebarIcon: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <svg
@@ -73,8 +75,6 @@ export interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({
   isDarkMode,
   onToggleDarkMode,
-  appVersion,
-  platform,
   children,
 }) => {
   const { currentView, setCurrentView } = useNavigationStore();
@@ -216,7 +216,7 @@ const Layout: React.FC<LayoutProps> = ({
           )}
         >
           <div className="flex flex-col">
-            <div className="border-b border-gray-200 px-3 py-3 dark:border-gray-700">
+            <div className="px-3 py-3">
               <div
                 className={cn(
                   "flex items-center gap-2",
@@ -224,9 +224,16 @@ const Layout: React.FC<LayoutProps> = ({
                 )}
               >
                 {!sidebarCollapsed && (
-                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    EasyPod
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={appIcon}
+                      alt="EasyPod"
+                      className="h-5 w-5 object-contain"
+                    />
+                    <span className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                      EasyPod
+                    </span>
+                  </div>
                 )}
                 <button
                   type="button"
@@ -237,29 +244,9 @@ const Layout: React.FC<LayoutProps> = ({
                   className="rounded-md p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
                 >
                   {sidebarCollapsed ? (
-                    <svg
-                      className="h-4 w-4"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M7.293 14.707a1 1 0 010-1.414L9.586 11H4a1 1 0 110-2h5.586L7.293 6.707a1 1 0 111.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
+                    <PanelLeftOpen className="h-5 w-5" />
                   ) : (
-                    <svg
-                      className="h-4 w-4"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M12.707 5.293a1 1 0 010 1.414L10.414 9H16a1 1 0 110 2h-5.586l2.293 2.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
+                    <PanelLeftClose className="h-5 w-5" />
                   )}
                 </button>
               </div>

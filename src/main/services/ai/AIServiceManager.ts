@@ -126,7 +126,7 @@ export class AIServiceManager {
       const { service, providerId, modelId } = await this.getDefaultService();
       const chaptersPrompt = await this.getPromptByType("chapters");
       const simplifiedSusbtitle = transcript.subtitles.map(
-        ({ text, start, end }) => ({ text, start, end }),
+        ({ text, start, end, spk }) => ({ text, start, end, spk }),
       );
       const idToTiming = new Map<number, { start: number; end: number }>();
       const segmentsForLLM = simplifiedSusbtitle.map((segment, index) => {
@@ -138,6 +138,7 @@ export class AIServiceManager {
         return {
           id,
           text: segment.text,
+          spk: segment.spk,
         };
       });
 
@@ -147,7 +148,10 @@ export class AIServiceManager {
       };
 
       const transcriptText = JSON.stringify(inputPayload);
-      const rawResult = await service.getChapters(transcriptText, chaptersPrompt);
+      const rawResult = await service.getChapters(
+        transcriptText,
+        chaptersPrompt,
+      );
 
       if (
         !rawResult ||

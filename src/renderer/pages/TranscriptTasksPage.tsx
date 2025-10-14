@@ -355,7 +355,7 @@ export const TranscriptTasksPage: React.FC = () => {
                         <span className="truncate">{task.episode.title}</span>
                       </button>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Powerby: {task.service.toUpperCase()}
+                        Service: {task.service.toUpperCase()}
                       </p>
                     </div>
 
