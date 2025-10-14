@@ -31,13 +31,13 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ className }) => {
     isLoading,
     error,
     isMuted,
+    playPause,
     setVolume,
     setPlaybackRate,
     toggleMute,
   } = usePlayerStore();
 
   const {
-    playPause,
     seek,
     skipForward,
     skipBackward,
