@@ -78,8 +78,6 @@ npm run type-check
 # 4. 运行测试
 npm test
 
-# 5. 启动调试
-npm run dev
 ```
 
 ### 构建与打包

@@ -21,7 +21,10 @@ export class AliyunConverter extends BaseTranscriptConverter {
           start: sentence.begin_time,
           end: sentence.end_time,
           timestamp: this.extractWordTimestamps(sentence),
-          spk: this.resolveSpeakerId(transcript.channel_id, sentence.speaker_id),
+          spk: this.resolveSpeakerId(
+            transcript.channel_id,
+            sentence.speaker_id,
+          ),
         });
       }
     }
@@ -42,10 +45,6 @@ export class AliyunConverter extends BaseTranscriptConverter {
     const speakerIds = new Set<number>();
 
     for (const transcript of data.transcripts ?? []) {
-      if (typeof transcript.channel_id === "number") {
-        speakerIds.add(transcript.channel_id);
-      }
-
       for (const sentence of transcript.sentences ?? []) {
         if (typeof sentence.speaker_id === "number") {
           speakerIds.add(sentence.speaker_id);
