@@ -206,6 +206,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // AI Operations
   ai: {
+    generateInsights: (episodeId: number) => ipcRenderer.invoke('ai:generateInsights', episodeId),
     generateSummary: (episodeId: number) => ipcRenderer.invoke('ai:generateSummary', episodeId),
     generateChapters: (episodeId: number) => ipcRenderer.invoke('ai:generateChapters', episodeId),
     getMindmap: (episodeId: number) => ipcRenderer.invoke('ai:getMindmap', episodeId),
@@ -425,6 +426,7 @@ export interface ElectronAPI {
     delete: (id: number) => Promise<{ success: boolean; error?: string }>;
   };
   ai: {
+    generateInsights: (episodeId: number) => Promise<{ success: boolean; data?: any; error?: string }>;
     generateSummary: (episodeId: number) => Promise<{ success: boolean; data?: any; error?: string }>;
     generateChapters: (episodeId: number) => Promise<{ success: boolean; data?: any; error?: string }>;
     getMindmap: (episodeId: number) => Promise<{ success: boolean; data?: any; error?: string }>;

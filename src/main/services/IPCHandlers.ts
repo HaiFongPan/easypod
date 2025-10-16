@@ -106,6 +106,7 @@ export class FeedIPCHandlers {
     ipcMain.handle('prompts:delete', this.handleDeletePrompt.bind(this));
 
     // AI Operations
+    ipcMain.handle('ai:generateInsights', this.handleGenerateInsights.bind(this));
     ipcMain.handle('ai:generateSummary', this.handleGenerateSummary.bind(this));
     ipcMain.handle('ai:generateChapters', this.handleGenerateChapters.bind(this));
     ipcMain.handle('ai:getMindmap', this.handleGetMindmap.bind(this));
@@ -1265,6 +1266,10 @@ export class FeedIPCHandlers {
   // AI Operation Handlers
   // ======================
 
+  private async handleGenerateInsights(_: IpcMainInvokeEvent, episodeId: number): Promise<any> {
+    return await this.aiServiceManager.generateInsights(episodeId);
+  }
+
   private async handleGenerateSummary(_: IpcMainInvokeEvent, episodeId: number): Promise<any> {
     return await this.aiServiceManager.generateSummary(episodeId);
   }
@@ -1329,6 +1334,7 @@ export class FeedIPCHandlers {
       'prompts:create',
       'prompts:update',
       'prompts:delete',
+      'ai:generateInsights',
       'ai:generateSummary',
       'ai:generateChapters',
       'ai:getMindmap',

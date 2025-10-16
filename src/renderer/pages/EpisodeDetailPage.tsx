@@ -355,8 +355,7 @@ const EpisodeDetailPage: React.FC = () => {
     totalChapters?: number;
     detectedTime?: string;
   } | null>(null);
-  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
-  const [aiChaptersLoading, setAiChaptersLoading] = useState(false);
+  const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
   const {
@@ -803,49 +802,26 @@ const EpisodeDetailPage: React.FC = () => {
     }
   };
 
-  const handleGenerateSummary = async () => {
+  const handleGenerateInsights = async () => {
     if (!episode) return;
 
     try {
-      setAiSummaryLoading(true);
+      setAiInsightsLoading(true);
       setAiError(null);
-      const result = await window.electronAPI.ai.generateSummary(episode.id);
+      const result = await window.electronAPI.ai.generateInsights(episode.id);
 
       if (result.success) {
         await loadAISummary();
       } else {
-        setAiError(result.error || "Failed to generate summary");
+        setAiError(result.error || "Failed to generate insights");
       }
     } catch (error) {
-      console.error("[EpisodeDetail] Failed to generate summary:", error);
+      console.error("[EpisodeDetail] Failed to generate insights:", error);
       setAiError(
-        error instanceof Error ? error.message : "Failed to generate summary",
+        error instanceof Error ? error.message : "Failed to generate insights",
       );
     } finally {
-      setAiSummaryLoading(false);
-    }
-  };
-
-  const handleGenerateChapters = async () => {
-    if (!episode) return;
-
-    try {
-      setAiChaptersLoading(true);
-      setAiError(null);
-      const result = await window.electronAPI.ai.generateChapters(episode.id);
-
-      if (result.success) {
-        await loadAISummary();
-      } else {
-        setAiError(result.error || "Failed to generate chapters");
-      }
-    } catch (error) {
-      console.error("[EpisodeDetail] Failed to generate chapters:", error);
-      setAiError(
-        error instanceof Error ? error.message : "Failed to generate chapters",
-      );
-    } finally {
-      setAiChaptersLoading(false);
+      setAiInsightsLoading(false);
     }
   };
 
@@ -1003,18 +979,18 @@ const EpisodeDetailPage: React.FC = () => {
         </div>
       )}
 
-      {!aiSummary && !aiSummaryLoading && !aiChaptersLoading && (
+      {!aiSummary && !aiInsightsLoading && (
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900 text-center">
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            No AI summary available yet
+            No AI insights available yet
           </p>
           <Button
             variant="primary"
             size="sm"
-            onClick={handleGenerateSummary}
+            onClick={handleGenerateInsights}
             disabled={transcriptTaskStatus !== "succeeded"}
           >
-            Generate Summary
+            Generate Insights
           </Button>
           {transcriptTaskStatus !== "succeeded" && (
             <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
@@ -1024,10 +1000,10 @@ const EpisodeDetailPage: React.FC = () => {
         </div>
       )}
 
-      {aiSummaryLoading && (
+      {aiInsightsLoading && (
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900 text-center">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Generating AI summary...
+            Generating AI insights (summary & chapters)...
           </p>
         </div>
       )}
@@ -1040,15 +1016,15 @@ const EpisodeDetailPage: React.FC = () => {
                 Episode Summary
               </h3>
               <Button
-                aria-label="Regenerate summary"
+                aria-label="Regenerate insights"
                 variant="ghost"
                 size="sm"
-                onClick={handleGenerateSummary}
-                disabled={aiSummaryLoading}
-                title="Regenerate summary"
+                onClick={handleGenerateInsights}
+                disabled={aiInsightsLoading}
+                title="Regenerate insights"
               >
                 <RefreshCcw
-                  className={cn("h-4 w-4", aiSummaryLoading && "animate-spin")}
+                  className={cn("h-4 w-4", aiInsightsLoading && "animate-spin")}
                 />
               </Button>
             </div>
@@ -1075,27 +1051,12 @@ const EpisodeDetailPage: React.FC = () => {
             </section>
           )}
 
-          {aiSummary.chapters && aiSummary.chapters.length > 0 ? (
+          {aiSummary.chapters && aiSummary.chapters.length > 0 && (
             <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                   AI Chapters
                 </h3>
-                <Button
-                  aria-label="Regenerate chapters"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleGenerateChapters}
-                  disabled={aiChaptersLoading}
-                  title="Regenerate chapters"
-                >
-                  <RefreshCcw
-                    className={cn(
-                      "h-4 w-4",
-                      aiChaptersLoading && "animate-spin",
-                    )}
-                  />
-                </Button>
               </div>
               <ol className="space-y-3 text-sm">
                 {aiSummary.chapters.map((chapter, index) => {
@@ -1132,35 +1093,6 @@ const EpisodeDetailPage: React.FC = () => {
                   );
                 })}
               </ol>
-            </section>
-          ) : (
-            <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                  AI Chapters
-                </h3>
-              </div>
-              <div className="mt-3 text-center">
-                {aiChaptersLoading ? (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Generating AI chapters...
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-                      No chapters generated yet
-                    </p>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={handleGenerateChapters}
-                      disabled={aiChaptersLoading}
-                    >
-                      Generate Chapters
-                    </Button>
-                  </>
-                )}
-              </div>
             </section>
           )}
         </>

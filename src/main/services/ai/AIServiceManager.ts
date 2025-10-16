@@ -62,7 +62,7 @@ export class AIServiceManager {
     return customPrompt ? customPrompt.prompt : prompts[0].prompt;
   }
 
-  async generateSummary(
+  async generateInsights(
     episodeId: number,
   ): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
@@ -75,61 +75,12 @@ export class AIServiceManager {
       // Get AI Service and config
       const { service, providerId, modelId } = await this.getDefaultService();
 
-      // Get Prompt
-      const summaryPrompt = await this.getPromptByType("summary");
-
-      // Call AI API
-      const result = await service.getSummary(transcript.text, summaryPrompt);
-
-      // Record token usage
-      const tokenUsage =
-        (service as OpenAIService).lastTokenUsage?.totalTokens ?? 0;
-
-      // Update Provider and Model token stats
-      await this.providersDao.incrementTokenUsage(providerId, tokenUsage);
-      await this.modelsDao.incrementTokenUsage(modelId, tokenUsage);
-
-      // Save result
-      const existing = await this.summariesDao.findByEpisode(episodeId);
-      if (existing) {
-        await this.summariesDao.update(episodeId, {
-          summary: result.summary,
-          tags: result.tags.join(","),
-        });
-      } else {
-        await this.summariesDao.create({
-          episodeId,
-          summary: result.summary,
-          tags: result.tags.join(","),
-          chapters: "[]",
-        });
-      }
-
-      return { success: true, data: result };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "生成失败",
-      };
-    }
-  }
-
-  async generateChapters(
-    episodeId: number,
-  ): Promise<{ success: boolean; data?: any; error?: string }> {
-    try {
-      const transcript = await this.transcriptsDao.findByEpisodeId(episodeId);
-      if (!transcript) {
-        return { success: false, error: "该集未找到转写内容" };
-      }
-
-      const { service, providerId, modelId } = await this.getDefaultService();
-      const chaptersPrompt = await this.getPromptByType("chapters");
-      const simplifiedSusbtitle = transcript.subtitles.map(
+      // Prepare transcript for LLM (same as generateChapters)
+      const simplifiedSubtitle = transcript.subtitles.map(
         ({ text, start, end, spk }) => ({ text, start, end, spk }),
       );
       const idToTiming = new Map<number, { start: number; end: number }>();
-      const segmentsForLLM = simplifiedSusbtitle.map((segment, index) => {
+      const segmentsForLLM = simplifiedSubtitle.map((segment, index) => {
         const id = index + 1;
         idToTiming.set(id, {
           start: segment.start,
@@ -148,20 +99,20 @@ export class AIServiceManager {
       };
 
       const transcriptText = JSON.stringify(inputPayload);
-      const rawResult = await service.getChapters(
-        transcriptText,
-        chaptersPrompt,
-      );
 
-      if (
-        !rawResult ||
-        !Array.isArray(rawResult.chapters) ||
-        rawResult.chapters.length === 0
-      ) {
-        throw new Error("AI 未返回有效的章节结果");
-      }
+      // Call AI API with merged prompt
+      const rawResult = await service.getInsight(transcriptText);
 
-      const chapters = rawResult.chapters
+      // Record token usage
+      const tokenUsage =
+        (service as OpenAIService).lastTokenUsage?.totalTokens ?? 0;
+
+      // Update Provider and Model token stats
+      await this.providersDao.incrementTokenUsage(providerId, tokenUsage);
+      await this.modelsDao.incrementTokenUsage(modelId, tokenUsage);
+
+      // Process chapters
+      const chapters = rawResult.chapters.chapters
         .map((chapter) => {
           const chapterId = Number(chapter.start);
           if (!Number.isFinite(chapterId)) {
@@ -200,45 +151,62 @@ export class AIServiceManager {
         throw new Error("章节数据为空，无法保存");
       }
 
-      const result: ChapterResponse = {
-        totalChapters: Number.isFinite(rawResult.totalChapters)
-          ? Number(rawResult.totalChapters)
+      const chaptersResult: ChapterResponse = {
+        totalChapters: Number.isFinite(rawResult.chapters.totalChapters)
+          ? Number(rawResult.chapters.totalChapters)
           : chapters.length,
         detectedTime:
-          typeof rawResult.detectedTime === "string" &&
-          rawResult.detectedTime !== "__FILL_BY_SYSTEM__"
-            ? rawResult.detectedTime
+          typeof rawResult.chapters.detectedTime === "string" &&
+          rawResult.chapters.detectedTime !== "__FILL_BY_SYSTEM__"
+            ? rawResult.chapters.detectedTime
             : new Date().toISOString(),
         chapters,
       };
 
-      const tokenUsage =
-        (service as OpenAIService).lastTokenUsage?.totalTokens ?? 0;
-      await this.providersDao.incrementTokenUsage(providerId, tokenUsage);
-      await this.modelsDao.incrementTokenUsage(modelId, tokenUsage);
-
-      // Save chapters
+      // Save result
       const existing = await this.summariesDao.findByEpisode(episodeId);
       if (existing) {
         await this.summariesDao.update(episodeId, {
-          chapters: JSON.stringify(result),
+          summary: rawResult.summary.summary,
+          tags: rawResult.summary.tags.join(","),
+          chapters: JSON.stringify(chaptersResult),
         });
       } else {
         await this.summariesDao.create({
           episodeId,
-          summary: "",
-          tags: "",
-          chapters: JSON.stringify(result),
+          summary: rawResult.summary.summary,
+          tags: rawResult.summary.tags.join(","),
+          chapters: JSON.stringify(chaptersResult),
         });
       }
 
-      return { success: true, data: result };
+      return {
+        success: true,
+        data: {
+          summary: rawResult.summary,
+          chapters: chaptersResult,
+        },
+      };
     } catch (error) {
       return {
         success: false,
         error: error instanceof Error ? error.message : "生成失败",
       };
     }
+  }
+
+  async generateSummary(
+    episodeId: number,
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
+    // Deprecated: Use generateInsights instead
+    return this.generateInsights(episodeId);
+  }
+
+  async generateChapters(
+    episodeId: number,
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
+    // Deprecated: Use generateInsights instead
+    return this.generateInsights(episodeId);
   }
 
   async getMindmap(
