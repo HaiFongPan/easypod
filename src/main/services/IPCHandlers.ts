@@ -111,6 +111,8 @@ export class FeedIPCHandlers {
     ipcMain.handle('ai:generateChapters', this.handleGenerateChapters.bind(this));
     ipcMain.handle('ai:getMindmap', this.handleGetMindmap.bind(this));
     ipcMain.handle('ai:getSummary', this.handleGetSummary.bind(this));
+    ipcMain.handle('ai:getInsightStatus', this.handleGetInsightStatus.bind(this));
+    ipcMain.handle('ai:clearInsightStatus', this.handleClearInsightStatus.bind(this));
   }
 
   /**
@@ -1286,6 +1288,14 @@ export class FeedIPCHandlers {
     return await this.aiServiceManager.getSummary(episodeId);
   }
 
+  private async handleGetInsightStatus(_: IpcMainInvokeEvent, episodeId: number): Promise<any> {
+    return await this.aiServiceManager.getInsightStatus(episodeId);
+  }
+
+  private async handleClearInsightStatus(_: IpcMainInvokeEvent, episodeId: number): Promise<any> {
+    return await this.aiServiceManager.clearInsightStatus(episodeId);
+  }
+
   /**
    * Cleanup IPC handlers
    */
@@ -1339,6 +1349,8 @@ export class FeedIPCHandlers {
       'ai:generateChapters',
       'ai:getMindmap',
       'ai:getSummary',
+      'ai:getInsightStatus',
+      'ai:clearInsightStatus',
     ];
 
     handlers.forEach(handler => {

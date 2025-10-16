@@ -6,6 +6,7 @@ import { EpisodeAiSummarysDao } from "../../database/dao/episodeAiSummarysDao";
 import { EpisodeTranscriptsDao } from "../../database/dao/episodeTranscriptsDao";
 import { EpisodesDao } from "../../database/dao/episodesDao";
 import type { AIService, ChapterItem, ChapterResponse } from "./types";
+import { getAITaskCache, type AITaskCacheEntry } from "./AITaskCache";
 
 export class AIServiceManager {
   private providersDao: LlmProvidersDao;
@@ -68,10 +69,27 @@ export class AIServiceManager {
   async generateInsights(
     episodeId: number,
   ): Promise<{ success: boolean; data?: any; error?: string }> {
+    const taskCache = getAITaskCache();
+
+    // 1. 检查是否已在处理中，防止重复提交
+    if (taskCache.isProcessing(episodeId, "insights")) {
+      console.warn(
+        `[AIServiceManager] Insights task already processing for episode ${episodeId}`,
+      );
+      return { success: false, error: "任务处理中，请稍后再试" };
+    }
+
+    // 2. 标记任务开始
+    const marked = taskCache.markProcessing(episodeId, "insights");
+    if (!marked) {
+      return { success: false, error: "无法启动任务，请稍后重试" };
+    }
+
     try {
       // Get transcript
       const transcript = await this.transcriptsDao.findByEpisodeId(episodeId);
       if (!transcript) {
+        taskCache.markFailed(episodeId, "insights", "该集未找到转写内容");
         return { success: false, error: "该集未找到转写内容" };
       }
 
@@ -156,7 +174,9 @@ export class AIServiceManager {
         );
 
       if (chapters.length === 0) {
-        throw new Error("章节数据为空，无法保存");
+        const errorMsg = "章节数据为空，无法保存";
+        taskCache.markFailed(episodeId, "insights", errorMsg);
+        throw new Error(errorMsg);
       }
 
       const chaptersResult: ChapterResponse = {
@@ -188,6 +208,9 @@ export class AIServiceManager {
         });
       }
 
+      // 3. 标记任务成功
+      taskCache.markSuccess(episodeId, "insights", tokenUsage);
+
       return {
         success: true,
         data: {
@@ -196,9 +219,14 @@ export class AIServiceManager {
         },
       };
     } catch (error) {
+      // 4. 标记任务失败
+      const errorMessage =
+        error instanceof Error ? error.message : "生成失败";
+      taskCache.markFailed(episodeId, "insights", errorMessage);
+
       return {
         success: false,
-        error: error instanceof Error ? error.message : "生成失败",
+        error: errorMessage,
       };
     }
   }
@@ -242,6 +270,47 @@ export class AIServiceManager {
         error: error instanceof Error ? error.message : "生成失败",
       };
     }
+  }
+
+  /**
+   * 获取 Insights 任务状态
+   */
+  async getInsightStatus(
+    episodeId: number,
+  ): Promise<{
+    success: boolean;
+    status: "idle" | "processing" | "success" | "failed";
+    error?: string;
+    startTime?: number;
+    endTime?: number;
+    tokenUsage?: number;
+  }> {
+    const taskCache = getAITaskCache();
+    const entry = taskCache.getStatus(episodeId, "insights");
+
+    if (!entry) {
+      return { success: true, status: "idle" };
+    }
+
+    return {
+      success: true,
+      status: entry.status,
+      error: entry.error,
+      startTime: entry.startTime,
+      endTime: entry.endTime,
+      tokenUsage: entry.tokenUsage,
+    };
+  }
+
+  /**
+   * 清除 Insights 任务状态（允许重新提交）
+   */
+  async clearInsightStatus(
+    episodeId: number,
+  ): Promise<{ success: boolean }> {
+    const taskCache = getAITaskCache();
+    taskCache.clear(episodeId, "insights");
+    return { success: true };
   }
 
   async getSummary(
