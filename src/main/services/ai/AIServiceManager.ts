@@ -4,6 +4,7 @@ import { LlmModelsDao } from "../../database/dao/llmModelsDao";
 import { PromptsDao } from "../../database/dao/promptsDao";
 import { EpisodeAiSummarysDao } from "../../database/dao/episodeAiSummarysDao";
 import { EpisodeTranscriptsDao } from "../../database/dao/episodeTranscriptsDao";
+import { EpisodesDao } from "../../database/dao/episodesDao";
 import type { AIService, ChapterItem, ChapterResponse } from "./types";
 
 export class AIServiceManager {
@@ -12,6 +13,7 @@ export class AIServiceManager {
   private promptsDao: PromptsDao;
   private summariesDao: EpisodeAiSummarysDao;
   private transcriptsDao: EpisodeTranscriptsDao;
+  private episodesDao: EpisodesDao;
 
   constructor() {
     this.providersDao = new LlmProvidersDao();
@@ -19,6 +21,7 @@ export class AIServiceManager {
     this.promptsDao = new PromptsDao();
     this.summariesDao = new EpisodeAiSummarysDao();
     this.transcriptsDao = new EpisodeTranscriptsDao();
+    this.episodesDao = new EpisodesDao();
   }
 
   private async getDefaultService(): Promise<{
@@ -72,6 +75,10 @@ export class AIServiceManager {
         return { success: false, error: "该集未找到转写内容" };
       }
 
+      // Get episode info (for shownote)
+      const episode = await this.episodesDao.findById(episodeId);
+      const shownote = episode?.descriptionHtml || "";
+
       // Get AI Service and config
       const { service, providerId, modelId } = await this.getDefaultService();
 
@@ -96,6 +103,7 @@ export class AIServiceManager {
       const inputPayload = {
         segmentsCount: segmentsForLLM.length,
         segments: segmentsForLLM,
+        shownote: shownote,
       };
 
       const transcriptText = JSON.stringify(inputPayload);
