@@ -6,7 +6,9 @@ import type {
   ChapterLLMResponse,
   MindmapResponse,
   TokenUsage,
+  Insights,
 } from "./types";
+import { InsightPrompt, SystemPrompt } from "./Prompts";
 
 export class OpenAIService implements AIService {
   private client: OpenAI;
@@ -170,5 +172,15 @@ export class OpenAIService implements AIService {
       '请将以下播客内容整理为 Markdown 格式的思维导图。返回 JSON 格式：{"mindmap": "# 主题\\n## 子主题"}';
 
     return await this.callAPI(systemPrompt, userPrompt, transcript);
+  }
+
+  async getInsight(transcript: string): Promise<Insights> {
+    console.log(
+      "[OpenAIService] getInsight called",
+      JSON.stringify({
+        transcriptLength: transcript.length,
+      }),
+    );
+    return await this.callAPI(SystemPrompt, InsightPrompt, transcript);
   }
 }

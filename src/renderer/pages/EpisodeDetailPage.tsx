@@ -355,9 +355,11 @@ const EpisodeDetailPage: React.FC = () => {
     totalChapters?: number;
     detectedTime?: string;
   } | null>(null);
-  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
-  const [aiChaptersLoading, setAiChaptersLoading] = useState(false);
+  const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [aiInsightStatus, setAiInsightStatus] = useState<
+    "idle" | "processing" | "success" | "failed"
+  >("idle");
 
   const {
     currentEpisode,
@@ -596,6 +598,61 @@ const EpisodeDetailPage: React.FC = () => {
     loadAISummary();
   }, [episode?.id]);
 
+  // Poll AI insight status
+  useEffect(() => {
+    if (!episode) {
+      setAiInsightStatus("idle");
+      return;
+    }
+
+    let cancelled = false;
+
+    const pollStatus = async () => {
+      try {
+        const result = await window.electronAPI.ai.getInsightStatus(episode.id);
+
+        if (cancelled) return;
+
+        if (result.success) {
+          setAiInsightStatus(result.status);
+
+          if (result.status === "processing") {
+            setAiInsightsLoading(true);
+            setAiError(null);
+          } else if (result.status === "success") {
+            setAiInsightsLoading(false);
+            setAiError(null);
+            // Reload summary data
+            await loadAISummary();
+          } else if (result.status === "failed") {
+            setAiInsightsLoading(false);
+            setAiError(result.error || "生成失败");
+          } else {
+            // idle
+            setAiInsightsLoading(false);
+          }
+        }
+      } catch (error) {
+        console.error("[EpisodeDetail] Failed to poll insight status:", error);
+      }
+    };
+
+    // Initial poll
+    pollStatus();
+
+    // Poll every 2 seconds if processing
+    const interval = setInterval(() => {
+      if (aiInsightStatus === "processing") {
+        pollStatus();
+      }
+    }, 2000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [episode?.id, aiInsightStatus]);
+
   const loadAISummary = async () => {
     if (!episode) {
       setAiSummary(null);
@@ -803,49 +860,54 @@ const EpisodeDetailPage: React.FC = () => {
     }
   };
 
-  const handleGenerateSummary = async () => {
+  const handleGenerateInsights = async () => {
     if (!episode) return;
 
+    // 防止重复提交
+    if (aiInsightStatus === "processing") {
+      toast.info("任务处理中，请稍后");
+      return;
+    }
+
     try {
-      setAiSummaryLoading(true);
+      setAiInsightsLoading(true);
       setAiError(null);
-      const result = await window.electronAPI.ai.generateSummary(episode.id);
+      setAiInsightStatus("processing");
+
+      const result = await window.electronAPI.ai.generateInsights(episode.id);
 
       if (result.success) {
-        await loadAISummary();
+        // 任务已提交，由轮询机制追踪状态
+        toast.success("AI 分析任务已提交");
       } else {
-        setAiError(result.error || "Failed to generate summary");
+        setAiError(result.error || "Failed to generate insights");
+        setAiInsightStatus("failed");
+        setAiInsightsLoading(false);
       }
     } catch (error) {
-      console.error("[EpisodeDetail] Failed to generate summary:", error);
-      setAiError(
-        error instanceof Error ? error.message : "Failed to generate summary",
-      );
-    } finally {
-      setAiSummaryLoading(false);
+      console.error("[EpisodeDetail] Failed to generate insights:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to generate insights";
+      setAiError(errorMessage);
+      setAiInsightStatus("failed");
+      setAiInsightsLoading(false);
     }
   };
 
-  const handleGenerateChapters = async () => {
+  const handleRetryInsights = async () => {
     if (!episode) return;
 
     try {
-      setAiChaptersLoading(true);
+      // 清除失败状态，允许重新提交
+      await window.electronAPI.ai.clearInsightStatus(episode.id);
       setAiError(null);
-      const result = await window.electronAPI.ai.generateChapters(episode.id);
+      setAiInsightStatus("idle");
 
-      if (result.success) {
-        await loadAISummary();
-      } else {
-        setAiError(result.error || "Failed to generate chapters");
-      }
+      // 重新提交
+      await handleGenerateInsights();
     } catch (error) {
-      console.error("[EpisodeDetail] Failed to generate chapters:", error);
-      setAiError(
-        error instanceof Error ? error.message : "Failed to generate chapters",
-      );
-    } finally {
-      setAiChaptersLoading(false);
+      console.error("[EpisodeDetail] Failed to retry insights:", error);
+      toast.error("重试失败");
     }
   };
 
@@ -997,24 +1059,32 @@ const EpisodeDetailPage: React.FC = () => {
 
   const summaryPanel = (
     <div className="space-y-4 px-4 py-6">
-      {aiError && (
-        <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3">
-          <p className="text-sm text-red-600 dark:text-red-400">{aiError}</p>
+      {aiError && aiInsightStatus === "failed" && (
+        <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4">
+          <p className="text-sm text-red-600 dark:text-red-400 mb-3">{aiError}</p>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRetryInsights}
+            className="text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40"
+          >
+            重试
+          </Button>
         </div>
       )}
 
-      {!aiSummary && !aiSummaryLoading && !aiChaptersLoading && (
+      {!aiSummary && !aiInsightsLoading && aiInsightStatus !== "processing" && (
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900 text-center">
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            No AI summary available yet
+            No AI insights available yet
           </p>
           <Button
             variant="primary"
             size="sm"
-            onClick={handleGenerateSummary}
+            onClick={handleGenerateInsights}
             disabled={transcriptTaskStatus !== "succeeded"}
           >
-            Generate Summary
+            Generate Insights
           </Button>
           {transcriptTaskStatus !== "succeeded" && (
             <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
@@ -1024,10 +1094,16 @@ const EpisodeDetailPage: React.FC = () => {
         </div>
       )}
 
-      {aiSummaryLoading && (
+      {(aiInsightsLoading || aiInsightStatus === "processing") && (
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900 text-center">
+          <div className="flex items-center justify-center mb-2">
+            <RefreshCcw className="h-5 w-5 animate-spin text-blue-500" />
+          </div>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Generating AI summary...
+            正在生成 AI 洞察（摘要 & 章节）...
+          </p>
+          <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+            即使离开此页面，任务也会继续处理
           </p>
         </div>
       )}
@@ -1040,15 +1116,15 @@ const EpisodeDetailPage: React.FC = () => {
                 Episode Summary
               </h3>
               <Button
-                aria-label="Regenerate summary"
+                aria-label="Regenerate insights"
                 variant="ghost"
                 size="sm"
-                onClick={handleGenerateSummary}
-                disabled={aiSummaryLoading}
-                title="Regenerate summary"
+                onClick={handleGenerateInsights}
+                disabled={aiInsightsLoading}
+                title="Regenerate insights"
               >
                 <RefreshCcw
-                  className={cn("h-4 w-4", aiSummaryLoading && "animate-spin")}
+                  className={cn("h-4 w-4", aiInsightsLoading && "animate-spin")}
                 />
               </Button>
             </div>
@@ -1075,27 +1151,12 @@ const EpisodeDetailPage: React.FC = () => {
             </section>
           )}
 
-          {aiSummary.chapters && aiSummary.chapters.length > 0 ? (
+          {aiSummary.chapters && aiSummary.chapters.length > 0 && (
             <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                   AI Chapters
                 </h3>
-                <Button
-                  aria-label="Regenerate chapters"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleGenerateChapters}
-                  disabled={aiChaptersLoading}
-                  title="Regenerate chapters"
-                >
-                  <RefreshCcw
-                    className={cn(
-                      "h-4 w-4",
-                      aiChaptersLoading && "animate-spin",
-                    )}
-                  />
-                </Button>
               </div>
               <ol className="space-y-3 text-sm">
                 {aiSummary.chapters.map((chapter, index) => {
@@ -1132,35 +1193,6 @@ const EpisodeDetailPage: React.FC = () => {
                   );
                 })}
               </ol>
-            </section>
-          ) : (
-            <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                  AI Chapters
-                </h3>
-              </div>
-              <div className="mt-3 text-center">
-                {aiChaptersLoading ? (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Generating AI chapters...
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-                      No chapters generated yet
-                    </p>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={handleGenerateChapters}
-                      disabled={aiChaptersLoading}
-                    >
-                      Generate Chapters
-                    </Button>
-                  </>
-                )}
-              </div>
             </section>
           )}
         </>

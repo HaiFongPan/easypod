@@ -106,10 +106,13 @@ export class FeedIPCHandlers {
     ipcMain.handle('prompts:delete', this.handleDeletePrompt.bind(this));
 
     // AI Operations
+    ipcMain.handle('ai:generateInsights', this.handleGenerateInsights.bind(this));
     ipcMain.handle('ai:generateSummary', this.handleGenerateSummary.bind(this));
     ipcMain.handle('ai:generateChapters', this.handleGenerateChapters.bind(this));
     ipcMain.handle('ai:getMindmap', this.handleGetMindmap.bind(this));
     ipcMain.handle('ai:getSummary', this.handleGetSummary.bind(this));
+    ipcMain.handle('ai:getInsightStatus', this.handleGetInsightStatus.bind(this));
+    ipcMain.handle('ai:clearInsightStatus', this.handleClearInsightStatus.bind(this));
   }
 
   /**
@@ -1265,6 +1268,10 @@ export class FeedIPCHandlers {
   // AI Operation Handlers
   // ======================
 
+  private async handleGenerateInsights(_: IpcMainInvokeEvent, episodeId: number): Promise<any> {
+    return await this.aiServiceManager.generateInsights(episodeId);
+  }
+
   private async handleGenerateSummary(_: IpcMainInvokeEvent, episodeId: number): Promise<any> {
     return await this.aiServiceManager.generateSummary(episodeId);
   }
@@ -1279,6 +1286,14 @@ export class FeedIPCHandlers {
 
   private async handleGetSummary(_: IpcMainInvokeEvent, episodeId: number): Promise<any> {
     return await this.aiServiceManager.getSummary(episodeId);
+  }
+
+  private async handleGetInsightStatus(_: IpcMainInvokeEvent, episodeId: number): Promise<any> {
+    return await this.aiServiceManager.getInsightStatus(episodeId);
+  }
+
+  private async handleClearInsightStatus(_: IpcMainInvokeEvent, episodeId: number): Promise<any> {
+    return await this.aiServiceManager.clearInsightStatus(episodeId);
   }
 
   /**
@@ -1329,10 +1344,13 @@ export class FeedIPCHandlers {
       'prompts:create',
       'prompts:update',
       'prompts:delete',
+      'ai:generateInsights',
       'ai:generateSummary',
       'ai:generateChapters',
       'ai:getMindmap',
       'ai:getSummary',
+      'ai:getInsightStatus',
+      'ai:clearInsightStatus',
     ];
 
     handlers.forEach(handler => {

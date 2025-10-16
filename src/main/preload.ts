@@ -206,10 +206,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // AI Operations
   ai: {
+    generateInsights: (episodeId: number) => ipcRenderer.invoke('ai:generateInsights', episodeId),
     generateSummary: (episodeId: number) => ipcRenderer.invoke('ai:generateSummary', episodeId),
     generateChapters: (episodeId: number) => ipcRenderer.invoke('ai:generateChapters', episodeId),
     getMindmap: (episodeId: number) => ipcRenderer.invoke('ai:getMindmap', episodeId),
     getSummary: (episodeId: number) => ipcRenderer.invoke('ai:getSummary', episodeId),
+    getInsightStatus: (episodeId: number) => ipcRenderer.invoke('ai:getInsightStatus', episodeId),
+    clearInsightStatus: (episodeId: number) => ipcRenderer.invoke('ai:clearInsightStatus', episodeId),
   },
 });
 
@@ -425,10 +428,20 @@ export interface ElectronAPI {
     delete: (id: number) => Promise<{ success: boolean; error?: string }>;
   };
   ai: {
+    generateInsights: (episodeId: number) => Promise<{ success: boolean; data?: any; error?: string }>;
     generateSummary: (episodeId: number) => Promise<{ success: boolean; data?: any; error?: string }>;
     generateChapters: (episodeId: number) => Promise<{ success: boolean; data?: any; error?: string }>;
     getMindmap: (episodeId: number) => Promise<{ success: boolean; data?: any; error?: string }>;
     getSummary: (episodeId: number) => Promise<{ success: boolean; data?: any; error?: string }>;
+    getInsightStatus: (episodeId: number) => Promise<{
+      success: boolean;
+      status: 'idle' | 'processing' | 'success' | 'failed';
+      error?: string;
+      startTime?: number;
+      endTime?: number;
+      tokenUsage?: number;
+    }>;
+    clearInsightStatus: (episodeId: number) => Promise<{ success: boolean }>;
   };
 }
 

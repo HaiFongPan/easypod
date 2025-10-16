@@ -3,6 +3,7 @@ import { shallow } from "zustand/shallow";
 import { useEpisodesStore, Episode } from "../store/episodesStore";
 import { usePlayerStore } from "../store/playerStore";
 import { EpisodeCard } from "../components/Episode/EpisodeCard";
+import { InfiniteScrollContainer } from "../components/InfiniteScrollContainer";
 import { cn } from "../utils/cn";
 import Button from "../components/Button";
 import { useEpisodeDetailNavigation } from "../hooks/useEpisodeDetailNavigation";
@@ -17,7 +18,7 @@ import {
   Mic,
 } from "lucide-react";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 type EpisodesViewMode = "standard" | "compact";
 
 export const EpisodesListPage: React.FC = () => {
@@ -45,7 +46,7 @@ export const EpisodesListPage: React.FC = () => {
   );
 
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
   const [viewMode, setViewMode] = useState<EpisodesViewMode>("standard");
   const openEpisodeDetail = useEpisodeDetailNavigation();
 
@@ -57,25 +58,21 @@ export const EpisodesListPage: React.FC = () => {
     setLocalSearchQuery(searchQuery);
   }, [searchQuery]);
 
+  // Reset display count when search/filter changes
   useEffect(() => {
-    setCurrentPage(1);
+    setDisplayCount(PAGE_SIZE);
   }, [searchQuery, statusFilter]);
 
-  useEffect(() => {
-    const totalPages = Math.max(1, Math.ceil(episodes.length / PAGE_SIZE));
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [episodes.length, currentPage]);
+  // Displayed episodes (progressive loading)
+  const displayedEpisodes = useMemo(() => {
+    return episodes.slice(0, displayCount);
+  }, [episodes, displayCount]);
 
-  const paginatedEpisodes = useMemo(() => {
-    const startIndex = (currentPage - 1) * PAGE_SIZE;
-    return episodes.slice(startIndex, startIndex + PAGE_SIZE);
-  }, [episodes, currentPage]);
+  const hasMore = displayCount < episodes.length;
 
-  const totalPages = Math.max(1, Math.ceil(episodes.length / PAGE_SIZE));
-  const startIndex = (currentPage - 1) * PAGE_SIZE;
-  const endIndex = Math.min(startIndex + PAGE_SIZE, episodes.length);
+  const loadMore = () => {
+    setDisplayCount((prev) => Math.min(prev + PAGE_SIZE, episodes.length));
+  };
   const toggleGroupClasses =
     "inline-flex items-center border border-gray-300 dark:border-gray-600 rounded";
   const toggleButtonBaseClasses = "p-1.5 transition-colors";
@@ -107,12 +104,6 @@ export const EpisodesListPage: React.FC = () => {
     setViewMode(mode);
   };
 
-  const goToPage = (page: number) => {
-    const nextPage = Math.min(Math.max(page, 1), totalPages);
-    if (nextPage !== currentPage) {
-      setCurrentPage(nextPage);
-    }
-  };
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -270,18 +261,25 @@ export const EpisodesListPage: React.FC = () => {
 
         {/* Episodes List */}
         {!loading && !error && episodes.length > 0 && (
-          <div className="flex-1 min-h-0 p-6 flex flex-col gap-4">
-            <div
+          <div className="flex-1 min-h-0 p-6">
+            <InfiniteScrollContainer
+              hasMore={hasMore}
+              loading={false}
+              onLoadMore={loadMore}
               className="flex-1 min-h-0 overflow-y-auto pr-1"
-              style={{ WebkitOverflowScrolling: "touch" }}
+              endMessage={
+                <div className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                  All {episodes.length} episodes loaded
+                </div>
+              }
             >
               <div
                 className={cn(
-                  "space-y-4",
+                  "space-y-4 pb-4",
                   viewMode === "compact" && "space-y-2",
                 )}
               >
-                {paginatedEpisodes.map((episode) => (
+                {displayedEpisodes.map((episode) => (
                   <EpisodeCard
                     key={episode.id}
                     episode={episode}
@@ -290,37 +288,7 @@ export const EpisodesListPage: React.FC = () => {
                   />
                 ))}
               </div>
-            </div>
-
-            {episodes.length > PAGE_SIZE && (
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Showing {startIndex + 1}-{endIndex} of {episodes.length}{" "}
-                  episodes
-                </p>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => goToPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    Previous
-                  </Button>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => goToPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
-            )}
+            </InfiniteScrollContainer>
           </div>
         )}
       </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { cn } from "../utils/cn";
 import Button from "../components/Button";
+import { InfiniteScrollContainer } from "../components/InfiniteScrollContainer";
 import {
   Search,
   Loader2,
@@ -16,7 +17,7 @@ import { useToast } from "../components/Toast/ToastProvider";
 import type { Episode } from "../store/episodesStore";
 import { useEpisodeDetailNavigation } from "../hooks/useEpisodeDetailNavigation";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 interface TranscriptTask {
   id: number;
@@ -39,28 +40,48 @@ interface TranscriptTask {
 export const TranscriptTasksPage: React.FC = () => {
   const [tasks, setTasks] = useState<TranscriptTask[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [localSearchQuery, setLocalSearchQuery] = useState("");
   const toast = useToast();
   const openEpisodeDetail = useEpisodeDetailNavigation();
   const [openingEpisodeId, setOpeningEpisodeId] = useState<number | null>(null);
 
-  const fetchTasks = async () => {
-    setLoading(true);
+  const fetchTasks = async (page: number, append = false) => {
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
+
     try {
       const result = await window.electronAPI.transcript.getTasksList(
-        currentPage,
+        page,
         PAGE_SIZE,
         searchQuery || undefined,
       );
 
       if (result.success) {
-        setTasks(result.tasks || []);
-        setTotal(result.total || 0);
+        const newTasks = result.tasks || [];
+        const newTotal = result.total || 0;
+
+        if (append) {
+          setTasks((prev) => [...prev, ...newTasks]);
+        } else {
+          setTasks(newTasks);
+        }
+
+        setTotal(newTotal);
+        setCurrentPage(page);
+
+        // Check if there are more items
+        const totalLoaded = append ? tasks.length + newTasks.length : newTasks.length;
+        setHasMore(totalLoaded < newTotal);
       } else {
         setError(result.error || "Failed to load tasks");
       }
@@ -68,19 +89,34 @@ export const TranscriptTasksPage: React.FC = () => {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
+  // Initial load
   useEffect(() => {
-    fetchTasks();
-  }, [currentPage, searchQuery]);
-
-  useEffect(() => {
-    setCurrentPage(1);
+    fetchTasks(1, false);
   }, [searchQuery]);
+
+  const loadMore = () => {
+    if (!loadingMore && hasMore) {
+      fetchTasks(currentPage + 1, true);
+    }
+  };
+
+  const handleRefresh = () => {
+    setTasks([]);
+    setCurrentPage(1);
+    setHasMore(true);
+    fetchTasks(1, false);
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    // Reset everything when searching
+    setTasks([]);
+    setCurrentPage(1);
+    setHasMore(true);
     setSearchQuery(localSearchQuery);
   };
 
@@ -96,7 +132,10 @@ export const TranscriptTasksPage: React.FC = () => {
         task.episodeId,
       );
       if (result.success) {
-        await fetchTasks();
+        // Remove from local state
+        setTasks((prev) => prev.filter((t) => t.episodeId !== task.episodeId));
+        setTotal((prev) => prev - 1);
+        toast.success("Task deleted");
       } else {
         toast.error(`删除失败: ${result.error}`);
       }
@@ -113,7 +152,9 @@ export const TranscriptTasksPage: React.FC = () => {
         task.episodeId,
       );
       if (result.success) {
-        await fetchTasks();
+        // Refresh current page data
+        handleRefresh();
+        toast.success("Task retried");
       } else {
         toast.error(`重试失败: ${result.error}`);
       }
@@ -154,16 +195,6 @@ export const TranscriptTasksPage: React.FC = () => {
     }
   };
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const startIndex = (currentPage - 1) * PAGE_SIZE;
-  const endIndex = Math.min(startIndex + PAGE_SIZE, total);
-
-  const goToPage = (page: number) => {
-    const nextPage = Math.min(Math.max(page, 1), totalPages);
-    if (nextPage !== currentPage) {
-      setCurrentPage(nextPage);
-    }
-  };
 
   const getStatusIcon = (status: TranscriptTask["status"]) => {
     switch (status) {
@@ -237,7 +268,7 @@ export const TranscriptTasksPage: React.FC = () => {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => fetchTasks()}
+              onClick={handleRefresh}
               disabled={loading}
               icon={
                 <svg
@@ -292,7 +323,7 @@ export const TranscriptTasksPage: React.FC = () => {
             <p className="text-gray-900 dark:text-gray-100 mb-2">
               Error: {error}
             </p>
-            <Button onClick={() => fetchTasks()}>Retry</Button>
+            <Button onClick={handleRefresh}>Retry</Button>
           </div>
         )}
 
@@ -311,12 +342,19 @@ export const TranscriptTasksPage: React.FC = () => {
 
         {/* Tasks List */}
         {!loading && !error && tasks.length > 0 && (
-          <div className="flex-1 min-h-0 p-6 flex flex-col gap-4">
-            <div
+          <div className="flex-1 min-h-0 p-6">
+            <InfiniteScrollContainer
+              hasMore={hasMore}
+              loading={loadingMore}
+              onLoadMore={loadMore}
               className="flex-1 min-h-0 overflow-y-auto pr-1"
-              style={{ WebkitOverflowScrolling: "touch" }}
+              endMessage={
+                <div className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                  All {total} tasks loaded
+                </div>
+              }
             >
-              <div className="space-y-3">
+              <div className="space-y-3 pb-4">
                 {tasks.map((task) => (
                   <div
                     key={task.id}
@@ -402,36 +440,7 @@ export const TranscriptTasksPage: React.FC = () => {
                   </div>
                 ))}
               </div>
-            </div>
-
-            {total > PAGE_SIZE && (
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Shoing {startIndex + 1}-{endIndex} of {total} tasks
-                </p>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => goToPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    Previous
-                  </Button>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => goToPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
-            )}
+            </InfiniteScrollContainer>
           </div>
         )}
       </div>

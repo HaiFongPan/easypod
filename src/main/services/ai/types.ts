@@ -9,6 +9,11 @@ export interface ChapterLLMItem {
   content: string;
 }
 
+export interface Insights {
+  summary: SummaryResponse;
+  chapters: ChapterLLMResponse;
+}
+
 export interface ChapterLLMResponse {
   totalChapters: number;
   detectedTime: string;
@@ -29,15 +34,13 @@ export interface ChapterResponse {
 }
 
 export interface MindmapResponse {
-  mindmap: string;  // Markdown format
+  mindmap: string; // Markdown format
 }
 
 export interface AIService {
+  getInsight(transcript: string): Promise<Insights>;
   getSummary(transcript: string, prompt?: string): Promise<SummaryResponse>;
-  getChapters(
-    transcript: string,
-    prompt?: string,
-  ): Promise<ChapterLLMResponse>;
+  getChapters(transcript: string, prompt?: string): Promise<ChapterLLMResponse>;
   getMindmap(transcript: string, prompt?: string): Promise<MindmapResponse>;
 }
 

@@ -493,10 +493,13 @@ const createMockElectronAPI = (): ElectronAPI => {
       delete: async () => ({ success: true }),
     },
     ai: {
+      generateInsights: async () => ({ success: false, error: 'Mock implementation' }),
       generateSummary: async () => ({ success: false, error: 'Mock implementation' }),
       generateChapters: async () => ({ success: false, error: 'Mock implementation' }),
       getMindmap: async () => ({ success: false, error: 'Mock implementation' }),
       getSummary: async () => ({ success: false, error: 'No summary available' }),
+      getInsightStatus: async () => ({ success: true, status: 'idle' as const }),
+      clearInsightStatus: async () => ({ success: true }),
     },
   };
 };

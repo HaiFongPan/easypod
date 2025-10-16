@@ -4,7 +4,9 @@ import { LlmModelsDao } from "../../database/dao/llmModelsDao";
 import { PromptsDao } from "../../database/dao/promptsDao";
 import { EpisodeAiSummarysDao } from "../../database/dao/episodeAiSummarysDao";
 import { EpisodeTranscriptsDao } from "../../database/dao/episodeTranscriptsDao";
+import { EpisodesDao } from "../../database/dao/episodesDao";
 import type { AIService, ChapterItem, ChapterResponse } from "./types";
+import { getAITaskCache, type AITaskCacheEntry } from "./AITaskCache";
 
 export class AIServiceManager {
   private providersDao: LlmProvidersDao;
@@ -12,6 +14,7 @@ export class AIServiceManager {
   private promptsDao: PromptsDao;
   private summariesDao: EpisodeAiSummarysDao;
   private transcriptsDao: EpisodeTranscriptsDao;
+  private episodesDao: EpisodesDao;
 
   constructor() {
     this.providersDao = new LlmProvidersDao();
@@ -19,6 +22,7 @@ export class AIServiceManager {
     this.promptsDao = new PromptsDao();
     this.summariesDao = new EpisodeAiSummarysDao();
     this.transcriptsDao = new EpisodeTranscriptsDao();
+    this.episodesDao = new EpisodesDao();
   }
 
   private async getDefaultService(): Promise<{
@@ -62,74 +66,46 @@ export class AIServiceManager {
     return customPrompt ? customPrompt.prompt : prompts[0].prompt;
   }
 
-  async generateSummary(
+  async generateInsights(
     episodeId: number,
   ): Promise<{ success: boolean; data?: any; error?: string }> {
+    const taskCache = getAITaskCache();
+
+    // 1. 检查是否已在处理中，防止重复提交
+    if (taskCache.isProcessing(episodeId, "insights")) {
+      console.warn(
+        `[AIServiceManager] Insights task already processing for episode ${episodeId}`,
+      );
+      return { success: false, error: "任务处理中，请稍后再试" };
+    }
+
+    // 2. 标记任务开始
+    const marked = taskCache.markProcessing(episodeId, "insights");
+    if (!marked) {
+      return { success: false, error: "无法启动任务，请稍后重试" };
+    }
+
     try {
       // Get transcript
       const transcript = await this.transcriptsDao.findByEpisodeId(episodeId);
       if (!transcript) {
+        taskCache.markFailed(episodeId, "insights", "该集未找到转写内容");
         return { success: false, error: "该集未找到转写内容" };
       }
+
+      // Get episode info (for shownote)
+      const episode = await this.episodesDao.findById(episodeId);
+      const shownote = episode?.descriptionHtml || "";
 
       // Get AI Service and config
       const { service, providerId, modelId } = await this.getDefaultService();
 
-      // Get Prompt
-      const summaryPrompt = await this.getPromptByType("summary");
-
-      // Call AI API
-      const result = await service.getSummary(transcript.text, summaryPrompt);
-
-      // Record token usage
-      const tokenUsage =
-        (service as OpenAIService).lastTokenUsage?.totalTokens ?? 0;
-
-      // Update Provider and Model token stats
-      await this.providersDao.incrementTokenUsage(providerId, tokenUsage);
-      await this.modelsDao.incrementTokenUsage(modelId, tokenUsage);
-
-      // Save result
-      const existing = await this.summariesDao.findByEpisode(episodeId);
-      if (existing) {
-        await this.summariesDao.update(episodeId, {
-          summary: result.summary,
-          tags: result.tags.join(","),
-        });
-      } else {
-        await this.summariesDao.create({
-          episodeId,
-          summary: result.summary,
-          tags: result.tags.join(","),
-          chapters: "[]",
-        });
-      }
-
-      return { success: true, data: result };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "生成失败",
-      };
-    }
-  }
-
-  async generateChapters(
-    episodeId: number,
-  ): Promise<{ success: boolean; data?: any; error?: string }> {
-    try {
-      const transcript = await this.transcriptsDao.findByEpisodeId(episodeId);
-      if (!transcript) {
-        return { success: false, error: "该集未找到转写内容" };
-      }
-
-      const { service, providerId, modelId } = await this.getDefaultService();
-      const chaptersPrompt = await this.getPromptByType("chapters");
-      const simplifiedSusbtitle = transcript.subtitles.map(
+      // Prepare transcript for LLM (same as generateChapters)
+      const simplifiedSubtitle = transcript.subtitles.map(
         ({ text, start, end, spk }) => ({ text, start, end, spk }),
       );
       const idToTiming = new Map<number, { start: number; end: number }>();
-      const segmentsForLLM = simplifiedSusbtitle.map((segment, index) => {
+      const segmentsForLLM = simplifiedSubtitle.map((segment, index) => {
         const id = index + 1;
         idToTiming.set(id, {
           start: segment.start,
@@ -145,23 +121,24 @@ export class AIServiceManager {
       const inputPayload = {
         segmentsCount: segmentsForLLM.length,
         segments: segmentsForLLM,
+        shownote: shownote,
       };
 
       const transcriptText = JSON.stringify(inputPayload);
-      const rawResult = await service.getChapters(
-        transcriptText,
-        chaptersPrompt,
-      );
 
-      if (
-        !rawResult ||
-        !Array.isArray(rawResult.chapters) ||
-        rawResult.chapters.length === 0
-      ) {
-        throw new Error("AI 未返回有效的章节结果");
-      }
+      // Call AI API with merged prompt
+      const rawResult = await service.getInsight(transcriptText);
 
-      const chapters = rawResult.chapters
+      // Record token usage
+      const tokenUsage =
+        (service as OpenAIService).lastTokenUsage?.totalTokens ?? 0;
+
+      // Update Provider and Model token stats
+      await this.providersDao.incrementTokenUsage(providerId, tokenUsage);
+      await this.modelsDao.incrementTokenUsage(modelId, tokenUsage);
+
+      // Process chapters
+      const chapters = rawResult.chapters.chapters
         .map((chapter) => {
           const chapterId = Number(chapter.start);
           if (!Number.isFinite(chapterId)) {
@@ -197,48 +174,75 @@ export class AIServiceManager {
         );
 
       if (chapters.length === 0) {
-        throw new Error("章节数据为空，无法保存");
+        const errorMsg = "章节数据为空，无法保存";
+        taskCache.markFailed(episodeId, "insights", errorMsg);
+        throw new Error(errorMsg);
       }
 
-      const result: ChapterResponse = {
-        totalChapters: Number.isFinite(rawResult.totalChapters)
-          ? Number(rawResult.totalChapters)
+      const chaptersResult: ChapterResponse = {
+        totalChapters: Number.isFinite(rawResult.chapters.totalChapters)
+          ? Number(rawResult.chapters.totalChapters)
           : chapters.length,
         detectedTime:
-          typeof rawResult.detectedTime === "string" &&
-          rawResult.detectedTime !== "__FILL_BY_SYSTEM__"
-            ? rawResult.detectedTime
+          typeof rawResult.chapters.detectedTime === "string" &&
+          rawResult.chapters.detectedTime !== "__FILL_BY_SYSTEM__"
+            ? rawResult.chapters.detectedTime
             : new Date().toISOString(),
         chapters,
       };
 
-      const tokenUsage =
-        (service as OpenAIService).lastTokenUsage?.totalTokens ?? 0;
-      await this.providersDao.incrementTokenUsage(providerId, tokenUsage);
-      await this.modelsDao.incrementTokenUsage(modelId, tokenUsage);
-
-      // Save chapters
+      // Save result
       const existing = await this.summariesDao.findByEpisode(episodeId);
       if (existing) {
         await this.summariesDao.update(episodeId, {
-          chapters: JSON.stringify(result),
+          summary: rawResult.summary.summary,
+          tags: rawResult.summary.tags.join(","),
+          chapters: JSON.stringify(chaptersResult),
         });
       } else {
         await this.summariesDao.create({
           episodeId,
-          summary: "",
-          tags: "",
-          chapters: JSON.stringify(result),
+          summary: rawResult.summary.summary,
+          tags: rawResult.summary.tags.join(","),
+          chapters: JSON.stringify(chaptersResult),
         });
       }
 
-      return { success: true, data: result };
+      // 3. 标记任务成功
+      taskCache.markSuccess(episodeId, "insights", tokenUsage);
+
+      return {
+        success: true,
+        data: {
+          summary: rawResult.summary,
+          chapters: chaptersResult,
+        },
+      };
     } catch (error) {
+      // 4. 标记任务失败
+      const errorMessage =
+        error instanceof Error ? error.message : "生成失败";
+      taskCache.markFailed(episodeId, "insights", errorMessage);
+
       return {
         success: false,
-        error: error instanceof Error ? error.message : "生成失败",
+        error: errorMessage,
       };
     }
+  }
+
+  async generateSummary(
+    episodeId: number,
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
+    // Deprecated: Use generateInsights instead
+    return this.generateInsights(episodeId);
+  }
+
+  async generateChapters(
+    episodeId: number,
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
+    // Deprecated: Use generateInsights instead
+    return this.generateInsights(episodeId);
   }
 
   async getMindmap(
@@ -266,6 +270,47 @@ export class AIServiceManager {
         error: error instanceof Error ? error.message : "生成失败",
       };
     }
+  }
+
+  /**
+   * 获取 Insights 任务状态
+   */
+  async getInsightStatus(
+    episodeId: number,
+  ): Promise<{
+    success: boolean;
+    status: "idle" | "processing" | "success" | "failed";
+    error?: string;
+    startTime?: number;
+    endTime?: number;
+    tokenUsage?: number;
+  }> {
+    const taskCache = getAITaskCache();
+    const entry = taskCache.getStatus(episodeId, "insights");
+
+    if (!entry) {
+      return { success: true, status: "idle" };
+    }
+
+    return {
+      success: true,
+      status: entry.status,
+      error: entry.error,
+      startTime: entry.startTime,
+      endTime: entry.endTime,
+      tokenUsage: entry.tokenUsage,
+    };
+  }
+
+  /**
+   * 清除 Insights 任务状态（允许重新提交）
+   */
+  async clearInsightStatus(
+    episodeId: number,
+  ): Promise<{ success: boolean }> {
+    const taskCache = getAITaskCache();
+    taskCache.clear(episodeId, "insights");
+    return { success: true };
   }
 
   async getSummary(

@@ -38,12 +38,23 @@ export abstract class BaseTranscriptConverter implements TranscriptConverter {
    * Merge sentences based on speaker continuity and time proximity
    *
    * Merge conditions (ALL must be true):
-   * 1. Same speaker: prev.spk === next.spk
+   * 1. Multi Speakers, merge same speaker: prev.spk === next.spk
    * 2. Time gap ≤ 10s: next.start - prev.end ≤ 10000ms
    * 3. Total duration ≤ 1min: next.start - first.start ≤ 60000ms
    */
   protected mergeSentences(sentences: SentenceInfo[]): SentenceInfo[] {
     if (sentences.length <= 1) {
+      return sentences;
+    }
+
+    const speakerIds = new Set<number>();
+    for (const sentence of sentences) {
+      if (typeof sentence.spk === "number") {
+        speakerIds.add(sentence.spk);
+      }
+    }
+
+    if ((speakerIds.size || 1) === 1) {
       return sentences;
     }
 
