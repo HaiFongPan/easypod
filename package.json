@@ -1,6 +1,6 @@
 {
   "name": "easypod",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Privacy-first podcast player with AI transcription and analysis",
   "main": "dist/main/main.js",
   "homepage": "https://github.com/yourusername/easypod",

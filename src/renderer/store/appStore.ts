@@ -1,7 +1,7 @@
-import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
-import { getElectronAPI } from '../utils/electron';
-import { PlayerState, LibraryState, SettingsState, UIState } from '../types';
+import { create } from "zustand";
+import { devtools, persist } from "zustand/middleware";
+import { getElectronAPI } from "../utils/electron";
+import { PlayerState, LibraryState, SettingsState, UIState } from "../types";
 
 interface AppState {
   // App info
@@ -39,7 +39,7 @@ interface AppState {
   // UI actions
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
-  setActivePanel: (panel: UIState['activePanel']) => void;
+  setActivePanel: (panel: UIState["activePanel"]) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -47,8 +47,8 @@ export const useAppStore = create<AppState>()(
     persist(
       (set, get) => ({
         // Initial state
-        version: '0.1.0',
-        platform: 'darwin',
+        version: "0.1.1",
+        platform: "darwin",
 
         player: {
           currentEpisode: null,
@@ -65,7 +65,7 @@ export const useAppStore = create<AppState>()(
           feeds: [],
           episodes: [],
           currentFeed: null,
-          searchQuery: '',
+          searchQuery: "",
           isLoading: false,
           error: null,
         },
@@ -75,10 +75,10 @@ export const useAppStore = create<AppState>()(
           mediaKeys: true,
           jumpSeconds: 10,
           defaultPlaybackRate: 1.0,
-          downloadDirectory: '~/Downloads/EasyPod',
+          downloadDirectory: "~/Downloads/EasyPod",
           autoRefreshInterval: 60,
-          asrModel: 'standard',
-          asrDevice: 'cpu',
+          asrModel: "standard",
+          asrDevice: "cpu",
           asrConcurrency: 2,
           aiProviders: [],
           activeAIProvider: null,
@@ -86,7 +86,7 @@ export const useAppStore = create<AppState>()(
 
         ui: {
           sidebarCollapsed: false,
-          activePanel: 'episodes',
+          activePanel: "episodes",
           showTranscript: false,
           showChapters: true,
           modalStack: [],
@@ -107,7 +107,7 @@ export const useAppStore = create<AppState>()(
               platform,
             }));
           } catch (error) {
-            console.error('Failed to initialize app:', error);
+            console.error("Failed to initialize app:", error);
           }
         },
 
@@ -180,8 +180,12 @@ export const useAppStore = create<AppState>()(
               ...state,
               library: {
                 ...state.library,
-                feeds: state.library.feeds.filter((f) => f.id.toString() !== normalizedId),
-                episodes: state.library.episodes.filter((e) => String(e.feedId) !== normalizedId),
+                feeds: state.library.feeds.filter(
+                  (f) => f.id.toString() !== normalizedId,
+                ),
+                episodes: state.library.episodes.filter(
+                  (e) => String(e.feedId) !== normalizedId,
+                ),
               },
             };
           }),
@@ -192,7 +196,7 @@ export const useAppStore = create<AppState>()(
             library: {
               ...state.library,
               feeds: state.library.feeds.map((f) =>
-                f.id === feedId ? { ...f, ...updates } : f
+                f.id === feedId ? { ...f, ...updates } : f,
               ),
             },
           })),
@@ -254,14 +258,14 @@ export const useAppStore = create<AppState>()(
           })),
       }),
       {
-        name: 'easypod-store',
+        name: "easypod-store",
         // Only persist settings and UI preferences
         partialize: (state) => ({
           settings: state.settings,
           ui: state.ui,
         }),
-      }
+      },
     ),
-    { name: 'EasyPod Store' }
-  )
+    { name: "EasyPod Store" },
+  ),
 );
