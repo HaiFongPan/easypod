@@ -57,11 +57,6 @@ const createWindow = (): void => {
     mainWindow = null;
   });
 
-  // Handle external links
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
-    return { action: 'deny' };
-  });
 };
 
 // This method will be called when Electron has finished initialization
@@ -241,11 +236,32 @@ app.on('before-quit', () => {
   }
 });
 
-// Security: Prevent new window creation
+// Security: Handle external links and prevent navigation
 app.on('web-contents-created', (_, contents) => {
+  // Handle window.open() calls - open in external browser
   contents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
+  });
+
+  // Handle navigation attempts (clicking <a> links)
+  contents.on('will-navigate', (event, navigationUrl) => {
+    const parsedUrl = new URL(navigationUrl);
+
+    // Allow navigation in dev mode to localhost:5173
+    if (isDevelopment && parsedUrl.origin === 'http://localhost:5173') {
+      return;
+    }
+
+    // Prevent navigation and open in external browser instead
+    event.preventDefault();
+    shell.openExternal(navigationUrl);
+  });
+
+  // Handle redirect navigation
+  contents.on('will-redirect', (event, redirectUrl) => {
+    event.preventDefault();
+    shell.openExternal(redirectUrl);
   });
 });
 
@@ -256,19 +272,4 @@ ipcMain.handle('get-app-version', () => {
 
 ipcMain.handle('get-platform', () => {
   return platform();
-});
-
-// Prevent navigation to external websites
-app.on('web-contents-created', (_, contents) => {
-  contents.on('will-navigate', (event, navigationUrl) => {
-    const parsedUrl = new URL(navigationUrl);
-
-    if (parsedUrl.origin !== 'http://localhost:5173' && isDevelopment) {
-      return;
-    }
-
-    if (!isDevelopment) {
-      event.preventDefault();
-    }
-  });
 });
